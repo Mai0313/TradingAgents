@@ -1,219 +1,308 @@
-<p align="center">
-  <img src="assets/TauricResearch.png" style="width: 60%; height: auto;">
-</p>
+<div align="center" markdown="1">
 
-<div align="center" style="line-height: 1;">
-  <a href="https://arxiv.org/abs/2412.20138" target="_blank"><img alt="arXiv" src="https://img.shields.io/badge/arXiv-2412.20138-B31B1B?logo=arxiv"/></a>
-  <a href="https://discord.com/invite/hk9PGKShPK" target="_blank"><img alt="Discord" src="https://img.shields.io/badge/Discord-TradingResearch-7289da?logo=discord&logoColor=white&color=7289da"/></a>
-  <a href="./assets/wechat.png" target="_blank"><img alt="WeChat" src="https://img.shields.io/badge/WeChat-TauricResearch-brightgreen?logo=wechat&logoColor=white"/></a>
-  <a href="https://x.com/TauricResearch" target="_blank"><img alt="X Follow" src="https://img.shields.io/badge/X-TauricResearch-white?logo=x&logoColor=white"/></a>
-  <br>
-  <a href="https://github.com/TauricResearch/" target="_blank"><img alt="Community" src="https://img.shields.io/badge/Join_GitHub_Community-TauricResearch-14C290?logo=discourse"/></a>
-</div>
+# Trading Agents
 
-<div align="center">
-  <!-- Keep these links. Translations will automatically update with the README. -->
-  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=de">Deutsch</a> | 
-  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=es">Español</a> | 
-  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=fr">français</a> | 
-  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=ja">日本語</a> | 
-  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=ko">한국어</a> | 
-  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=pt">Português</a> | 
-  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=ru">Русский</a> | 
-  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=zh">中文</a>
-</div>
-
----
-
-# TradingAgents: Multi-Agents LLM Financial Trading Framework
-
-## News
-- [2026-02] **TradingAgents v0.2.0** released with multi-provider LLM support (GPT-5.x, Gemini 3.x, Claude 4.x, Grok 4.x) and improved system architecture.
-- [2026-01] **Trading-R1** [Technical Report](https://arxiv.org/abs/2509.11420) released, with [Terminal](https://github.com/TauricResearch/Trading-R1) expected to land soon.
-
-<div align="center">
-<a href="https://www.star-history.com/#TauricResearch/TradingAgents&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=TauricResearch/TradingAgents&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=TauricResearch/TradingAgents&type=Date" />
-   <img alt="TradingAgents Star History" src="https://api.star-history.com/svg?repos=TauricResearch/TradingAgents&type=Date" style="width: 80%; height: auto;" />
- </picture>
-</a>
-</div>
-
-> 🎉 **TradingAgents** officially released! We have received numerous inquiries about the work, and we would like to express our thanks for the enthusiasm in our community.
->
-> So we decided to fully open-source the framework. Looking forward to building impactful projects with you!
-
-<div align="center">
-
-🚀 [TradingAgents](#tradingagents-framework) | ⚡ [Installation & CLI](#installation-and-cli) | 🎬 [Demo](https://www.youtube.com/watch?v=90gr5lwjIho) | 📦 [Package Usage](#tradingagents-package) | 🤝 [Contributing](#contributing) | 📄 [Citation](#citation)
+[![PyPI version](https://img.shields.io/pypi/v/swebenchv2.svg)](https://pypi.org/project/swebenchv2/)
+[![python](https://img.shields.io/badge/-Python_%7C_3.11%7C_3.12%7C_3.13%7C_3.14-blue?logo=python&logoColor=white)](https://www.python.org/downloads/source/)
+[![uv](https://img.shields.io/badge/-uv_dependency_management-2C5F2D?logo=python&logoColor=white)](https://docs.astral.sh/uv/)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![Pydantic v2](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/pydantic/pydantic/main/docs/badge/v2.json)](https://docs.pydantic.dev/latest/contributing/#badges)
+[![tests](https://github.com/Mai0313/tradingagents/actions/workflows/test.yml/badge.svg)](https://github.com/Mai0313/tradingagents/actions/workflows/test.yml)
+[![code-quality](https://github.com/Mai0313/tradingagents/actions/workflows/code-quality-check.yml/badge.svg)](https://github.com/Mai0313/tradingagents/actions/workflows/code-quality-check.yml)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Mai0313/tradingagents)
+[![license](https://img.shields.io/badge/License-MIT-green.svg?labelColor=gray)](https://github.com/Mai0313/tradingagents/tree/main?tab=License-1-ov-file)
+[![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/Mai0313/tradingagents/pulls)
+[![contributors](https://img.shields.io/github/contributors/Mai0313/tradingagents.svg)](https://github.com/Mai0313/tradingagents/graphs/contributors)
 
 </div>
 
-## TradingAgents Framework
+🚀 A production‑ready Trading Agents to help developers bootstrap new Python projects fast. It includes modern packaging, local tooling, Docker, and a complete CI/CD suite.
 
-TradingAgents is a multi-agent trading framework that mirrors the dynamics of real-world trading firms. By deploying specialized LLM-powered agents: from fundamental analysts, sentiment experts, and technical analysts, to trader, risk management team, the platform collaboratively evaluates market conditions and informs trading decisions. Moreover, these agents engage in dynamic discussions to pinpoint the optimal strategy.
+> **Important**: This is a template repository. Do not develop directly on this repository. Instead, use it to create your own project by clicking the button below and following the setup instructions.
 
-<p align="center">
-  <img src="assets/schema.png" style="width: 100%; height: auto;">
-</p>
+Click [Use this template](https://github.com/Mai0313/tradingagents/generate) to start a new repository from this scaffold.
 
-> TradingAgents framework is designed for research purposes. Trading performance may vary based on many factors, including the chosen backbone language models, model temperature, trading periods, the quality of data, and other non-deterministic factors. [It is not intended as financial, investment, or trading advice.](https://tauric.ai/disclaimer/)
+Other Languages: [English](README.md) | [繁體中文](README.zh-TW.md) | [简体中文](README.zh-CN.md)
 
-Our framework decomposes complex trading tasks into specialized roles. This ensures the system achieves a robust, scalable approach to market analysis and decision-making.
+## ✨ Highlights
 
-### Analyst Team
-- Fundamentals Analyst: Evaluates company financials and performance metrics, identifying intrinsic values and potential red flags.
-- Sentiment Analyst: Analyzes social media and public sentiment using sentiment scoring algorithms to gauge short-term market mood.
-- News Analyst: Monitors global news and macroeconomic indicators, interpreting the impact of events on market conditions.
-- Technical Analyst: Utilizes technical indicators (like MACD and RSI) to detect trading patterns and forecast price movements.
+- Modern `src/` layout and type‑hinted code
+- Fast dependency management via `uv`
+- Pre‑commit suite: ruff, mdformat(+plugins), codespell, nbstripout, mypy, uv hooks
+- Strong typing: mypy with Pydantic plugin configuration
+- Pytest with coverage and xdist; PR coverage summary comment
+- Coverage gate at 80% with HTML/XML reports committed under `.github/`
+- MkDocs Material with mkdocstrings (inheritance diagrams), markdown‑exec, MathJax
+- Dev server at `0.0.0.0:9987`; bilingual docs scaffolded
+- Docs generator script: by class/file, optional notebook execution, concurrency, preserves folder structure
+- Async file processing via anyio and rich progress bars
+- Packaging with `uv build` and changelog via `git-cliff`
+- Automatic PEP 440 versioning from git via `dunamai` in CI
+- Dockerfile multi‑stage with uv/uvx and Node.js; Compose services (Redis/Postgres/Mongo/MySQL) with healthchecks and volumes
+- GitHub Actions: tests, quality, docs deploy, package build, docker image publish (GHCR with buildx cache), release drafter, auto labeler, secret scan, semantic PR, pre‑commit auto‑update
+- Pre‑commit runs on multiple git stages (pre‑commit, post‑checkout, post‑merge, post‑rewrite)
+- i18n‑friendly linting (Chinese punctuation allowed confusables)
+- Alternative env managers documented (Rye, Conda)
+- Legacy compatibility: export `requirements.txt` via `uv pip` if needed
 
-<p align="center">
-  <img src="assets/analyst.png" width="100%" style="display: inline-block; margin: 0 2%;">
-</p>
+## 🚀 Quick Start
 
-### Researcher Team
-- Comprises both bullish and bearish researchers who critically assess the insights provided by the Analyst Team. Through structured debates, they balance potential gains against inherent risks.
+### For Template Users (Creating a New Project)
 
-<p align="center">
-  <img src="assets/researcher.png" width="70%" style="display: inline-block; margin: 0 2%;">
-</p>
+This is the recommended workflow for starting a new project:
 
-### Trader Agent
-- Composes reports from the analysts and researchers to make informed trading decisions. It determines the timing and magnitude of trades based on comprehensive market insights.
+1. **Create Your Repository**: Click [Use this template](https://github.com/Mai0313/tradingagents/generate) to create a new repository
 
-<p align="center">
-  <img src="assets/trader.png" width="70%" style="display: inline-block; margin: 0 2%;">
-</p>
+2. **Clone and Setup**:
 
-### Risk Management and Portfolio Manager
-- Continuously evaluates portfolio risk by assessing market volatility, liquidity, and other risk factors. The risk management team evaluates and adjusts trading strategies, providing assessment reports to the Portfolio Manager for final decision.
-- The Portfolio Manager approves/rejects the transaction proposal. If approved, the order will be sent to the simulated exchange and executed.
+    ```bash
+    git clone https://github.com/YOUR_USERNAME/your_new_project.git
+    cd your_new_project
+    make uv-install               # Install uv (only needed once)
+    uv sync                       # Install dependencies
+    uv tool install pre-commit    # Install pre-commit
+    ```
 
-<p align="center">
-  <img src="assets/risk.png" width="70%" style="display: inline-block; margin: 0 2%;">
-</p>
+3. **Rename the Project**:
 
-## Installation and CLI
+    - Rename `src/tradingagents/` directory to `src/your_project_name/`
+    - Update all imports from `tradingagents` to `your_project_name`
+    - Update `pyproject.toml` with your project details:
+        - Project name, version, description, authors
+        - Homepage and Repository URLs
+        - CLI script names if needed
+    - Update `mkdocs.yml`: site_name, site_url, repo_name, repo_url, site_author
+    - Update all three README files (preserve badges, only update URLs)
+    - Update `.github/CODEOWNERS` with your GitHub username
+    - Update Docker labels in `docker/Dockerfile` and `.devcontainer/Dockerfile`
 
-### Installation
+4. **Verify Setup**:
 
-Clone TradingAgents:
+    ```bash
+    make format                   # Run pre-commit hooks
+    make test                     # Run tests
+    uv run your_project_name      # Test your CLI
+    ```
+
+### For Template Developers (Testing This Template)
+
+If you're contributing to this template:
+
 ```bash
-git clone https://github.com/TauricResearch/TradingAgents.git
-cd TradingAgents
+make uv-install               # Install uv
+uv sync                       # Install dependencies
+uv tool install pre-commit    # Install pre-commit
+make format                   # Run pre-commit hooks
+make test                     # Run tests
+uv run tradingagents          # Test example CLI
 ```
 
-Create a virtual environment in any of your favorite environment managers:
-```bash
-conda create -n tradingagents python=3.13
-conda activate tradingagents
-```
-
-Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-### Required APIs
-
-TradingAgents supports multiple LLM providers. Set the API key for your chosen provider:
+## 🧰 Commands Reference
 
 ```bash
-export OPENAI_API_KEY=...          # OpenAI (GPT)
-export GOOGLE_API_KEY=...          # Google (Gemini)
-export ANTHROPIC_API_KEY=...       # Anthropic (Claude)
-export XAI_API_KEY=...             # xAI (Grok)
-export OPENROUTER_API_KEY=...      # OpenRouter
-export ALPHA_VANTAGE_API_KEY=...   # Alpha Vantage
+# Development
+make help               # List available make targets
+make clean              # Clean caches, artifacts and generated docs
+make format             # Run all pre-commit hooks
+make test               # Run pytest across the repository
+make gen-docs           # Generate docs from src/ and scripts/
+
+# Git submodules (if you use them)
+make submodule-init     # Init and update all submodules
+make submodule-update   # Update all submodules to remote
+
+# Dependencies (via uv)
+make uv-install         # Install uv on your system
+uv add <pkg>            # Add production dependency
+uv add <pkg> --dev      # Add development dependency
+# Sync optional groups
+uv sync --group dev     # Install dev-only deps (pre-commit, poe, notebook)
+uv sync --group test    # Install test-only deps
+uv sync --group docs    # Install docs-only deps
 ```
 
-For local models, configure Ollama with `llm_provider: "ollama"` in your config.
+## 📚 Documentation
 
-Alternatively, copy `.env.example` to `.env` and fill in your keys:
+- Live docs are built with MkDocs Material.
+- Generate API docs locally and serve:
+
 ```bash
-cp .env.example .env
+uv sync --group docs
+make gen-docs
+uv run mkdocs serve    # http://localhost:9987
 ```
 
-### CLI Usage
+- Auto generation script: `scripts/gen_docs.py` (supports .py and .ipynb)
 
-You can also try out the CLI directly by running:
 ```bash
-python -m cli.main
-```
-You will see a screen where you can select your desired tickers, date, LLMs, research depth, etc.
+# Generate docs by class (default)
+uv run python ./scripts/gen_docs.py --source ./src --output ./docs/Reference gen_docs
 
-<p align="center">
-  <img src="assets/cli/cli_init.png" width="100%" style="display: inline-block; margin: 0 2%;">
-</p>
-
-An interface will appear showing results as they load, letting you track the agent's progress as it runs.
-
-<p align="center">
-  <img src="assets/cli/cli_news.png" width="100%" style="display: inline-block; margin: 0 2%;">
-</p>
-
-<p align="center">
-  <img src="assets/cli/cli_transaction.png" width="100%" style="display: inline-block; margin: 0 2%;">
-</p>
-
-## TradingAgents Package
-
-### Implementation Details
-
-We built TradingAgents with LangGraph to ensure flexibility and modularity. The framework supports multiple LLM providers: OpenAI, Google, Anthropic, xAI, OpenRouter, and Ollama.
-
-### Python Usage
-
-To use TradingAgents inside your code, you can import the `tradingagents` module and initialize a `TradingAgentsGraph()` object. The `.propagate()` function will return a decision. You can run `main.py`, here's also a quick example:
-
-```python
-from tradingagents.graph.trading_graph import TradingAgentsGraph
-from tradingagents.default_config import DEFAULT_CONFIG
-
-ta = TradingAgentsGraph(debug=True, config=DEFAULT_CONFIG.copy())
-
-# forward propagate
-_, decision = ta.propagate("NVDA", "2026-01-15")
-print(decision)
+# Generate docs by file
+uv run python ./scripts/gen_docs.py --source ./src --output ./docs/Reference --mode file gen_docs
 ```
 
-You can also adjust the default configuration to set your own choice of LLMs, debate rounds, etc.
+## 🐳 Docker and Local Services
 
-```python
-from tradingagents.graph.trading_graph import TradingAgentsGraph
-from tradingagents.default_config import DEFAULT_CONFIG
+`docker-compose.yaml` includes optional services for local development: `redis`, `postgresql`, `mongodb`, `mysql`, and an example `app` service that runs the CLI.
 
-config = DEFAULT_CONFIG.copy()
-config["llm_provider"] = "openai"        # openai, google, anthropic, xai, openrouter, ollama
-config["deep_think_llm"] = "gpt-5.2"     # Model for complex reasoning
-config["quick_think_llm"] = "gpt-5-mini" # Model for quick tasks
-config["max_debate_rounds"] = 2
+Create a `.env` file to configure ports and credentials (defaults shown):
 
-ta = TradingAgentsGraph(debug=True, config=config)
-_, decision = ta.propagate("NVDA", "2026-01-15")
-print(decision)
+```bash
+REDIS_PORT=6379
+POSTGRES_DB=postgres
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_PORT=5432
+MONGO_PORT=27017
+MYSQL_ROOT_PASSWORD=root
+MYSQL_DATABASE=mysql
+MYSQL_USER=mysql
+MYSQL_PASSWORD=mysql
+MYSQL_PORT=3306
 ```
 
-See `tradingagents/default_config.py` for all configuration options.
+Run services:
 
-## Contributing
+```bash
+docker compose up -d redis postgresql mongodb mysql
 
-We welcome contributions from the community! Whether it's fixing a bug, improving documentation, or suggesting a new feature, your input helps make this project better. If you are interested in this line of research, please consider joining our open-source financial AI research community [Tauric Research](https://tauric.ai/).
-
-## Citation
-
-Please reference our work if you find *TradingAgents* provides you with some help :)
-
+# Or run the example app container
+docker compose up -d app
 ```
-@misc{xiao2025tradingagentsmultiagentsllmfinancial,
-      title={TradingAgents: Multi-Agents LLM Financial Trading Framework}, 
-      author={Yijia Xiao and Edward Sun and Di Luo and Wei Wang},
-      year={2025},
-      eprint={2412.20138},
-      archivePrefix={arXiv},
-      primaryClass={q-fin.TR},
-      url={https://arxiv.org/abs/2412.20138}, 
-}
+
+## 📦 Packaging and Distribution
+
+Build artifacts with uv (wheel and sdist go to `dist/`):
+
+```bash
+uv build
 ```
+
+Publish to PyPI (requires `UV_PUBLISH_TOKEN`):
+
+```bash
+UV_PUBLISH_TOKEN=... uv publish
+```
+
+CI builds automatically run on tags matching `v*`, building multi-platform executables and Python packages, then uploading them to GitHub Release. To automate releases to PyPI, add the `UV_PUBLISH_TOKEN` secret in your repository settings (`build_release.yml` is already configured for automatic publishing).
+
+### Run your CLI locally and from PyPI
+
+- Local (from this repo):
+
+```bash
+uv run tradingagents
+uv run cli
+```
+
+- From PyPI with `uvx` after publishing (ephemeral install):
+
+```bash
+# If your console script is named "tradingagents"
+uvx tradingagents
+
+# Disambiguate or pin a package/version
+uvx --from your-package-name==0.1.0 your-entrypoint
+```
+
+## 🧭 Optional task runner (Poe the Poet)
+
+Convenience tasks are defined under `[tool.poe.tasks]` in `pyproject.toml` and available after installing the dev group (`uv sync --group dev`) or via `uvx`:
+
+```bash
+uv run poe docs        # generate + serve docs (requires dev group)
+uv run poe gen         # generate + deploy docs (gh-deploy) (requires dev group)
+uv run poe main        # run CLI entry (same as uv run tradingagents)
+
+# or ephemeral via uvx (no local install)
+uvx poe docs
+```
+
+## 🔁 CI/CD Actions Overview
+
+All workflows live in `.github/workflows/`. This section explains what each action does, when it runs, and what to configure.
+
+- Tests (`test.yml`)
+
+    - Trigger: Pull requests to `main` or `release/*` (ignores md files)
+    - Runs pytest on Python 3.11/3.12/3.13/3.14 with coverage and comments a summary
+    - Setup needed: none
+
+- Code Quality Check (`code-quality-check.yml`)
+
+    - Trigger: Pull requests
+    - Runs ruff and other pre-commit hooks
+    - Setup needed: none
+
+- Docs Deploy (`deploy.yml`)
+
+    - Trigger: Push to `main` and tags `v*`
+    - Builds `mkdocs` site and publishes to GitHub Pages
+    - Setup needed:
+        - Enable GitHub Pages for the repo (Actions → Pages)
+        - The workflow configures and uploads the site automatically
+
+- Build and Release (`build_release.yml`)
+
+    - Trigger: Tags `v*` push or manual workflow dispatch
+    - Builds multi-platform executables (via PyInstaller):
+        - macOS (ARM64, x64)
+        - Linux (x64 GNU, ARM64 GNU)
+        - Windows (x64, ARM64)
+    - Builds Python package (wheel & sdist)
+    - Automatically publishes to PyPI (requires `UV_PUBLISH_TOKEN` secret)
+    - Uploads all artifacts to GitHub Release
+    - Note: This is a template demonstration workflow. Adjust to your project needs.
+
+- Publish Docker Image (`build_image.yml`)
+
+    - Trigger: Push to `main` and tags `v*`
+    - Builds and pushes a Docker image to GHCR: `ghcr.io/<owner>/<repo>`
+    - Setup needed: none (uses `GITHUB_TOKEN`); ensure `docker/Dockerfile` defines `prod` target
+
+- Release Drafter (`release_drafter.yml`)
+
+    - Trigger: Push to `main` and PR events
+    - Maintains a draft release based on Conventional Commits
+
+- Pull Request Labeler (`auto_labeler.yml`)
+
+    - Trigger: PRs and pushes
+    - Auto-applies labels defined in `.github/labeler.yml`
+
+- Secret Scanning (`secret_scan.yml`)
+
+    - Trigger: Push and PR
+    - Runs gitleaks to detect leaked secrets
+
+- Semantic Pull Request (`semantic-pull-request.yml`)
+
+    - Trigger: PR open/edit/sync
+    - Enforces Conventional Commit style PR titles
+
+### CI/CD Configuration Checklist
+
+- Conventional commits for PR titles (enforced by the workflow)
+- Optional: set `UV_PUBLISH_TOKEN` secret to publish to PyPI (Settings → Secrets and variables → Actions)
+- Optional: enable GitHub Pages for docs deployment (Settings → Pages → Source: GitHub Actions)
+- Optional: ensure GHCR permissions for Docker image publishing (Settings → Actions → General → Workflow permissions: Read and write)
+- Container Registry permissions are handled automatically via `GITHUB_TOKEN`
+
+## 🧩 Example CLI
+
+Console entry points are defined in `pyproject.toml` as `tradingagents` and `cli`. The example returns a simple `Response` model; replace with your own CLI logic.
+
+```bash
+uv run tradingagents
+```
+
+## 🤝 Contributing
+
+- Open issues/PRs
+- Follow the coding style (ruff, type hints)
+- Use Conventional Commit messages and descriptive PR titles
+
+## 📄 License
+
+MIT — see `LICENSE`.
