@@ -1,10 +1,14 @@
+from typing import Any
+from collections.abc import Callable
+
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.language_models import BaseChatModel
 
 from tradingagents.agents.utils.agent_utils import get_news, get_global_news
 
 
-def create_news_analyst(llm):
-    def news_analyst_node(state):
+def create_news_analyst(llm: BaseChatModel) -> Callable[[dict[str, Any]], dict[str, Any]]:
+    def news_analyst_node(state: dict[str, Any]) -> dict[str, Any]:
         current_date = state["trade_date"]
         ticker = state["company_of_interest"]
 

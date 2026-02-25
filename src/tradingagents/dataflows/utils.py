@@ -1,23 +1,29 @@
+from collections.abc import Callable
 from typing import Annotated
+import logging
 from datetime import date, datetime, timedelta
 
 import pandas as pd
 
+logger = logging.getLogger(__name__)
+
 SavePathType = Annotated[str, "File path to save data. If None, data is not saved."]
 
 
-def save_output(data: pd.DataFrame, tag: str, save_path: SavePathType = None) -> None:
+def save_output(data: pd.DataFrame, tag: str, save_path: SavePathType | None = None) -> None:
     if save_path:
         data.to_csv(save_path)
-        print(f"{tag} saved to {save_path}")
+        logger.info("%s saved to %s", tag, save_path)
 
 
-def get_current_date():
+def get_current_date() -> str:
     return date.today().strftime("%Y-%m-%d")
 
 
-def decorate_all_methods(decorator):
-    def class_decorator(cls):
+def decorate_all_methods(
+    decorator: Callable[[Callable[..., object]], Callable[..., object]],
+) -> Callable[[type], type]:
+    def class_decorator(cls: type) -> type:
         for attr_name, attr_value in cls.__dict__.items():
             if callable(attr_value):
                 setattr(cls, attr_name, decorator(attr_value))
@@ -26,13 +32,11 @@ def decorate_all_methods(decorator):
     return class_decorator
 
 
-def get_next_weekday(date):
+def get_next_weekday(date_input: str | datetime) -> datetime:
+    if not isinstance(date_input, datetime):
+        date_input = datetime.strptime(date_input, "%Y-%m-%d")
 
-    if not isinstance(date, datetime):
-        date = datetime.strptime(date, "%Y-%m-%d")
-
-    if date.weekday() >= 5:
-        days_to_add = 7 - date.weekday()
-        next_weekday = date + timedelta(days=days_to_add)
-        return next_weekday
-    return date
+    if date_input.weekday() >= 5:
+        days_to_add = 7 - date_input.weekday()
+        return date_input + timedelta(days=days_to_add)
+    return date_input

@@ -1,5 +1,9 @@
-def create_research_manager(llm, memory):
-    def research_manager_node(state) -> dict:
+from typing import Any
+from collections.abc import Callable
+
+
+def create_research_manager(llm: Any, memory: Any) -> Callable[[dict[str, Any]], dict[str, Any]]:
+    def research_manager_node(state: dict[str, Any]) -> dict:
         history = state["investment_debate_state"].get("history", "")
         market_research_report = state["market_report"]
         sentiment_report = state["sentiment_report"]

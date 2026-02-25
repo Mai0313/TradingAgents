@@ -7,7 +7,6 @@ from pathlib import Path
 
 from langgraph.prebuilt import ToolNode
 
-from tradingagents.agents import *
 from tradingagents.llm_clients import create_llm_client
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.dataflows.config import set_config

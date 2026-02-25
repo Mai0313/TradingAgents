@@ -1,8 +1,10 @@
+from typing import Any
 import functools
+from collections.abc import Callable
 
 
-def create_trader(llm, memory):
-    def trader_node(state, name):
+def create_trader(llm: Any, memory: Any) -> Callable[[dict[str, Any]], dict[str, Any]]:
+    def trader_node(state: dict[str, Any], name: str) -> dict[str, Any]:
         company_name = state["company_of_interest"]
         investment_plan = state["investment_plan"]
         market_research_report = state["market_report"]

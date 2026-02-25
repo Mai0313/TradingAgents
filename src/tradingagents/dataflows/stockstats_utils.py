@@ -1,5 +1,5 @@
 import os
-from typing import Annotated
+from typing import Any, Annotated
 
 import pandas as pd
 import yfinance as yf
@@ -16,7 +16,7 @@ class StockstatsUtils:
             str, "quantitative indicators based off of the stock data for the company"
         ],
         curr_date: Annotated[str, "curr date for retrieving stock price data, YYYY-mm-dd"],
-    ):
+    ) -> Any:
         config = get_config()
 
         today_date = pd.Timestamp.today()
@@ -57,6 +57,6 @@ class StockstatsUtils:
         matching_rows = df[df["Date"].str.startswith(curr_date_str)]
 
         if not matching_rows.empty:
-            indicator_value = matching_rows[indicator].values[0]
+            indicator_value = matching_rows[indicator].to_numpy()[0]
             return indicator_value
         return "N/A: Not a trading day (weekend or holiday)"

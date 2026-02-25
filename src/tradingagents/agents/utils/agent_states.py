@@ -1,9 +1,7 @@
-from typing import Annotated
+from typing import Any, Annotated
 
 from langgraph.graph import MessagesState
 from typing_extensions import TypedDict
-
-from tradingagents.agents import *
 
 
 # Researcher team state
@@ -63,3 +61,7 @@ class AgentState(MessagesState):
     # risk management team discussion step
     risk_debate_state: Annotated[RiskDebateState, "Current state of the debate on evaluating risk"]
     final_trade_decision: Annotated[str, "Final decision made by the Risk Analysts"]
+
+
+# Re-export AgentState-related types for backward compatibility
+__all__: list[Any] = ["AgentState", "InvestDebateState", "RiskDebateState"]

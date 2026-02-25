@@ -1,5 +1,4 @@
 import os
-from typing import Any
 
 from langchain_openai import ChatOpenAI
 
@@ -10,8 +9,8 @@ from .base_client import BaseLLMClient
 class UnifiedChatOpenAI(ChatOpenAI):
     """ChatOpenAI subclass that strips incompatible params for certain models."""
 
-    def __init__(self, **kwargs):
-        model = kwargs.get("model", "")
+    def __init__(self, **kwargs: object) -> None:
+        model = str(kwargs.get("model", ""))
         if self._is_reasoning_model(model):
             kwargs.pop("temperature", None)
             kwargs.pop("top_p", None)
@@ -30,14 +29,18 @@ class OpenAIClient(BaseLLMClient):
     """Client for OpenAI, Ollama, OpenRouter, and xAI providers."""
 
     def __init__(
-        self, model: str, base_url: str | None = None, provider: str = "openai", **kwargs
-    ):
+        self,
+        model: str,
+        base_url: str | None = None,
+        provider: str = "openai",
+        **kwargs: object,
+    ) -> None:
         super().__init__(model, base_url, **kwargs)
         self.provider = provider.lower()
 
-    def get_llm(self) -> Any:
+    def get_llm(self) -> ChatOpenAI:
         """Return configured ChatOpenAI instance."""
-        llm_kwargs = {"model": self.model}
+        llm_kwargs: dict[str, object] = {"model": self.model}
 
         if self.provider == "xai":
             llm_kwargs["base_url"] = "https://api.x.ai/v1"

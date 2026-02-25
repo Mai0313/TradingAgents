@@ -1,9 +1,13 @@
-from typing import Any
+from typing import Any, Protocol, cast
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 from .validators import validate_model
 from .base_client import BaseLLMClient
+
+
+class _HasContent(Protocol):
+    content: object
 
 
 class NormalizedChatGoogleGenerativeAI(ChatGoogleGenerativeAI):
@@ -13,8 +17,9 @@ class NormalizedChatGoogleGenerativeAI(ChatGoogleGenerativeAI):
     This normalizes to string for consistent downstream handling.
     """
 
-    def _normalize_content(self, response):
-        content = response.content
+    def _normalize_content(self, response: object) -> object:
+        typed = cast(_HasContent, response)
+        content = typed.content
         if isinstance(content, list):
             texts = [
                 item.get("text", "")
@@ -24,22 +29,22 @@ class NormalizedChatGoogleGenerativeAI(ChatGoogleGenerativeAI):
                 else ""
                 for item in content
             ]
-            response.content = "\n".join(t for t in texts if t)
+            typed.content = "\n".join(t for t in texts if t)
         return response
 
-    def invoke(self, input, config=None, **kwargs):
-        return self._normalize_content(super().invoke(input, config, **kwargs))
+    def invoke(self, prompt_input: object, config: object = None, **kwargs: object) -> object:
+        return self._normalize_content(super().invoke(prompt_input, config, **kwargs))
 
 
 class GoogleClient(BaseLLMClient):
     """Client for Google Gemini models."""
 
-    def __init__(self, model: str, base_url: str | None = None, **kwargs):
+    def __init__(self, model: str, base_url: str | None = None, **kwargs: object) -> None:
         super().__init__(model, base_url, **kwargs)
 
-    def get_llm(self) -> Any:
+    def get_llm(self) -> ChatGoogleGenerativeAI:
         """Return configured ChatGoogleGenerativeAI instance."""
-        llm_kwargs = {"model": self.model}
+        llm_kwargs: dict[str, object] = {"model": self.model}
 
         for key in ("timeout", "max_retries", "google_api_key", "callbacks"):
             if key in self.kwargs:

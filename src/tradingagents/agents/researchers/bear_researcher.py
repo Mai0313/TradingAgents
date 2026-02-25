@@ -1,5 +1,9 @@
-def create_bear_researcher(llm, memory):
-    def bear_node(state) -> dict:
+from typing import Any
+from collections.abc import Callable
+
+
+def create_bear_researcher(llm: Any, memory: Any) -> Callable[[dict[str, Any]], dict[str, Any]]:
+    def bear_node(state: dict[str, Any]) -> dict[str, Any]:
         investment_debate_state = state["investment_debate_state"]
         history = investment_debate_state.get("history", "")
         bear_history = investment_debate_state.get("bear_history", "")

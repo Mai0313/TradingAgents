@@ -1,17 +1,14 @@
+import ast
+import time
+from typing import Any, ClassVar
 from pathlib import Path
 import datetime
 from functools import wraps
-
-import typer
-from dotenv import load_dotenv
-from rich.console import Console
-
-# Load environment variables from .env file
-load_dotenv()
-import time
 from collections import deque
 
 from rich import box
+import typer
+from dotenv import load_dotenv
 from rich.live import Live
 from rich.rule import Rule
 from rich.text import Text
@@ -19,14 +16,29 @@ from rich.align import Align
 from rich.panel import Panel
 from rich.table import Table
 from rich.layout import Layout
+from rich.console import Console
 from rich.spinner import Spinner
 from rich.markdown import Markdown
+from langchain_core.messages import AIMessage, ToolMessage, HumanMessage
 
-from tradingagents.cli.utils import *
+from tradingagents.cli.utils import (
+    get_ticker,
+    select_analysts,
+    get_analysis_date,
+    select_llm_provider,
+    select_research_depth,
+    ask_gemini_thinking_config,
+    select_deep_thinking_agent,
+    ask_openai_reasoning_effort,
+    select_shallow_thinking_agent,
+)
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.cli.announcements import fetch_announcements, display_announcements
 from tradingagents.cli.stats_handler import StatsCallbackHandler
 from tradingagents.graph.trading_graph import TradingAgentsGraph
+
+# Load environment variables from .env file
+load_dotenv()
 
 console = Console()
 
@@ -40,7 +52,7 @@ app = typer.Typer(
 # Create a deque to store recent messages with a maximum length
 class MessageBuffer:
     # Fixed teams that always run (not user-selectable)
-    FIXED_AGENTS = {
+    FIXED_AGENTS: ClassVar[dict[str, list[str]]] = {
         "Research Team": ["Bull Researcher", "Bear Researcher", "Research Manager"],
         "Trading Team": ["Trader"],
         "Risk Management": ["Aggressive Analyst", "Neutral Analyst", "Conservative Analyst"],
@@ -48,7 +60,7 @@ class MessageBuffer:
     }
 
     # Analyst name mapping
-    ANALYST_MAPPING = {
+    ANALYST_MAPPING: ClassVar[dict[str, str]] = {
         "market": "Market Analyst",
         "social": "Social Analyst",
         "news": "News Analyst",
@@ -58,7 +70,7 @@ class MessageBuffer:
     # Report section mapping: section -> (analyst_key for filtering, finalizing_agent)
     # analyst_key: which analyst selection controls this section (None = always included)
     # finalizing_agent: which agent must be "completed" for this report to count as done
-    REPORT_SECTIONS = {
+    REPORT_SECTIONS: ClassVar[dict[str, tuple[str | None, str]]] = {
         "market_report": ("market", "Market Analyst"),
         "sentiment_report": ("social", "Social Analyst"),
         "news_report": ("news", "News Analyst"),
@@ -68,7 +80,7 @@ class MessageBuffer:
         "final_trade_decision": (None, "Portfolio Manager"),
     }
 
-    def __init__(self, max_length=100):
+    def __init__(self, max_length: int = 100) -> None:
         self.messages = deque(maxlen=max_length)
         self.tool_calls = deque(maxlen=max_length)
         self.current_report = None
@@ -79,7 +91,7 @@ class MessageBuffer:
         self.selected_analysts = []
         self._last_message_id = None
 
-    def init_for_analysis(self, selected_analysts) -> None:
+    def init_for_analysis(self, selected_analysts: list[str]) -> None:
         """Initialize agent status and report sections based on selected analysts.
 
         Args:
@@ -114,7 +126,15 @@ class MessageBuffer:
         self.tool_calls.clear()
         self._last_message_id = None
 
-    def get_completed_reports_count(self):
+    def get_last_message_id(self) -> str | None:
+        """Get the ID of the last processed message."""
+        return self._last_message_id
+
+    def set_last_message_id(self, msg_id: str | None) -> None:
+        """Set the ID of the last processed message."""
+        self._last_message_id = msg_id
+
+    def get_completed_reports_count(self) -> int:
         """Count reports that are finalized (their finalizing agent is completed).
 
         A report is considered complete when:
@@ -135,20 +155,20 @@ class MessageBuffer:
                 count += 1
         return count
 
-    def add_message(self, message_type, content) -> None:
+    def add_message(self, message_type: str, content: str) -> None:
         timestamp = datetime.datetime.now().strftime("%H:%M:%S")
         self.messages.append((timestamp, message_type, content))
 
-    def add_tool_call(self, tool_name, args) -> None:
+    def add_tool_call(self, tool_name: str, args: Any) -> None:
         timestamp = datetime.datetime.now().strftime("%H:%M:%S")
         self.tool_calls.append((timestamp, tool_name, args))
 
-    def update_agent_status(self, agent, status) -> None:
+    def update_agent_status(self, agent: str, status: str) -> None:
         if agent in self.agent_status:
             self.agent_status[agent] = status
             self.current_agent = agent
 
-    def update_report_section(self, section_name, content) -> None:
+    def update_report_section(self, section_name: str, content: str) -> None:
         if section_name in self.report_sections:
             self.report_sections[section_name] = content
             self._update_current_report()
@@ -228,7 +248,7 @@ class MessageBuffer:
 message_buffer = MessageBuffer()
 
 
-def create_layout():
+def create_layout() -> Layout:
     layout = Layout()
     layout.split_column(
         Layout(name="header", size=3), Layout(name="main"), Layout(name="footer", size=3)
@@ -238,14 +258,19 @@ def create_layout():
     return layout
 
 
-def format_tokens(n):
+def format_tokens(n: int) -> str:
     """Format token count for display."""
     if n >= 1000:
         return f"{n / 1000:.1f}k"
     return str(n)
 
 
-def update_display(layout, spinner_text=None, stats_handler=None, start_time=None) -> None:
+def update_display(
+    layout: Layout,
+    spinner_text: str | None = None,
+    stats_handler: StatsCallbackHandler | None = None,
+    start_time: float | None = None,
+) -> None:
     # Header with welcome message
     layout["header"].update(
         Panel(
@@ -439,7 +464,7 @@ def update_display(layout, spinner_text=None, stats_handler=None, start_time=Non
     layout["footer"].update(Panel(stats_table, border_style="grey50"))
 
 
-def get_user_selections():
+def get_user_selections() -> dict[str, Any]:
     """Get all user selections before starting the analysis display."""
     # Display ASCII art welcome message
     with open(Path(__file__).parent / "static/welcome.txt") as f:
@@ -469,7 +494,7 @@ def get_user_selections():
     display_announcements(console, announcements)
 
     # Create a boxed questionnaire for each step
-    def create_question_box(title, prompt, default=None):
+    def create_question_box(title: str, prompt: str, default: str | None = None) -> Panel:
         box_content = f"[bold]{title}[/bold]\n"
         box_content += f"[dim]{prompt}[/dim]"
         if default:
@@ -551,13 +576,13 @@ def get_user_selections():
     }
 
 
-def get_ticker():
-    """Get ticker symbol from user input."""
+def _get_ticker_prompt() -> str:
+    """Get ticker symbol from user input via typer prompt."""
     return typer.prompt("", default="SPY")
 
 
-def get_analysis_date():
-    """Get the analysis date from user input."""
+def _get_analysis_date_prompt() -> str:
+    """Get the analysis date from user input via typer prompt."""
     while True:
         date_str = typer.prompt("", default=datetime.datetime.now().strftime("%Y-%m-%d"))
         try:
@@ -571,7 +596,7 @@ def get_analysis_date():
             console.print("[red]Error: Invalid date format. Please use YYYY-MM-DD[/red]")
 
 
-def save_report_to_disk(final_state, ticker: str, save_path: Path):
+def save_report_to_disk(final_state: dict[str, Any], ticker: str, save_path: Path) -> Path:
     """Save complete analysis report to disk with organized subfolders."""
     save_path.mkdir(parents=True, exist_ok=True)
     sections = []
@@ -750,7 +775,7 @@ def display_complete_report(final_state) -> None:
             )
 
 
-def update_research_team_status(status) -> None:
+def update_research_team_status(status: str) -> None:
     """Update status for research team members (not Trader)."""
     research_team = ["Bull Researcher", "Bear Researcher", "Research Manager"]
     for agent in research_team:
@@ -773,7 +798,7 @@ ANALYST_REPORT_MAP = {
 }
 
 
-def update_analyst_statuses(message_buffer, chunk) -> None:
+def update_analyst_statuses(message_buffer: MessageBuffer, chunk: dict[str, Any]) -> None:
     """Update all analyst statuses based on current report state.
 
     Logic:
@@ -803,18 +828,20 @@ def update_analyst_statuses(message_buffer, chunk) -> None:
             message_buffer.update_agent_status(agent_name, "pending")
 
     # When all analysts complete, transition research team to in_progress
-    if not found_active and selected:
-        if message_buffer.agent_status.get("Bull Researcher") == "pending":
-            message_buffer.update_agent_status("Bull Researcher", "in_progress")
+    if (
+        not found_active
+        and selected
+        and message_buffer.agent_status.get("Bull Researcher") == "pending"
+    ):
+        message_buffer.update_agent_status("Bull Researcher", "in_progress")
 
 
-def extract_content_string(content):
+def extract_content_string(content: Any) -> str | None:
     """Extract string content from various message formats.
     Returns None if no meaningful text content is found.
     """
-    import ast
 
-    def is_empty(val) -> bool:
+    def is_empty(val: Any) -> bool:
         """Check if value is empty using Python's truthiness."""
         if val is None or val == "":
             return True
@@ -851,15 +878,13 @@ def extract_content_string(content):
     return str(content).strip() if not is_empty(content) else None
 
 
-def classify_message_type(message) -> tuple[str, str | None]:
+def classify_message_type(message: Any) -> tuple[str, str | None]:
     """Classify LangChain message into display type and extract content.
 
     Returns:
         (type, content) - type is one of: User, Agent, Data, Control
                         - content is extracted string or None
     """
-    from langchain_core.messages import AIMessage, ToolMessage, HumanMessage
-
     content = extract_content_string(getattr(message, "content", None))
 
     if isinstance(message, HumanMessage):
@@ -877,7 +902,7 @@ def classify_message_type(message) -> tuple[str, str | None]:
     return ("System", content)
 
 
-def format_tool_args(args, max_length=80) -> str:
+def format_tool_args(args: Any, max_length: int = 80) -> str:
     """Format tool arguments for terminal display."""
     result = str(args)
     if len(result) > max_length:
@@ -927,11 +952,11 @@ def run_analysis() -> None:
     log_file = results_dir / "message_tool.log"
     log_file.touch(exist_ok=True)
 
-    def save_message_decorator(obj, func_name):
+    def save_message_decorator(obj: MessageBuffer, func_name: str) -> Any:
         func = getattr(obj, func_name)
 
         @wraps(func)
-        def wrapper(*args, **kwargs) -> None:
+        def wrapper(*args: Any, **kwargs: Any) -> None:
             func(*args, **kwargs)
             timestamp, message_type, content = obj.messages[-1]
             content = content.replace("\n", " ")  # Replace newlines with spaces
@@ -940,11 +965,11 @@ def run_analysis() -> None:
 
         return wrapper
 
-    def save_tool_call_decorator(obj, func_name):
+    def save_tool_call_decorator(obj: MessageBuffer, func_name: str) -> Any:
         func = getattr(obj, func_name)
 
         @wraps(func)
-        def wrapper(*args, **kwargs) -> None:
+        def wrapper(*args: Any, **kwargs: Any) -> None:
             func(*args, **kwargs)
             timestamp, tool_name, args = obj.tool_calls[-1]
             args_str = ", ".join(f"{k}={v}" for k, v in args.items())
@@ -953,11 +978,11 @@ def run_analysis() -> None:
 
         return wrapper
 
-    def save_report_section_decorator(obj, func_name):
+    def save_report_section_decorator(obj: MessageBuffer, func_name: str) -> Any:
         func = getattr(obj, func_name)
 
         @wraps(func)
-        def wrapper(section_name, content) -> None:
+        def wrapper(section_name: str, content: str) -> None:
             func(section_name, content)
             if (
                 section_name in obj.report_sections
@@ -980,7 +1005,7 @@ def run_analysis() -> None:
     # Now start the display layout
     layout = create_layout()
 
-    with Live(layout, refresh_per_second=4) as live:
+    with Live(layout, refresh_per_second=4):
         # Initial display
         update_display(layout, stats_handler=stats_handler, start_time=start_time)
 
@@ -1018,8 +1043,8 @@ def run_analysis() -> None:
                 last_message = chunk["messages"][-1]
                 msg_id = getattr(last_message, "id", None)
 
-                if msg_id != message_buffer._last_message_id:
-                    message_buffer._last_message_id = msg_id
+                if msg_id != message_buffer.get_last_message_id():
+                    message_buffer.set_last_message_id(msg_id)
 
                     # Add message to buffer
                     msg_type, content = classify_message_type(last_message)
@@ -1097,16 +1122,15 @@ def run_analysis() -> None:
                     message_buffer.update_report_section(
                         "final_trade_decision", f"### Neutral Analyst Analysis\n{neu_hist}"
                     )
-                if judge:
-                    if message_buffer.agent_status.get("Portfolio Manager") != "completed":
-                        message_buffer.update_agent_status("Portfolio Manager", "in_progress")
-                        message_buffer.update_report_section(
-                            "final_trade_decision", f"### Portfolio Manager Decision\n{judge}"
-                        )
-                        message_buffer.update_agent_status("Aggressive Analyst", "completed")
-                        message_buffer.update_agent_status("Conservative Analyst", "completed")
-                        message_buffer.update_agent_status("Neutral Analyst", "completed")
-                        message_buffer.update_agent_status("Portfolio Manager", "completed")
+                if judge and message_buffer.agent_status.get("Portfolio Manager") != "completed":
+                    message_buffer.update_agent_status("Portfolio Manager", "in_progress")
+                    message_buffer.update_report_section(
+                        "final_trade_decision", f"### Portfolio Manager Decision\n{judge}"
+                    )
+                    message_buffer.update_agent_status("Aggressive Analyst", "completed")
+                    message_buffer.update_agent_status("Conservative Analyst", "completed")
+                    message_buffer.update_agent_status("Neutral Analyst", "completed")
+                    message_buffer.update_agent_status("Portfolio Manager", "completed")
 
             # Update the display
             update_display(layout, stats_handler=stats_handler, start_time=start_time)
@@ -1115,7 +1139,7 @@ def run_analysis() -> None:
 
         # Get final state and decision
         final_state = trace[-1]
-        decision = graph.process_signal(final_state["final_trade_decision"])
+        graph.process_signal(final_state["final_trade_decision"])
 
         # Update all agent statuses to completed
         for agent in message_buffer.agent_status:

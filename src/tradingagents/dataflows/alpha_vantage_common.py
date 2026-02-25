@@ -1,10 +1,13 @@
 from io import StringIO
 import os
 import json
+import logging
 from datetime import datetime
 
 import pandas as pd
 import requests
+
+logger = logging.getLogger(__name__)
 
 API_BASE_URL = "https://www.alphavantage.co/query"
 
@@ -17,7 +20,7 @@ def get_api_key() -> str:
     return api_key
 
 
-def format_datetime_for_api(date_input) -> str:
+def format_datetime_for_api(date_input: str | datetime) -> str:
     """Convert various date formats to YYYYMMDDTHHMM format required by Alpha Vantage API."""
     if isinstance(date_input, str):
         # If already in correct format, return as-is
@@ -31,8 +34,8 @@ def format_datetime_for_api(date_input) -> str:
             try:
                 dt = datetime.strptime(date_input, "%Y-%m-%d %H:%M")
                 return dt.strftime("%Y%m%dT%H%M")
-            except ValueError:
-                raise ValueError(f"Unsupported date format: {date_input}")
+            except ValueError as err:
+                raise ValueError(f"Unsupported date format: {date_input}") from err
     elif isinstance(date_input, datetime):
         return date_input.strftime("%Y%m%dT%H%M")
     else:
@@ -45,7 +48,7 @@ class AlphaVantageRateLimitError(Exception):
     pass
 
 
-def _make_api_request(function_name: str, params: dict) -> dict | str:
+def _make_api_request(function_name: str, params: dict) -> str:
     """Helper function to make API requests and handle responses.
 
     Raises:
@@ -124,5 +127,5 @@ def _filter_csv_by_date_range(csv_data: str, start_date: str, end_date: str) -> 
 
     except Exception as e:
         # If filtering fails, return original data with a warning
-        print(f"Warning: Failed to filter CSV data by date range: {e}")
+        logger.warning("Failed to filter CSV data by date range: %s", e)
         return csv_data

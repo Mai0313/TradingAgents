@@ -1,5 +1,9 @@
-def create_conservative_debator(llm):
-    def conservative_node(state) -> dict:
+from typing import Any
+from collections.abc import Callable
+
+
+def create_conservative_debator(llm: Any) -> Callable[[dict[str, Any]], dict[str, Any]]:
+    def conservative_node(state: dict[str, Any]) -> dict[str, Any]:
         risk_debate_state = state["risk_debate_state"]
         history = risk_debate_state.get("history", "")
         conservative_history = risk_debate_state.get("conservative_history", "")

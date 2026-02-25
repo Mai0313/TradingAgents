@@ -1,8 +1,9 @@
-def create_risk_manager(llm, memory):
-    def risk_manager_node(state) -> dict:
+from typing import Any
+from collections.abc import Callable
 
-        company_name = state["company_of_interest"]
 
+def create_risk_manager(llm: Any, memory: Any) -> Callable[[dict[str, Any]], dict[str, Any]]:
+    def risk_manager_node(state: dict[str, Any]) -> dict[str, Any]:
         history = state["risk_debate_state"]["history"]
         risk_debate_state = state["risk_debate_state"]
         market_research_report = state["market_report"]

@@ -1,5 +1,3 @@
-from typing import Any
-
 from langchain_anthropic import ChatAnthropic
 
 from .validators import validate_model
@@ -9,12 +7,12 @@ from .base_client import BaseLLMClient
 class AnthropicClient(BaseLLMClient):
     """Client for Anthropic Claude models."""
 
-    def __init__(self, model: str, base_url: str | None = None, **kwargs):
+    def __init__(self, model: str, base_url: str | None = None, **kwargs: object) -> None:
         super().__init__(model, base_url, **kwargs)
 
-    def get_llm(self) -> Any:
+    def get_llm(self) -> ChatAnthropic:
         """Return configured ChatAnthropic instance."""
-        llm_kwargs = {"model": self.model}
+        llm_kwargs: dict[str, object] = {"model": self.model}
 
         for key in ("timeout", "max_retries", "api_key", "max_tokens", "callbacks"):
             if key in self.kwargs:

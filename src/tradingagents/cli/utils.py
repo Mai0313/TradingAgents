@@ -1,8 +1,13 @@
+import re
 import sys
+from datetime import datetime
 
 import questionary
+from rich.console import Console
 
 from tradingagents.cli.models import AnalystType
+
+console = Console()
 
 ANALYST_ORDER = [
     ("Market Analyst", AnalystType.MARKET),
@@ -29,8 +34,6 @@ def get_ticker() -> str:
 
 def get_analysis_date() -> str:
     """Prompt the user to enter a date in YYYY-MM-DD format."""
-    import re
-    from datetime import datetime
 
     def validate_date(date_str: str) -> bool:
         if not re.match(r"^\d{4}-\d{2}-\d{2}$", date_str):
@@ -81,7 +84,7 @@ def select_analysts() -> list[AnalystType]:
 def select_research_depth() -> int:
     """Select research depth using an interactive selection."""
     # Define research depth options with their corresponding values
-    DEPTH_OPTIONS = [
+    depth_options = [
         ("Shallow - Quick research, few debate and strategy discussion rounds", 1),
         ("Medium - Middle ground, moderate debate rounds and strategy discussion", 3),
         ("Deep - Comprehensive research, in depth debate and strategy discussion", 5),
@@ -89,7 +92,7 @@ def select_research_depth() -> int:
 
     choice = questionary.select(
         "Select Your [Research Depth]:",
-        choices=[questionary.Choice(display, value=value) for display, value in DEPTH_OPTIONS],
+        choices=[questionary.Choice(display, value=value) for display, value in depth_options],
         instruction="\n- Use arrow keys to navigate\n- Press Enter to select",
         style=questionary.Style([
             ("selected", "fg:yellow noinherit"),
@@ -105,10 +108,10 @@ def select_research_depth() -> int:
     return choice
 
 
-def select_shallow_thinking_agent(provider) -> str:
+def select_shallow_thinking_agent(provider: str) -> str:
     """Select shallow thinking llm engine using an interactive selection."""
     # Define shallow thinking llm engine options with their corresponding model names
-    SHALLOW_AGENT_OPTIONS = {
+    shallow_agent_options = {
         "openai": [
             ("GPT-5 Mini - Cost-optimized reasoning", "gpt-5-mini"),
             ("GPT-5 Nano - Ultra-fast, high-throughput", "gpt-5-nano"),
@@ -151,7 +154,7 @@ def select_shallow_thinking_agent(provider) -> str:
         "Select Your [Quick-Thinking LLM Engine]:",
         choices=[
             questionary.Choice(display, value=value)
-            for display, value in SHALLOW_AGENT_OPTIONS[provider.lower()]
+            for display, value in shallow_agent_options[provider.lower()]
         ],
         instruction="\n- Use arrow keys to navigate\n- Press Enter to select",
         style=questionary.Style([
@@ -168,10 +171,10 @@ def select_shallow_thinking_agent(provider) -> str:
     return choice
 
 
-def select_deep_thinking_agent(provider) -> str:
+def select_deep_thinking_agent(provider: str) -> str:
     """Select deep thinking llm engine using an interactive selection."""
     # Define deep thinking llm engine options with their corresponding model names
-    DEEP_AGENT_OPTIONS = {
+    deep_agent_options = {
         "openai": [
             ("GPT-5.2 - Latest flagship", "gpt-5.2"),
             ("GPT-5.1 - Flexible reasoning", "gpt-5.1"),
@@ -217,7 +220,7 @@ def select_deep_thinking_agent(provider) -> str:
         "Select Your [Deep-Thinking LLM Engine]:",
         choices=[
             questionary.Choice(display, value=value)
-            for display, value in DEEP_AGENT_OPTIONS[provider.lower()]
+            for display, value in deep_agent_options[provider.lower()]
         ],
         instruction="\n- Use arrow keys to navigate\n- Press Enter to select",
         style=questionary.Style([
@@ -237,7 +240,7 @@ def select_deep_thinking_agent(provider) -> str:
 def select_llm_provider() -> tuple[str, str]:
     """Select the OpenAI api url using interactive selection."""
     # Define OpenAI api options with their corresponding endpoints
-    BASE_URLS = [
+    base_urls = [
         ("OpenAI", "https://api.openai.com/v1"),
         ("Google", "https://generativelanguage.googleapis.com/v1"),
         ("Anthropic", "https://api.anthropic.com/"),
@@ -249,7 +252,7 @@ def select_llm_provider() -> tuple[str, str]:
     choice = questionary.select(
         "Select your LLM Provider:",
         choices=[
-            questionary.Choice(display, value=(display, value)) for display, value in BASE_URLS
+            questionary.Choice(display, value=(display, value)) for display, value in base_urls
         ],
         instruction="\n- Use arrow keys to navigate\n- Press Enter to select",
         style=questionary.Style([
@@ -264,7 +267,7 @@ def select_llm_provider() -> tuple[str, str]:
         sys.exit(1)
 
     display_name, url = choice
-    print(f"You selected: {display_name}\tURL: {url}")
+    console.print(f"You selected: {display_name}\tURL: {url}")
 
     return display_name, url
 

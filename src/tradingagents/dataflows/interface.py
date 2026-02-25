@@ -101,7 +101,7 @@ def get_vendor(category: str, method: str | None = None) -> str:
     return config.get("data_vendors", {}).get(category, "default")
 
 
-def route_to_vendor(method: str, *args, **kwargs):
+def route_to_vendor(method: str, *args: object, **kwargs: object) -> object:
     """Route method calls to appropriate vendor implementation with fallback support."""
     category = get_category_for_method(method)
     vendor_config = get_vendor(category, method)
