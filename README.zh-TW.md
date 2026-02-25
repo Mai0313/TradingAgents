@@ -59,7 +59,9 @@ uv run tradingagents
 uv run cli
 ```
 
-### 程式化使用
+### 作為函式庫使用
+
+您也可以在自己的腳本中以程式化方式使用 `TradingAgents`：
 
 ```python
 from tradingagents.default_config import DEFAULT_CONFIG

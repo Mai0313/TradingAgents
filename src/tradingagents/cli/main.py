@@ -21,12 +21,12 @@ from rich.table import Table
 from rich.layout import Layout
 from rich.spinner import Spinner
 from rich.markdown import Markdown
-from tradingagents.default_config import DEFAULT_CONFIG
-from tradingagents.graph.trading_graph import TradingAgentsGraph
 
 from tradingagents.cli.utils import *
+from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.cli.announcements import fetch_announcements, display_announcements
 from tradingagents.cli.stats_handler import StatsCallbackHandler
+from tradingagents.graph.trading_graph import TradingAgentsGraph
 
 console = Console()
 

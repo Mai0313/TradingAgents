@@ -59,7 +59,9 @@ uv run tradingagents
 uv run cli
 ```
 
-### Run Programmatically
+### Use as a Library
+
+You can also use `TradingAgents` programmatically in your own scripts:
 
 ```python
 from tradingagents.default_config import DEFAULT_CONFIG

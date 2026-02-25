@@ -135,10 +135,10 @@ if __name__ == "__main__":
         recommendations = matcher.get_memories(current_situation, n_matches=2)
 
         for i, rec in enumerate(recommendations, 1):
-            print(f"\nMatch {i}:")
-            print(f"Similarity Score: {rec['similarity_score']:.2f}")
-            print(f"Matched Situation: {rec['matched_situation']}")
-            print(f"Recommendation: {rec['recommendation']}")
+            print(f"\nMatch {i}:")  # noqa: T201
+            print(f"Similarity Score: {rec['similarity_score']:.2f}")  # noqa: T201
+            print(f"Matched Situation: {rec['matched_situation']}")  # noqa: T201
+            print(f"Recommendation: {rec['recommendation']}")  # noqa: T201
 
     except Exception as e:
-        print(f"Error during recommendation: {e!s}")
+        print(f"Error during recommendation: {e!s}")  # noqa: T201
