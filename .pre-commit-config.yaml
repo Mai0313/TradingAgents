@@ -18,9 +18,9 @@ repos:
     rev: v0.15.2
     hooks:
       - id: ruff-check
-        types_or: [ python, pyi, jupyter ]
+        types_or: [python, pyi, jupyter]
       - id: ruff-format
-        types_or: [ python, pyi, jupyter ]
+        types_or: [python, pyi, jupyter]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
@@ -71,27 +71,27 @@ repos:
         additional_dependencies:
           # https://mdformat.readthedocs.io/en/stable/users/plugins.html
           # Code formatter plugins
-          - mdformat-beautysh  # bash, sh
+          - mdformat-beautysh # bash, sh
           # - mdformat-black  # python
-          - mdformat-config  # json, toml, yaml
+          - mdformat-config # json, toml, yaml
           # - mdformat-gofmt  # go
-          - mdformat-ruff  # python
+          - mdformat-ruff # python
           # - mdformat-rustfmt  # rust
           # - mdformat-shfmt  # bash, sh
           # - mdformat-web  # javascript, js, css, html, xml
           # Parser extension plugins
           # - mdformat-admon  # admonitions
           # - mdformat-deflist  # definition lists
-          - mdformat-footnote  # footnotes
-          - mdformat-frontmatter  # front matter
-          - mdformat-gfm  # GitHub Flavored Markdown (includes tables)
-          - mdformat-gfm-alerts  # GFM alerts
-          - mdformat-mkdocs  # MKDocs
+          - mdformat-footnote # footnotes
+          - mdformat-frontmatter # front matter
+          - mdformat-gfm # GitHub Flavored Markdown (includes tables)
+          - mdformat-gfm-alerts # GFM alerts
+          - mdformat-mkdocs # MKDocs
           # - mdformat-myst  # MyST
           # - mdformat-toc  # table of contents
           # Other misc plugins
-          - mdformat-pyproject  # load options from pyproject.toml
-          - mdformat-simple-breaks  # three dashes for breaks
+          - mdformat-pyproject # load options from pyproject.toml
+          - mdformat-simple-breaks # three dashes for breaks
           # Legacy/Additional
           # - mdformat-tables  # deprecated, use mdformat-gfm
           # - mdformat-wikilink  # wikilinks
@@ -127,6 +127,7 @@ repos:
           - "Types-urllib3"
           - "Types-redis"
           - "Types-attrs"
+          - "Types-python-dateutil"
 
   # - repo: local
   #   hooks:
