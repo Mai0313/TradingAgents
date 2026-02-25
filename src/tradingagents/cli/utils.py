@@ -2,7 +2,7 @@ import sys
 
 import questionary
 
-from cli.models import AnalystType
+from tradingagents.cli.models import AnalystType
 
 ANALYST_ORDER = [
     ("Market Analyst", AnalystType.MARKET),

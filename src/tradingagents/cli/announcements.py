@@ -4,7 +4,7 @@ import requests
 from rich.panel import Panel
 from rich.console import Console
 
-from cli.config import CLI_CONFIG
+from tradingagents.cli.config import CLI_CONFIG
 
 
 def fetch_announcements(url: str | None = None, timeout: float | None = None) -> dict:

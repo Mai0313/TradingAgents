@@ -24,9 +24,9 @@ from rich.markdown import Markdown
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 
-from cli.utils import *
-from cli.announcements import fetch_announcements, display_announcements
-from cli.stats_handler import StatsCallbackHandler
+from tradingagents.cli.utils import *
+from tradingagents.cli.announcements import fetch_announcements, display_announcements
+from tradingagents.cli.stats_handler import StatsCallbackHandler
 
 console = Console()
 
@@ -442,7 +442,7 @@ def update_display(layout, spinner_text=None, stats_handler=None, start_time=Non
 def get_user_selections():
     """Get all user selections before starting the analysis display."""
     # Display ASCII art welcome message
-    with open("./cli/static/welcome.txt") as f:
+    with open(Path(__file__).parent / "static/welcome.txt") as f:
         welcome_ascii = f.read()
 
     # Create welcome box content

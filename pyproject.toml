@@ -182,9 +182,9 @@ exclude = [
 ]
 
 [tool.poe.tasks]
-cli = "python ./src/tradingagents/cli.py"
-api = "python ./src/tradingagents/cli.py"
-main = "python ./src/tradingagents/cli.py"
+cli = "python -m tradingagents.cli.main"
+api = "python -m tradingagents.cli.main"
+main = "python -m tradingagents.cli.main"
 
 # Documentation
 docs_gen = "make gen-docs"
