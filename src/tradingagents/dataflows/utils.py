@@ -1,7 +1,7 @@
-from collections.abc import Callable
 from typing import Annotated
 import logging
 from datetime import date, datetime, timedelta
+from collections.abc import Callable
 
 import pandas as pd
 

@@ -5,10 +5,7 @@ from .anthropic_client import AnthropicClient
 
 
 def create_llm_client(
-    provider: str,
-    model: str,
-    base_url: str | None = None,
-    **kwargs: object,
+    provider: str, model: str, base_url: str | None = None, **kwargs: object
 ) -> BaseLLMClient:
     """Create an LLM client for the specified provider.
 

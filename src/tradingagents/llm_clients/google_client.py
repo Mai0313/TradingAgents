@@ -1,4 +1,4 @@
-from typing import Any, Protocol, cast
+from typing import Protocol, cast
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 
@@ -18,7 +18,7 @@ class NormalizedChatGoogleGenerativeAI(ChatGoogleGenerativeAI):
     """
 
     def _normalize_content(self, response: object) -> object:
-        typed = cast(_HasContent, response)
+        typed = cast("_HasContent", response)
         content = typed.content
         if isinstance(content, list):
             texts = [

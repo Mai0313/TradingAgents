@@ -29,11 +29,7 @@ class OpenAIClient(BaseLLMClient):
     """Client for OpenAI, Ollama, OpenRouter, and xAI providers."""
 
     def __init__(
-        self,
-        model: str,
-        base_url: str | None = None,
-        provider: str = "openai",
-        **kwargs: object,
+        self, model: str, base_url: str | None = None, provider: str = "openai", **kwargs: object
     ) -> None:
         super().__init__(model, base_url, **kwargs)
         self.provider = provider.lower()
