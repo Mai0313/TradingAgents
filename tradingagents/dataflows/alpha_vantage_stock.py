@@ -1,13 +1,10 @@
 from datetime import datetime
+
 from .alpha_vantage_common import _make_api_request, _filter_csv_by_date_range
 
-def get_stock(
-    symbol: str,
-    start_date: str,
-    end_date: str
-) -> str:
-    """
-    Returns raw daily OHLCV values, adjusted close values, and historical split/dividend events
+
+def get_stock(symbol: str, start_date: str, end_date: str) -> str:
+    """Returns raw daily OHLCV values, adjusted close values, and historical split/dividend events
     filtered to the specified date range.
 
     Args:
@@ -27,11 +24,7 @@ def get_stock(
     days_from_today_to_start = (today - start_dt).days
     outputsize = "compact" if days_from_today_to_start < 100 else "full"
 
-    params = {
-        "symbol": symbol,
-        "outputsize": outputsize,
-        "datatype": "csv",
-    }
+    params = {"symbol": symbol, "outputsize": outputsize, "datatype": "csv"}
 
     response = _make_api_request("TIME_SERIES_DAILY_ADJUSTED", params)
 

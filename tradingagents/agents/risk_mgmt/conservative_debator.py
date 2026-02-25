@@ -1,8 +1,3 @@
-from langchain_core.messages import AIMessage
-import time
-import json
-
-
 def create_conservative_debator(llm):
     def conservative_node(state) -> dict:
         risk_debate_state = state["risk_debate_state"]
@@ -47,9 +42,7 @@ Engage by questioning their optimism and emphasizing the potential downsides the
                 "current_aggressive_response", ""
             ),
             "current_conservative_response": argument,
-            "current_neutral_response": risk_debate_state.get(
-                "current_neutral_response", ""
-            ),
+            "current_neutral_response": risk_debate_state.get("current_neutral_response", ""),
             "count": risk_debate_state["count"] + 1,
         }
 

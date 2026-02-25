@@ -1,7 +1,3 @@
-import time
-import json
-
-
 def create_neutral_debator(llm):
     def neutral_node(state) -> dict:
         risk_debate_state = state["risk_debate_state"]
@@ -45,7 +41,9 @@ Engage actively by analyzing both sides critically, addressing weaknesses in the
             "current_aggressive_response": risk_debate_state.get(
                 "current_aggressive_response", ""
             ),
-            "current_conservative_response": risk_debate_state.get("current_conservative_response", ""),
+            "current_conservative_response": risk_debate_state.get(
+                "current_conservative_response", ""
+            ),
             "current_neutral_response": argument,
             "count": risk_debate_state["count"] + 1,
         }

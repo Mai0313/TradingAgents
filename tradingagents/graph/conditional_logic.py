@@ -11,7 +11,7 @@ class ConditionalLogic:
         self.max_debate_rounds = max_debate_rounds
         self.max_risk_discuss_rounds = max_risk_discuss_rounds
 
-    def should_continue_market(self, state: AgentState):
+    def should_continue_market(self, state: AgentState) -> str:
         """Determine if market analysis should continue."""
         messages = state["messages"]
         last_message = messages[-1]
@@ -19,7 +19,7 @@ class ConditionalLogic:
             return "tools_market"
         return "Msg Clear Market"
 
-    def should_continue_social(self, state: AgentState):
+    def should_continue_social(self, state: AgentState) -> str:
         """Determine if social media analysis should continue."""
         messages = state["messages"]
         last_message = messages[-1]
@@ -27,7 +27,7 @@ class ConditionalLogic:
             return "tools_social"
         return "Msg Clear Social"
 
-    def should_continue_news(self, state: AgentState):
+    def should_continue_news(self, state: AgentState) -> str:
         """Determine if news analysis should continue."""
         messages = state["messages"]
         last_message = messages[-1]
@@ -35,7 +35,7 @@ class ConditionalLogic:
             return "tools_news"
         return "Msg Clear News"
 
-    def should_continue_fundamentals(self, state: AgentState):
+    def should_continue_fundamentals(self, state: AgentState) -> str:
         """Determine if fundamentals analysis should continue."""
         messages = state["messages"]
         last_message = messages[-1]
@@ -45,7 +45,6 @@ class ConditionalLogic:
 
     def should_continue_debate(self, state: AgentState) -> str:
         """Determine if debate should continue."""
-
         if (
             state["investment_debate_state"]["count"] >= 2 * self.max_debate_rounds
         ):  # 3 rounds of back-and-forth between 2 agents

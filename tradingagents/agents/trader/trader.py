@@ -1,6 +1,4 @@
 import functools
-import time
-import json
 
 
 def create_trader(llm, memory):
@@ -17,7 +15,7 @@ def create_trader(llm, memory):
 
         past_memory_str = ""
         if past_memories:
-            for i, rec in enumerate(past_memories, 1):
+            for _i, rec in enumerate(past_memories, 1):
                 past_memory_str += rec["recommendation"] + "\n\n"
         else:
             past_memory_str = "No past memories found."
@@ -37,10 +35,6 @@ def create_trader(llm, memory):
 
         result = llm.invoke(messages)
 
-        return {
-            "messages": [result],
-            "trader_investment_plan": result.content,
-            "sender": name,
-        }
+        return {"messages": [result], "trader_investment_plan": result.content, "sender": name}
 
     return functools.partial(trader_node, name="Trader")

@@ -1,5 +1,6 @@
 from .alpha_vantage_common import _make_api_request, format_datetime_for_api
 
+
 def get_news(ticker, start_date, end_date) -> dict[str, str] | str:
     """Returns live and historical market news & sentiment data from premier news outlets worldwide.
 
@@ -13,7 +14,6 @@ def get_news(ticker, start_date, end_date) -> dict[str, str] | str:
     Returns:
         Dictionary containing news sentiment data or JSON string.
     """
-
     params = {
         "tickers": ticker,
         "time_from": format_datetime_for_api(start_date),
@@ -21,6 +21,7 @@ def get_news(ticker, start_date, end_date) -> dict[str, str] | str:
     }
 
     return _make_api_request("NEWS_SENTIMENT", params)
+
 
 def get_global_news(curr_date, look_back_days: int = 7, limit: int = 50) -> dict[str, str] | str:
     """Returns global market news & sentiment data without ticker-specific filtering.
@@ -63,9 +64,6 @@ def get_insider_transactions(symbol: str) -> dict[str, str] | str:
     Returns:
         Dictionary containing insider transaction data or JSON string.
     """
-
-    params = {
-        "symbol": symbol,
-    }
+    params = {"symbol": symbol}
 
     return _make_api_request("INSIDER_TRANSACTIONS", params)

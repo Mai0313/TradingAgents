@@ -11,8 +11,7 @@ class SignalProcessor:
         self.quick_thinking_llm = quick_thinking_llm
 
     def process_signal(self, full_signal: str) -> str:
-        """
-        Process a full trading signal to extract the core decision.
+        """Process a full trading signal to extract the core decision.
 
         Args:
             full_signal: Complete trading signal text

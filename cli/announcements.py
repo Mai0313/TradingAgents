@@ -1,12 +1,13 @@
 import getpass
+
 import requests
-from rich.console import Console
 from rich.panel import Panel
+from rich.console import Console
 
 from cli.config import CLI_CONFIG
 
 
-def fetch_announcements(url: str = None, timeout: float = None) -> dict:
+def fetch_announcements(url: str | None = None, timeout: float | None = None) -> dict:
     """Fetch announcements from endpoint. Returns dict with announcements and settings."""
     endpoint = url or CLI_CONFIG["announcements_url"]
     timeout = timeout or CLI_CONFIG["announcements_timeout"]
@@ -21,10 +22,7 @@ def fetch_announcements(url: str = None, timeout: float = None) -> dict:
             "require_attention": data.get("require_attention", False),
         }
     except Exception:
-        return {
-            "announcements": [fallback],
-            "require_attention": False,
-        }
+        return {"announcements": [fallback], "require_attention": False}
 
 
 def display_announcements(console: Console, data: dict) -> None:
@@ -37,12 +35,7 @@ def display_announcements(console: Console, data: dict) -> None:
 
     content = "\n".join(announcements)
 
-    panel = Panel(
-        content,
-        border_style="cyan",
-        padding=(1, 2),
-        title="Announcements",
-    )
+    panel = Panel(content, border_style="cyan", padding=(1, 2), title="Announcements")
     console.print(panel)
 
     if require_attention:

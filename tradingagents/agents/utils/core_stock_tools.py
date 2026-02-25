@@ -1,5 +1,6 @@
-from langchain_core.tools import tool
 from typing import Annotated
+
+from langchain_core.tools import tool
 from tradingagents.dataflows.interface import route_to_vendor
 
 
@@ -9,9 +10,9 @@ def get_stock_data(
     start_date: Annotated[str, "Start date in yyyy-mm-dd format"],
     end_date: Annotated[str, "End date in yyyy-mm-dd format"],
 ) -> str:
-    """
-    Retrieve stock price data (OHLCV) for a given ticker symbol.
+    """Retrieve stock price data (OHLCV) for a given ticker symbol.
     Uses the configured core_stock_apis vendor.
+
     Args:
         symbol (str): Ticker symbol of the company, e.g. AAPL, TSM
         start_date (str): Start date in yyyy-mm-dd format

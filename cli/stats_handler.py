@@ -1,9 +1,9 @@
+from typing import Any
 import threading
-from typing import Any, Dict, List, Union
 
-from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.outputs import LLMResult
 from langchain_core.messages import AIMessage
+from langchain_core.callbacks import BaseCallbackHandler
 
 
 class StatsCallbackHandler(BaseCallbackHandler):
@@ -17,21 +17,13 @@ class StatsCallbackHandler(BaseCallbackHandler):
         self.tokens_in = 0
         self.tokens_out = 0
 
-    def on_llm_start(
-        self,
-        serialized: Dict[str, Any],
-        prompts: List[str],
-        **kwargs: Any,
-    ) -> None:
+    def on_llm_start(self, serialized: dict[str, Any], prompts: list[str], **kwargs: Any) -> None:
         """Increment LLM call counter when an LLM starts."""
         with self._lock:
             self.llm_calls += 1
 
     def on_chat_model_start(
-        self,
-        serialized: Dict[str, Any],
-        messages: List[List[Any]],
-        **kwargs: Any,
+        self, serialized: dict[str, Any], messages: list[list[Any]], **kwargs: Any
     ) -> None:
         """Increment LLM call counter when a chat model starts."""
         with self._lock:
@@ -55,17 +47,12 @@ class StatsCallbackHandler(BaseCallbackHandler):
                 self.tokens_in += usage_metadata.get("input_tokens", 0)
                 self.tokens_out += usage_metadata.get("output_tokens", 0)
 
-    def on_tool_start(
-        self,
-        serialized: Dict[str, Any],
-        input_str: str,
-        **kwargs: Any,
-    ) -> None:
+    def on_tool_start(self, serialized: dict[str, Any], input_str: str, **kwargs: Any) -> None:
         """Increment tool call counter when a tool starts."""
         with self._lock:
             self.tool_calls += 1
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Return current statistics."""
         with self._lock:
             return {

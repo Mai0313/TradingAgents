@@ -1,8 +1,10 @@
+import os
+from typing import Annotated
+
 import pandas as pd
 import yfinance as yf
 from stockstats import wrap
-from typing import Annotated
-import os
+
 from .config import get_config
 
 
@@ -13,9 +15,7 @@ class StockstatsUtils:
         indicator: Annotated[
             str, "quantitative indicators based off of the stock data for the company"
         ],
-        curr_date: Annotated[
-            str, "curr date for retrieving stock price data, YYYY-mm-dd"
-        ],
+        curr_date: Annotated[str, "curr date for retrieving stock price data, YYYY-mm-dd"],
     ):
         config = get_config()
 
@@ -31,8 +31,7 @@ class StockstatsUtils:
         os.makedirs(config["data_cache_dir"], exist_ok=True)
 
         data_file = os.path.join(
-            config["data_cache_dir"],
-            f"{symbol}-YFin-data-{start_date_str}-{end_date_str}.csv",
+            config["data_cache_dir"], f"{symbol}-YFin-data-{start_date_str}-{end_date_str}.csv"
         )
 
         if os.path.exists(data_file):
@@ -60,5 +59,4 @@ class StockstatsUtils:
         if not matching_rows.empty:
             indicator_value = matching_rows[indicator].values[0]
             return indicator_value
-        else:
-            return "N/A: Not a trading day (weekend or holiday)"
+        return "N/A: Not a trading day (weekend or holiday)"

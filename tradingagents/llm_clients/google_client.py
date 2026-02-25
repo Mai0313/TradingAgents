@@ -1,9 +1,9 @@
-from typing import Any, Optional
+from typing import Any
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-from .base_client import BaseLLMClient
 from .validators import validate_model
+from .base_client import BaseLLMClient
 
 
 class NormalizedChatGoogleGenerativeAI(ChatGoogleGenerativeAI):
@@ -17,8 +17,11 @@ class NormalizedChatGoogleGenerativeAI(ChatGoogleGenerativeAI):
         content = response.content
         if isinstance(content, list):
             texts = [
-                item.get("text", "") if isinstance(item, dict) and item.get("type") == "text"
-                else item if isinstance(item, str) else ""
+                item.get("text", "")
+                if isinstance(item, dict) and item.get("type") == "text"
+                else item
+                if isinstance(item, str)
+                else ""
                 for item in content
             ]
             response.content = "\n".join(t for t in texts if t)
@@ -31,7 +34,7 @@ class NormalizedChatGoogleGenerativeAI(ChatGoogleGenerativeAI):
 class GoogleClient(BaseLLMClient):
     """Client for Google Gemini models."""
 
-    def __init__(self, model: str, base_url: Optional[str] = None, **kwargs):
+    def __init__(self, model: str, base_url: str | None = None, **kwargs):
         super().__init__(model, base_url, **kwargs)
 
     def get_llm(self) -> Any:

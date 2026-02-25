@@ -1,42 +1,34 @@
 # TradingAgents/graph/trading_graph.py
 
 import os
-from pathlib import Path
 import json
-from datetime import date
-from typing import Dict, Any, Tuple, List, Optional
+from typing import Any
+from pathlib import Path
 
 from langgraph.prebuilt import ToolNode
-
-from tradingagents.llm_clients import create_llm_client
-
 from tradingagents.agents import *
+from tradingagents.llm_clients import create_llm_client
 from tradingagents.default_config import DEFAULT_CONFIG
-from tradingagents.agents.utils.memory import FinancialSituationMemory
-from tradingagents.agents.utils.agent_states import (
-    AgentState,
-    InvestDebateState,
-    RiskDebateState,
-)
 from tradingagents.dataflows.config import set_config
+from tradingagents.agents.utils.memory import FinancialSituationMemory
 
 # Import the new abstract tool methods from agent_utils
 from tradingagents.agents.utils.agent_utils import (
-    get_stock_data,
+    get_news,
+    get_cashflow,
     get_indicators,
+    get_stock_data,
+    get_global_news,
     get_fundamentals,
     get_balance_sheet,
-    get_cashflow,
     get_income_statement,
-    get_news,
     get_insider_transactions,
-    get_global_news
 )
 
-from .conditional_logic import ConditionalLogic
 from .setup import GraphSetup
-from .propagation import Propagator
 from .reflection import Reflector
+from .propagation import Propagator
+from .conditional_logic import ConditionalLogic
 from .signal_processing import SignalProcessor
 
 
@@ -45,10 +37,10 @@ class TradingAgentsGraph:
 
     def __init__(
         self,
-        selected_analysts=["market", "social", "news", "fundamentals"],
+        selected_analysts=None,
         debug=False,
-        config: Dict[str, Any] = None,
-        callbacks: Optional[List] = None,
+        config: dict[str, Any] | None = None,
+        callbacks: list | None = None,
     ):
         """Initialize the trading agents graph and components.
 
@@ -58,6 +50,8 @@ class TradingAgentsGraph:
             config: Configuration dictionary. If None, uses default config
             callbacks: Optional list of callback handlers (e.g., for tracking LLM/tool stats)
         """
+        if selected_analysts is None:
+            selected_analysts = ["market", "social", "news", "fundamentals"]
         self.debug = debug
         self.config = config or DEFAULT_CONFIG
         self.callbacks = callbacks or []
@@ -67,8 +61,7 @@ class TradingAgentsGraph:
 
         # Create necessary directories
         os.makedirs(
-            os.path.join(self.config["project_dir"], "dataflows/data_cache"),
-            exist_ok=True,
+            os.path.join(self.config["project_dir"], "dataflows/data_cache"), exist_ok=True
         )
 
         # Initialize LLMs with provider-specific thinking configuration
@@ -93,7 +86,7 @@ class TradingAgentsGraph:
 
         self.deep_thinking_llm = deep_client.get_llm()
         self.quick_thinking_llm = quick_client.get_llm()
-        
+
         # Initialize memories
         self.bull_memory = FinancialSituationMemory("bull_memory", self.config)
         self.bear_memory = FinancialSituationMemory("bear_memory", self.config)
@@ -130,7 +123,7 @@ class TradingAgentsGraph:
         # Set up the graph
         self.graph = self.graph_setup.setup_graph(selected_analysts)
 
-    def _get_provider_kwargs(self) -> Dict[str, Any]:
+    def _get_provider_kwargs(self) -> dict[str, Any]:
         """Get provider-specific kwargs for LLM client creation."""
         kwargs = {}
         provider = self.config.get("llm_provider", "").lower()
@@ -147,51 +140,40 @@ class TradingAgentsGraph:
 
         return kwargs
 
-    def _create_tool_nodes(self) -> Dict[str, ToolNode]:
+    def _create_tool_nodes(self) -> dict[str, ToolNode]:
         """Create tool nodes for different data sources using abstract methods."""
         return {
-            "market": ToolNode(
-                [
-                    # Core stock data tools
-                    get_stock_data,
-                    # Technical indicators
-                    get_indicators,
-                ]
-            ),
-            "social": ToolNode(
-                [
-                    # News tools for social media analysis
-                    get_news,
-                ]
-            ),
-            "news": ToolNode(
-                [
-                    # News and insider information
-                    get_news,
-                    get_global_news,
-                    get_insider_transactions,
-                ]
-            ),
-            "fundamentals": ToolNode(
-                [
-                    # Fundamental analysis tools
-                    get_fundamentals,
-                    get_balance_sheet,
-                    get_cashflow,
-                    get_income_statement,
-                ]
-            ),
+            "market": ToolNode([
+                # Core stock data tools
+                get_stock_data,
+                # Technical indicators
+                get_indicators,
+            ]),
+            "social": ToolNode([
+                # News tools for social media analysis
+                get_news
+            ]),
+            "news": ToolNode([
+                # News and insider information
+                get_news,
+                get_global_news,
+                get_insider_transactions,
+            ]),
+            "fundamentals": ToolNode([
+                # Fundamental analysis tools
+                get_fundamentals,
+                get_balance_sheet,
+                get_cashflow,
+                get_income_statement,
+            ]),
         }
 
     def propagate(self, company_name, trade_date):
         """Run the trading agents graph for a company on a specific date."""
-
         self.ticker = company_name
 
         # Initialize state
-        init_agent_state = self.propagator.create_initial_state(
-            company_name, trade_date
-        )
+        init_agent_state = self.propagator.create_initial_state(company_name, trade_date)
         args = self.propagator.get_graph_args()
 
         if self.debug:
@@ -218,7 +200,7 @@ class TradingAgentsGraph:
         # Return decision and processed signal
         return final_state, self.process_signal(final_state["final_trade_decision"])
 
-    def _log_state(self, trade_date, final_state):
+    def _log_state(self, trade_date, final_state) -> None:
         """Log the final state to a JSON file."""
         self.log_states_dict[str(trade_date)] = {
             "company_of_interest": final_state["company_of_interest"],
@@ -231,12 +213,8 @@ class TradingAgentsGraph:
                 "bull_history": final_state["investment_debate_state"]["bull_history"],
                 "bear_history": final_state["investment_debate_state"]["bear_history"],
                 "history": final_state["investment_debate_state"]["history"],
-                "current_response": final_state["investment_debate_state"][
-                    "current_response"
-                ],
-                "judge_decision": final_state["investment_debate_state"][
-                    "judge_decision"
-                ],
+                "current_response": final_state["investment_debate_state"]["current_response"],
+                "judge_decision": final_state["investment_debate_state"]["judge_decision"],
             },
             "trader_investment_decision": final_state["trader_investment_plan"],
             "risk_debate_state": {
@@ -260,17 +238,11 @@ class TradingAgentsGraph:
         ) as f:
             json.dump(self.log_states_dict, f, indent=4)
 
-    def reflect_and_remember(self, returns_losses):
+    def reflect_and_remember(self, returns_losses) -> None:
         """Reflect on decisions and update memory based on returns."""
-        self.reflector.reflect_bull_researcher(
-            self.curr_state, returns_losses, self.bull_memory
-        )
-        self.reflector.reflect_bear_researcher(
-            self.curr_state, returns_losses, self.bear_memory
-        )
-        self.reflector.reflect_trader(
-            self.curr_state, returns_losses, self.trader_memory
-        )
+        self.reflector.reflect_bull_researcher(self.curr_state, returns_losses, self.bull_memory)
+        self.reflector.reflect_bear_researcher(self.curr_state, returns_losses, self.bear_memory)
+        self.reflector.reflect_trader(self.curr_state, returns_losses, self.trader_memory)
         self.reflector.reflect_invest_judge(
             self.curr_state, returns_losses, self.invest_judge_memory
         )

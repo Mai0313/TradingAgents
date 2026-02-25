@@ -1,7 +1,9 @@
 """yfinance-based news data fetching functions."""
 
-import yfinance as yf
 from datetime import datetime
+import contextlib
+
+import yfinance as yf
 from dateutil.relativedelta import relativedelta
 
 
@@ -23,10 +25,8 @@ def _extract_article_data(article: dict) -> dict:
         pub_date_str = content.get("pubDate", "")
         pub_date = None
         if pub_date_str:
-            try:
+            with contextlib.suppress(ValueError, AttributeError):
                 pub_date = datetime.fromisoformat(pub_date_str.replace("Z", "+00:00"))
-            except (ValueError, AttributeError):
-                pass
 
         return {
             "title": title,
@@ -35,24 +35,18 @@ def _extract_article_data(article: dict) -> dict:
             "link": link,
             "pub_date": pub_date,
         }
-    else:
-        # Fallback for flat structure
-        return {
-            "title": article.get("title", "No title"),
-            "summary": article.get("summary", ""),
-            "publisher": article.get("publisher", "Unknown"),
-            "link": article.get("link", ""),
-            "pub_date": None,
-        }
+    # Fallback for flat structure
+    return {
+        "title": article.get("title", "No title"),
+        "summary": article.get("summary", ""),
+        "publisher": article.get("publisher", "Unknown"),
+        "link": article.get("link", ""),
+        "pub_date": None,
+    }
 
 
-def get_news_yfinance(
-    ticker: str,
-    start_date: str,
-    end_date: str,
-) -> str:
-    """
-    Retrieve news for a specific stock ticker using yfinance.
+def get_news_yfinance(ticker: str, start_date: str, end_date: str) -> str:
+    """Retrieve news for a specific stock ticker using yfinance.
 
     Args:
         ticker: Stock ticker symbol (e.g., "AAPL")
@@ -99,16 +93,11 @@ def get_news_yfinance(
         return f"## {ticker} News, from {start_date} to {end_date}:\n\n{news_str}"
 
     except Exception as e:
-        return f"Error fetching news for {ticker}: {str(e)}"
+        return f"Error fetching news for {ticker}: {e!s}"
 
 
-def get_global_news_yfinance(
-    curr_date: str,
-    look_back_days: int = 7,
-    limit: int = 10,
-) -> str:
-    """
-    Retrieve global/macro economic news using yfinance Search.
+def get_global_news_yfinance(curr_date: str, look_back_days: int = 7, limit: int = 10) -> str:
+    """Retrieve global/macro economic news using yfinance Search.
 
     Args:
         curr_date: Current date in yyyy-mm-dd format
@@ -131,11 +120,7 @@ def get_global_news_yfinance(
 
     try:
         for query in search_queries:
-            search = yf.Search(
-                query=query,
-                news_count=limit,
-                enable_fuzzy_query=True,
-            )
+            search = yf.Search(query=query, news_count=limit, enable_fuzzy_query=True)
 
             if search.news:
                 for article in search.news:
@@ -187,4 +172,4 @@ def get_global_news_yfinance(
         return f"## Global Market News, from {start_date} to {curr_date}:\n\n{news_str}"
 
     except Exception as e:
-        return f"Error fetching global news: {str(e)}"
+        return f"Error fetching global news: {e!s}"
