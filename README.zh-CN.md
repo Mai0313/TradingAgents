@@ -49,6 +49,7 @@ cp .env.example .env          # 配置 API 密钥
 OPENAI_API_KEY=sk-...
 ANTHROPIC_API_KEY=sk-ant-...
 GOOGLE_API_KEY=AIza...
+ALPHA_VANTAGE_API_KEY=... # Optional
 ```
 
 ### 运行 CLI
@@ -83,25 +84,6 @@ _, decision = ta.propagate("NVDA", "2024-05-10")
 print(decision)
 ```
 
-## 🧰 命令一览
-
-```bash
-# 开发
-make help               # 显示 Makefile 命令列表
-make clean              # 清理缓存、产物与产生的文档
-make format             # 执行所有 pre-commit hooks
-make test               # 执行 pytest
-make gen-docs           # 从 src/ 与 scripts/ 生成文档
-
-# 依赖管理（uv）
-make uv-install         # 安装 uv
-uv add <pkg>            # 加入正式依赖
-uv add <pkg> --dev      # 加入开发依赖
-uv sync --group dev     # 安装开发用依赖（pre-commit、poe、notebook）
-uv sync --group test    # 安装测试用依赖
-uv sync --group docs    # 安装文档用依赖
-```
-
 ## 📁 项目结构
 
 ```
@@ -132,61 +114,9 @@ src/
 4. **风险管理** — 三位风险分析师（激进、中性、保守）辩论风险
 5. **投资组合管理者** — 根据所有输入做出最终交易决策
 
-## 📚 文档系统
-
-使用 MkDocs Material，生成与预览：
-
-```bash
-uv sync --group docs
-make gen-docs
-uv run mkdocs serve    # http://localhost:9987
-```
-
-## 🐳 Docker 与本机服务
-
-`docker-compose.yaml` 内提供本机开发常见服务：`redis`、`postgresql`、`mongodb`、`mysql`。
-
-```bash
-docker compose up -d redis
-
-# 或启动示例 app
-docker compose up -d app
-```
-
-## 📦 打包与发布
-
-以 uv 产出包（wheel/sdist 会放在 `dist/`）：
-
-```bash
-uv build
-```
-
-发布到 PyPI（需设置 `UV_PUBLISH_TOKEN`）：
-
-```bash
-UV_PUBLISH_TOKEN=... uv publish
-```
-
-## 🧭 选用任务管理（Poe the Poet）
-
-```bash
-uv run poe docs        # 生成 + 启动文档预览
-uv run poe gen         # 生成 + 发布文档（gh-deploy）
-uv run poe main        # 执行 CLI（等同 uv run tradingagents）
-```
-
-## 🔁 CI/CD 工作流程总览
-
-所有流程位于 `.github/workflows/`：
-
-- **Tests**（`test.yml`）— 执行 pytest（3.11/3.12/3.13/3.14）
-- **Code Quality**（`code-quality-check.yml`）— 执行 ruff 与 pre-commit hooks
-- **Docs Deploy**（`deploy.yml`）— 构建并发布 MkDocs 网站到 GitHub Pages
-- **Build and Release**（`build_release.yml`）— 构建多平台可执行文件与 Python 包
-- **Publish Docker Image**（`build_image.yml`）— 发布至 GHCR
-- **Release Drafter**（`release_drafter.yml`）— 基于 Conventional Commits 维护草稿发布
-
 ## 🤝 贡献
+
+有关开发说明（包含文档、测试和 Docker 服务等），请参阅 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 - 欢迎 Issue/PR
 - 请遵循代码风格（ruff、类型）
