@@ -5220,7 +5220,7 @@ test = [
 [package.metadata]
 requires-dist = [
     { name = "backtrader", specifier = ">=1.9.78.123" },
-    { name = "chainlit", specifier = ">=2.5.5" },
+    { name = "chainlit", specifier = ">=2.9.6" },
     { name = "langchain-anthropic", specifier = ">=0.3.15" },
     { name = "langchain-core", specifier = ">=0.3.81" },
     { name = "langchain-experimental", specifier = ">=0.3.4" },
