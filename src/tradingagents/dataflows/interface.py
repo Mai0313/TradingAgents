@@ -1,11 +1,12 @@
 # Import from vendor-specific modules
 # Configuration and routing logic
+
 from .config import get_config
 from .y_finance import get_cashflow as get_yfinance_cashflow
 from .y_finance import get_fundamentals as get_yfinance_fundamentals
 from .y_finance import get_balance_sheet as get_yfinance_balance_sheet
-from .y_finance import get_YFin_data_online, get_stock_stats_indicators_window
 from .y_finance import get_income_statement as get_yfinance_income_statement
+from .y_finance import get_yfin_data_online, get_stock_stats_indicators_window
 from .y_finance import get_insider_transactions as get_yfinance_insider_transactions
 from .alpha_vantage import get_news as get_alpha_vantage_news
 from .alpha_vantage import get_stock as get_alpha_vantage_stock
@@ -41,7 +42,7 @@ VENDOR_LIST = ["yfinance", "alpha_vantage"]
 # Mapping of methods to their vendor-specific implementations
 VENDOR_METHODS = {
     # core_stock_apis
-    "get_stock_data": {"alpha_vantage": get_alpha_vantage_stock, "yfinance": get_YFin_data_online},
+    "get_stock_data": {"alpha_vantage": get_alpha_vantage_stock, "yfinance": get_yfin_data_online},
     # technical_indicators
     "get_indicators": {
         "alpha_vantage": get_alpha_vantage_indicator,
@@ -94,11 +95,14 @@ def get_vendor(category: str, method: str | None = None) -> str:
     # Check tool-level configuration first (if method provided)
     if method:
         tool_vendors = config.get("tool_vendors", {})
-        if method in tool_vendors:
-            return tool_vendors[method]
+        if isinstance(tool_vendors, dict) and method in tool_vendors:
+            return str(tool_vendors[method])
 
     # Fall back to category-level configuration
-    return config.get("data_vendors", {}).get(category, "default")
+    data_vendors = config.get("data_vendors", {})
+    if isinstance(data_vendors, dict):
+        return str(data_vendors.get(category, "default"))
+    return "default"
 
 
 def route_to_vendor(method: str, *args: object, **kwargs: object) -> object:

@@ -1,6 +1,5 @@
 # TradingAgents/graph/trading_graph.py
 
-import os
 import json
 from typing import Any
 from pathlib import Path
@@ -25,7 +24,7 @@ from tradingagents.agents.utils.agent_utils import (
     get_insider_transactions,
 )
 
-from .setup import GraphSetup
+from .setup import GraphSetup, MemoryComponents
 from .reflection import Reflector
 from .propagation import Propagator
 from .conditional_logic import ConditionalLogic
@@ -37,8 +36,8 @@ class TradingAgentsGraph:
 
     def __init__(
         self,
-        selected_analysts=None,
-        debug=False,
+        selected_analysts: list[str] | None = None,
+        debug: bool = False,
         config: dict[str, Any] | None = None,
         callbacks: list | None = None,
     ):
@@ -60,8 +59,8 @@ class TradingAgentsGraph:
         set_config(self.config)
 
         # Create necessary directories
-        os.makedirs(
-            os.path.join(self.config["project_dir"], "dataflows/data_cache"), exist_ok=True
+        Path(str(self.config["project_dir"]), "dataflows/data_cache").mkdir(
+            parents=True, exist_ok=True
         )
 
         # Initialize LLMs with provider-specific thinking configuration
@@ -94,6 +93,14 @@ class TradingAgentsGraph:
         self.invest_judge_memory = FinancialSituationMemory("invest_judge_memory", self.config)
         self.risk_manager_memory = FinancialSituationMemory("risk_manager_memory", self.config)
 
+        memories = MemoryComponents(
+            bull=self.bull_memory,
+            bear=self.bear_memory,
+            trader=self.trader_memory,
+            invest_judge=self.invest_judge_memory,
+            risk_manager=self.risk_manager_memory,
+        )
+
         # Create tool nodes
         self.tool_nodes = self._create_tool_nodes()
 
@@ -103,11 +110,7 @@ class TradingAgentsGraph:
             self.quick_thinking_llm,
             self.deep_thinking_llm,
             self.tool_nodes,
-            self.bull_memory,
-            self.bear_memory,
-            self.trader_memory,
-            self.invest_judge_memory,
-            self.risk_manager_memory,
+            memories,
             self.conditional_logic,
         )
 
@@ -116,9 +119,9 @@ class TradingAgentsGraph:
         self.signal_processor = SignalProcessor(self.quick_thinking_llm)
 
         # State tracking
-        self.curr_state = None
-        self.ticker = None
-        self.log_states_dict = {}  # date to full state dict
+        self.curr_state: dict[str, Any] | None = None
+        self.ticker: str | None = None
+        self.log_states_dict: dict[str, Any] = {}  # date to full state dict
 
         # Set up the graph
         self.graph = self.graph_setup.setup_graph(selected_analysts)
@@ -168,7 +171,7 @@ class TradingAgentsGraph:
             ]),
         }
 
-    def propagate(self, company_name, trade_date):
+    def propagate(self, company_name: str, trade_date: str) -> tuple[Any, Any]:
         """Run the trading agents graph for a company on a specific date."""
         self.ticker = company_name
 
@@ -200,7 +203,7 @@ class TradingAgentsGraph:
         # Return decision and processed signal
         return final_state, self.process_signal(final_state["final_trade_decision"])
 
-    def _log_state(self, trade_date, final_state) -> None:
+    def _log_state(self, trade_date: str, final_state: dict[str, Any]) -> None:
         """Log the final state to a JSON file."""
         self.log_states_dict[str(trade_date)] = {
             "company_of_interest": final_state["company_of_interest"],
@@ -229,17 +232,20 @@ class TradingAgentsGraph:
         }
 
         # Save to file
-        directory = Path(f"eval_results/{self.ticker}/TradingAgentsStrategy_logs/")
+        ticker = self.ticker or "unknown"
+        directory = Path(f"eval_results/{ticker}/TradingAgentsStrategy_logs/")
         directory.mkdir(parents=True, exist_ok=True)
 
         with open(
-            f"eval_results/{self.ticker}/TradingAgentsStrategy_logs/full_states_log_{trade_date}.json",
+            f"eval_results/{ticker}/TradingAgentsStrategy_logs/full_states_log_{trade_date}.json",
             "w",
         ) as f:
             json.dump(self.log_states_dict, f, indent=4)
 
-    def reflect_and_remember(self, returns_losses) -> None:
+    def reflect_and_remember(self, returns_losses: float) -> None:
         """Reflect on decisions and update memory based on returns."""
+        if self.curr_state is None:
+            raise RuntimeError("No state available to reflect on. Run propagate() first.")
         self.reflector.reflect_bull_researcher(self.curr_state, returns_losses, self.bull_memory)
         self.reflector.reflect_bear_researcher(self.curr_state, returns_losses, self.bear_memory)
         self.reflector.reflect_trader(self.curr_state, returns_losses, self.trader_memory)
@@ -250,6 +256,6 @@ class TradingAgentsGraph:
             self.curr_state, returns_losses, self.risk_manager_memory
         )
 
-    def process_signal(self, full_signal):
+    def process_signal(self, full_signal: str) -> str:
         """Process a signal to extract the core decision."""
         return self.signal_processor.process_signal(full_signal)

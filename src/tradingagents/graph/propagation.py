@@ -8,7 +8,7 @@ from tradingagents.agents.utils.agent_states import RiskDebateState, InvestDebat
 class Propagator:
     """Handles state initialization and propagation through the graph."""
 
-    def __init__(self, max_recur_limit=100):
+    def __init__(self, max_recur_limit: int = 100):
         """Initialize with configuration parameters."""
         self.max_recur_limit = max_recur_limit
 
@@ -43,7 +43,7 @@ class Propagator:
             callbacks: Optional list of callback handlers for tool execution tracking.
                        Note: LLM callbacks are handled separately via LLM constructor.
         """
-        config = {"recursion_limit": self.max_recur_limit}
+        config: dict[str, Any] = {"recursion_limit": self.max_recur_limit}
         if callbacks:
             config["callbacks"] = callbacks
         return {"stream_mode": "values", "config": config}

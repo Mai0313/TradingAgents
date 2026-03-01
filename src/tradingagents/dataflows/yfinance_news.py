@@ -96,6 +96,28 @@ def get_news_yfinance(ticker: str, start_date: str, end_date: str) -> str:
         return f"Error fetching news for {ticker}: {e!s}"
 
 
+def _format_article_to_str(article: dict) -> str:
+    """Format a news article dict into a display string."""
+    if "content" in article:
+        data = _extract_article_data(article)
+        title = data["title"]
+        publisher = data["publisher"]
+        link = data["link"]
+        summary = data["summary"]
+    else:
+        title = article.get("title", "No title")
+        publisher = article.get("publisher", "Unknown")
+        link = article.get("link", "")
+        summary = ""
+
+    result = f"### {title} (source: {publisher})\n"
+    if summary:
+        result += f"{summary}\n"
+    if link:
+        result += f"Link: {link}\n"
+    return result + "\n"
+
+
 def get_global_news_yfinance(curr_date: str, look_back_days: int = 7, limit: int = 10) -> str:
     """Retrieve global/macro economic news using yfinance Search.
 
@@ -115,8 +137,8 @@ def get_global_news_yfinance(curr_date: str, look_back_days: int = 7, limit: int
         "global markets trading",
     ]
 
-    all_news = []
-    seen_titles = set()
+    all_news: list[dict] = []
+    seen_titles: set[str] = set()
 
     try:
         for query in search_queries:
@@ -125,11 +147,8 @@ def get_global_news_yfinance(curr_date: str, look_back_days: int = 7, limit: int
             if search.news:
                 for article in search.news:
                     # Handle both flat and nested structures
-                    if "content" in article:
-                        data = _extract_article_data(article)
-                        title = data["title"]
-                    else:
-                        title = article.get("title", "")
+                    data = _extract_article_data(article) if "content" in article else article
+                    title = data.get("title", "")
 
                     # Deduplicate by title
                     if title and title not in seen_titles:
@@ -147,27 +166,7 @@ def get_global_news_yfinance(curr_date: str, look_back_days: int = 7, limit: int
         start_dt = curr_dt - relativedelta(days=look_back_days)
         start_date = start_dt.strftime("%Y-%m-%d")
 
-        news_str = ""
-        for article in all_news[:limit]:
-            # Handle both flat and nested structures
-            if "content" in article:
-                data = _extract_article_data(article)
-                title = data["title"]
-                publisher = data["publisher"]
-                link = data["link"]
-                summary = data["summary"]
-            else:
-                title = article.get("title", "No title")
-                publisher = article.get("publisher", "Unknown")
-                link = article.get("link", "")
-                summary = ""
-
-            news_str += f"### {title} (source: {publisher})\n"
-            if summary:
-                news_str += f"{summary}\n"
-            if link:
-                news_str += f"Link: {link}\n"
-            news_str += "\n"
+        news_str = "".join(_format_article_to_str(article) for article in all_news[:limit])
 
         return f"## Global Market News, from {start_date} to {curr_date}:\n\n{news_str}"
 

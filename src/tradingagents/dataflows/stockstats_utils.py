@@ -1,5 +1,5 @@
-import os
-from typing import Any, Annotated
+from typing import Annotated
+from pathlib import Path
 
 import pandas as pd
 import yfinance as yf
@@ -16,7 +16,7 @@ class StockstatsUtils:
             str, "quantitative indicators based off of the stock data for the company"
         ],
         curr_date: Annotated[str, "curr date for retrieving stock price data, YYYY-mm-dd"],
-    ) -> Any:
+    ) -> float | str:
         config = get_config()
 
         today_date = pd.Timestamp.today()
@@ -28,13 +28,12 @@ class StockstatsUtils:
         end_date_str = end_date.strftime("%Y-%m-%d")
 
         # Ensure cache directory exists
-        os.makedirs(config["data_cache_dir"], exist_ok=True)
+        cache_dir = Path(str(config["data_cache_dir"]))
+        cache_dir.mkdir(parents=True, exist_ok=True)
 
-        data_file = os.path.join(
-            config["data_cache_dir"], f"{symbol}-YFin-data-{start_date_str}-{end_date_str}.csv"
-        )
+        data_file = cache_dir / f"{symbol}-YFin-data-{start_date_str}-{end_date_str}.csv"
 
-        if os.path.exists(data_file):
+        if data_file.exists():
             data = pd.read_csv(data_file)
             data["Date"] = pd.to_datetime(data["Date"])
         else:

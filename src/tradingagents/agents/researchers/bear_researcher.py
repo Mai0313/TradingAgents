@@ -1,8 +1,14 @@
 from typing import Any
 from collections.abc import Callable
 
+from langchain_core.language_models import BaseChatModel
 
-def create_bear_researcher(llm: Any, memory: Any) -> Callable[[dict[str, Any]], dict[str, Any]]:
+from tradingagents.agents.utils.memory import FinancialSituationMemory
+
+
+def create_bear_researcher(
+    llm: BaseChatModel, memory: FinancialSituationMemory
+) -> Callable[[dict[str, Any]], dict[str, Any]]:
     def bear_node(state: dict[str, Any]) -> dict[str, Any]:
         investment_debate_state = state["investment_debate_state"]
         history = investment_debate_state.get("history", "")

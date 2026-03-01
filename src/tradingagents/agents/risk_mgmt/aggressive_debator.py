@@ -1,8 +1,10 @@
 from typing import Any
 from collections.abc import Callable
 
+from langchain_core.language_models import BaseChatModel
 
-def create_aggressive_debator(llm: Any) -> Callable[[dict[str, Any]], dict[str, Any]]:
+
+def create_aggressive_debator(llm: BaseChatModel) -> Callable[[dict[str, Any]], dict[str, Any]]:
     def aggressive_node(state: dict[str, Any]) -> dict[str, Any]:
         risk_debate_state = state["risk_debate_state"]
         history = risk_debate_state.get("history", "")

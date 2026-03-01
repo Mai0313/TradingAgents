@@ -2,8 +2,14 @@ from typing import Any
 import functools
 from collections.abc import Callable
 
+from langchain_core.language_models import BaseChatModel
 
-def create_trader(llm: Any, memory: Any) -> Callable[[dict[str, Any]], dict[str, Any]]:
+from tradingagents.agents.utils.memory import FinancialSituationMemory
+
+
+def create_trader(
+    llm: BaseChatModel, memory: FinancialSituationMemory
+) -> Callable[[dict[str, Any]], dict[str, Any]]:
     def trader_node(state: dict[str, Any], name: str) -> dict[str, Any]:
         company_name = state["company_of_interest"]
         investment_plan = state["investment_plan"]

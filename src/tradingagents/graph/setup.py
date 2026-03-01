@@ -1,8 +1,12 @@
 # TradingAgents/graph/setup.py
 
+from typing import Any
+from dataclasses import dataclass
+
 from langgraph.graph import END, START, StateGraph
-from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import ToolNode
+from langgraph.graph.state import CompiledStateGraph
+from langchain_core.language_models import BaseChatModel
 
 from tradingagents.agents import (
     AgentState,
@@ -20,8 +24,20 @@ from tradingagents.agents import (
     create_fundamentals_analyst,
     create_social_media_analyst,
 )
+from tradingagents.agents.utils.memory import FinancialSituationMemory
 
 from .conditional_logic import ConditionalLogic
+
+
+@dataclass
+class MemoryComponents:
+    """Groups all memory components for the trading agents."""
+
+    bull: FinancialSituationMemory
+    bear: FinancialSituationMemory
+    trader: FinancialSituationMemory
+    invest_judge: FinancialSituationMemory
+    risk_manager: FinancialSituationMemory
 
 
 class GraphSetup:
@@ -29,32 +45,72 @@ class GraphSetup:
 
     def __init__(
         self,
-        quick_thinking_llm: ChatOpenAI,
-        deep_thinking_llm: ChatOpenAI,
+        quick_thinking_llm: BaseChatModel,
+        deep_thinking_llm: BaseChatModel,
         tool_nodes: dict[str, ToolNode],
-        bull_memory,
-        bear_memory,
-        trader_memory,
-        invest_judge_memory,
-        risk_manager_memory,
+        memories: MemoryComponents,
         conditional_logic: ConditionalLogic,
     ):
         """Initialize with required components."""
         self.quick_thinking_llm = quick_thinking_llm
         self.deep_thinking_llm = deep_thinking_llm
         self.tool_nodes = tool_nodes
-        self.bull_memory = bull_memory
-        self.bear_memory = bear_memory
-        self.trader_memory = trader_memory
-        self.invest_judge_memory = invest_judge_memory
-        self.risk_manager_memory = risk_manager_memory
+        self.bull_memory = memories.bull
+        self.bear_memory = memories.bear
+        self.trader_memory = memories.trader
+        self.invest_judge_memory = memories.invest_judge
+        self.risk_manager_memory = memories.risk_manager
         self.conditional_logic = conditional_logic
 
-    def setup_graph(self, selected_analysts=None):
+    def _build_analyst_nodes(
+        self, selected_analysts: list[str]
+    ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+        """Create analyst, delete and tool nodes for selected analysts."""
+        analyst_creators = {
+            "market": create_market_analyst,
+            "social": create_social_media_analyst,
+            "news": create_news_analyst,
+            "fundamentals": create_fundamentals_analyst,
+        }
+        analyst_nodes: dict[str, Any] = {}
+        delete_nodes: dict[str, Any] = {}
+        tool_nodes: dict[str, Any] = {}
+
+        for analyst_type in selected_analysts:
+            if analyst_type in analyst_creators:
+                analyst_nodes[analyst_type] = analyst_creators[analyst_type](
+                    self.quick_thinking_llm
+                )
+                delete_nodes[analyst_type] = create_msg_delete()
+                tool_nodes[analyst_type] = self.tool_nodes[analyst_type]
+
+        return analyst_nodes, delete_nodes, tool_nodes
+
+    def _add_analyst_edges(self, workflow: StateGraph, selected_analysts: list[str]) -> None:
+        """Add conditional edges connecting analysts in sequence."""
+        for i, analyst_type in enumerate(selected_analysts):
+            current_analyst = f"{analyst_type.capitalize()} Analyst"
+            current_tools = f"tools_{analyst_type}"
+            current_clear = f"Msg Clear {analyst_type.capitalize()}"
+
+            workflow.add_conditional_edges(
+                current_analyst,
+                getattr(self.conditional_logic, f"should_continue_{analyst_type}"),
+                [current_tools, current_clear],
+            )
+            workflow.add_edge(current_tools, current_analyst)
+
+            if i < len(selected_analysts) - 1:
+                next_analyst = f"{selected_analysts[i + 1].capitalize()} Analyst"
+                workflow.add_edge(current_clear, next_analyst)
+            else:
+                workflow.add_edge(current_clear, "Bull Researcher")
+
+    def setup_graph(self, selected_analysts: list[str] | None = None) -> CompiledStateGraph:
         """Set up and compile the agent workflow graph.
 
         Args:
-            selected_analysts (list): List of analyst types to include. Options are:
+            selected_analysts: List of analyst types to include. Options are:
                 - "market": Market analyst
                 - "social": Social media analyst
                 - "news": News analyst
@@ -65,30 +121,7 @@ class GraphSetup:
         if len(selected_analysts) == 0:
             raise ValueError("Trading Agents Graph Setup Error: no analysts selected!")
 
-        # Create analyst nodes
-        analyst_nodes = {}
-        delete_nodes = {}
-        tool_nodes = {}
-
-        if "market" in selected_analysts:
-            analyst_nodes["market"] = create_market_analyst(self.quick_thinking_llm)
-            delete_nodes["market"] = create_msg_delete()
-            tool_nodes["market"] = self.tool_nodes["market"]
-
-        if "social" in selected_analysts:
-            analyst_nodes["social"] = create_social_media_analyst(self.quick_thinking_llm)
-            delete_nodes["social"] = create_msg_delete()
-            tool_nodes["social"] = self.tool_nodes["social"]
-
-        if "news" in selected_analysts:
-            analyst_nodes["news"] = create_news_analyst(self.quick_thinking_llm)
-            delete_nodes["news"] = create_msg_delete()
-            tool_nodes["news"] = self.tool_nodes["news"]
-
-        if "fundamentals" in selected_analysts:
-            analyst_nodes["fundamentals"] = create_fundamentals_analyst(self.quick_thinking_llm)
-            delete_nodes["fundamentals"] = create_msg_delete()
-            tool_nodes["fundamentals"] = self.tool_nodes["fundamentals"]
+        analyst_nodes, delete_nodes, tool_nodes = self._build_analyst_nodes(selected_analysts)
 
         # Create researcher and manager nodes
         bull_researcher_node = create_bull_researcher(self.quick_thinking_llm, self.bull_memory)
@@ -123,33 +156,14 @@ class GraphSetup:
         workflow.add_node("Conservative Analyst", conservative_analyst)
         workflow.add_node("Risk Judge", risk_manager_node)
 
-        # Define edges
-        # Start with the first analyst
+        # Define edges - start with the first analyst
         first_analyst = selected_analysts[0]
         workflow.add_edge(START, f"{first_analyst.capitalize()} Analyst")
 
         # Connect analysts in sequence
-        for i, analyst_type in enumerate(selected_analysts):
-            current_analyst = f"{analyst_type.capitalize()} Analyst"
-            current_tools = f"tools_{analyst_type}"
-            current_clear = f"Msg Clear {analyst_type.capitalize()}"
+        self._add_analyst_edges(workflow, selected_analysts)
 
-            # Add conditional edges for current analyst
-            workflow.add_conditional_edges(
-                current_analyst,
-                getattr(self.conditional_logic, f"should_continue_{analyst_type}"),
-                [current_tools, current_clear],
-            )
-            workflow.add_edge(current_tools, current_analyst)
-
-            # Connect to next analyst or to Bull Researcher if this is the last analyst
-            if i < len(selected_analysts) - 1:
-                next_analyst = f"{selected_analysts[i + 1].capitalize()} Analyst"
-                workflow.add_edge(current_clear, next_analyst)
-            else:
-                workflow.add_edge(current_clear, "Bull Researcher")
-
-        # Add remaining edges
+        # Add research team edges
         workflow.add_conditional_edges(
             "Bull Researcher",
             self.conditional_logic.should_continue_debate,
@@ -162,6 +176,8 @@ class GraphSetup:
         )
         workflow.add_edge("Research Manager", "Trader")
         workflow.add_edge("Trader", "Aggressive Analyst")
+
+        # Add risk management edges
         workflow.add_conditional_edges(
             "Aggressive Analyst",
             self.conditional_logic.should_continue_risk_analysis,

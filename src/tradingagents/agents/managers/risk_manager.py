@@ -1,8 +1,14 @@
 from typing import Any
 from collections.abc import Callable
 
+from langchain_core.language_models import BaseChatModel
 
-def create_risk_manager(llm: Any, memory: Any) -> Callable[[dict[str, Any]], dict[str, Any]]:
+from tradingagents.agents.utils.memory import FinancialSituationMemory
+
+
+def create_risk_manager(
+    llm: BaseChatModel, memory: FinancialSituationMemory
+) -> Callable[[dict[str, Any]], dict[str, Any]]:
     def risk_manager_node(state: dict[str, Any]) -> dict[str, Any]:
         history = state["risk_debate_state"]["history"]
         risk_debate_state = state["risk_debate_state"]

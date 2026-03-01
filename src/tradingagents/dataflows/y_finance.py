@@ -1,6 +1,6 @@
-import os
 from typing import Annotated
 import logging
+from pathlib import Path
 from datetime import datetime
 
 import pandas as pd
@@ -8,17 +8,18 @@ import yfinance as yf
 from stockstats import wrap
 from dateutil.relativedelta import relativedelta
 
+from .config import get_config
 from .stockstats_utils import StockstatsUtils
 
 logger = logging.getLogger(__name__)
 
 
-def get_YFin_data_online(
+def get_yfin_data_online(
     symbol: Annotated[str, "ticker symbol of the company"],
     start_date: Annotated[str, "Start date in yyyy-mm-dd format"],
     end_date: Annotated[str, "End date in yyyy-mm-dd format"],
-):
-
+) -> str:
+    """Fetch OHLCV stock data online via yfinance and return as CSV string."""
     datetime.strptime(start_date, "%Y-%m-%d")
     datetime.strptime(end_date, "%Y-%m-%d")
 
@@ -198,40 +199,35 @@ def _get_stock_stats_bulk(
     Fetches data once and calculates indicator for all available dates.
     Returns dict mapping date strings to indicator values.
     """
-    from .config import get_config
-
     config = get_config()
-    online = config["data_vendors"]["technical_indicators"] != "local"
+    data_vendors = config["data_vendors"]
+    online = isinstance(data_vendors, dict) and data_vendors.get("technical_indicators") != "local"
 
     if not online:
         # Local data path
         try:
             data = pd.read_csv(
-                os.path.join(
-                    config.get("data_cache_dir", "data"),
-                    f"{symbol}-YFin-data-2015-01-01-2025-03-25.csv",
-                )
+                Path(str(config.get("data_cache_dir", "data")))
+                / f"{symbol}-YFin-data-2015-01-01-2025-03-25.csv"
             )
             df = wrap(data)
-        except FileNotFoundError:
-            raise Exception("Stockstats fail: Yahoo Finance data not fetched yet!")
+        except FileNotFoundError as exc:
+            raise RuntimeError("Stockstats fail: Yahoo Finance data not fetched yet!") from exc
     else:
         # Online data fetching with caching
         today_date = pd.Timestamp.today()
-        curr_date_dt = pd.to_datetime(curr_date)
 
         end_date = today_date
         start_date = today_date - pd.DateOffset(years=15)
         start_date_str = start_date.strftime("%Y-%m-%d")
         end_date_str = end_date.strftime("%Y-%m-%d")
 
-        os.makedirs(config["data_cache_dir"], exist_ok=True)
+        cache_dir = Path(str(config["data_cache_dir"]))
+        cache_dir.mkdir(parents=True, exist_ok=True)
 
-        data_file = os.path.join(
-            config["data_cache_dir"], f"{symbol}-YFin-data-{start_date_str}-{end_date_str}.csv"
-        )
+        data_file = cache_dir / f"{symbol}-YFin-data-{start_date_str}-{end_date_str}.csv"
 
-        if os.path.exists(data_file):
+        if data_file.exists():
             data = pd.read_csv(data_file)
             data["Date"] = pd.to_datetime(data["Date"])
         else:
@@ -293,7 +289,7 @@ def get_stockstats_indicator(
 def get_fundamentals(
     ticker: Annotated[str, "ticker symbol of the company"],
     curr_date: Annotated[str | None, "current date (not used for yfinance)"] = None,
-):
+) -> str:
     """Get company fundamentals overview from yfinance."""
     try:
         ticker_obj = yf.Ticker(ticker.upper())
@@ -351,7 +347,7 @@ def get_balance_sheet(
     ticker: Annotated[str, "ticker symbol of the company"],
     freq: Annotated[str, "frequency of data: 'annual' or 'quarterly'"] = "quarterly",
     curr_date: Annotated[str | None, "current date (not used for yfinance)"] = None,
-):
+) -> str:
     """Get balance sheet data from yfinance."""
     try:
         ticker_obj = yf.Ticker(ticker.upper())
@@ -381,7 +377,7 @@ def get_cashflow(
     ticker: Annotated[str, "ticker symbol of the company"],
     freq: Annotated[str, "frequency of data: 'annual' or 'quarterly'"] = "quarterly",
     curr_date: Annotated[str | None, "current date (not used for yfinance)"] = None,
-):
+) -> str:
     """Get cash flow data from yfinance."""
     try:
         ticker_obj = yf.Ticker(ticker.upper())
@@ -411,7 +407,7 @@ def get_income_statement(
     ticker: Annotated[str, "ticker symbol of the company"],
     freq: Annotated[str, "frequency of data: 'annual' or 'quarterly'"] = "quarterly",
     curr_date: Annotated[str | None, "current date (not used for yfinance)"] = None,
-):
+) -> str:
     """Get income statement data from yfinance."""
     try:
         ticker_obj = yf.Ticker(ticker.upper())
@@ -437,7 +433,7 @@ def get_income_statement(
         return f"Error retrieving income statement for {ticker}: {e!s}"
 
 
-def get_insider_transactions(ticker: Annotated[str, "ticker symbol of the company"]):
+def get_insider_transactions(ticker: Annotated[str, "ticker symbol of the company"]) -> str:
     """Get insider transactions data from yfinance."""
     try:
         ticker_obj = yf.Ticker(ticker.upper())

@@ -2,6 +2,7 @@ from typing import Any
 from collections.abc import Callable
 
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.language_models import BaseChatModel
 
 from tradingagents.agents.utils.agent_utils import (
     get_cashflow,
@@ -11,7 +12,7 @@ from tradingagents.agents.utils.agent_utils import (
 )
 
 
-def create_fundamentals_analyst(llm: Any) -> Callable[[dict[str, Any]], dict[str, Any]]:
+def create_fundamentals_analyst(llm: BaseChatModel) -> Callable[[dict[str, Any]], dict[str, Any]]:
     def fundamentals_analyst_node(state: dict[str, Any]) -> dict[str, Any]:
         current_date = state["trade_date"]
         ticker = state["company_of_interest"]

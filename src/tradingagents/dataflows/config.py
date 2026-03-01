@@ -19,12 +19,13 @@ def initialize_config() -> None:
         _config_container[0] = default_config.DEFAULT_CONFIG.copy()
 
 
-def set_config(config: dict) -> None:
+def set_config(config: dict[str, object]) -> None:
     """Update the configuration with custom values."""
     if _config_container[0] is None:
         _config_container[0] = default_config.DEFAULT_CONFIG.copy()
     cfg = _config_container[0]
-    assert cfg is not None
+    if cfg is None:
+        raise RuntimeError("Configuration not initialized")
     cfg.update(config)
 
 
@@ -33,7 +34,8 @@ def get_config() -> dict[str, object]:
     if _config_container[0] is None:
         initialize_config()
     cfg = _config_container[0]
-    assert cfg is not None
+    if cfg is None:
+        raise RuntimeError("Configuration not initialized")
     return cfg.copy()
 
 

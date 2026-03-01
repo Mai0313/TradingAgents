@@ -2,13 +2,15 @@
 
 from typing import Any
 
-from langchain_openai import ChatOpenAI
+from langchain_core.language_models import BaseChatModel
+
+from tradingagents.agents.utils.memory import FinancialSituationMemory
 
 
 class Reflector:
     """Handles reflection on decisions and updating memory."""
 
-    def __init__(self, quick_thinking_llm: ChatOpenAI):
+    def __init__(self, quick_thinking_llm: BaseChatModel):
         """Initialize the reflector with an LLM."""
         self.quick_thinking_llm = quick_thinking_llm
         self.reflection_system_prompt = self._get_reflection_prompt()
@@ -57,7 +59,7 @@ Adhere strictly to these instructions, and ensure your output is detailed, accur
         return f"{curr_market_report}\n\n{curr_sentiment_report}\n\n{curr_news_report}\n\n{curr_fundamentals_report}"
 
     def _reflect_on_component(
-        self, component_type: str, report: str, situation: str, returns_losses
+        self, component_type: str, report: str, situation: str, returns_losses: float
     ) -> str:
         """Generate reflection for a component."""
         messages = [
@@ -71,7 +73,12 @@ Adhere strictly to these instructions, and ensure your output is detailed, accur
         result = self.quick_thinking_llm.invoke(messages).content
         return result
 
-    def reflect_bull_researcher(self, current_state, returns_losses, bull_memory) -> None:
+    def reflect_bull_researcher(
+        self,
+        current_state: dict[str, Any],
+        returns_losses: float,
+        bull_memory: FinancialSituationMemory,
+    ) -> None:
         """Reflect on bull researcher's analysis and update memory."""
         situation = self._extract_current_situation(current_state)
         bull_debate_history = current_state["investment_debate_state"]["bull_history"]
@@ -79,7 +86,12 @@ Adhere strictly to these instructions, and ensure your output is detailed, accur
         result = self._reflect_on_component("BULL", bull_debate_history, situation, returns_losses)
         bull_memory.add_situations([(situation, result)])
 
-    def reflect_bear_researcher(self, current_state, returns_losses, bear_memory) -> None:
+    def reflect_bear_researcher(
+        self,
+        current_state: dict[str, Any],
+        returns_losses: float,
+        bear_memory: FinancialSituationMemory,
+    ) -> None:
         """Reflect on bear researcher's analysis and update memory."""
         situation = self._extract_current_situation(current_state)
         bear_debate_history = current_state["investment_debate_state"]["bear_history"]
@@ -87,7 +99,12 @@ Adhere strictly to these instructions, and ensure your output is detailed, accur
         result = self._reflect_on_component("BEAR", bear_debate_history, situation, returns_losses)
         bear_memory.add_situations([(situation, result)])
 
-    def reflect_trader(self, current_state, returns_losses, trader_memory) -> None:
+    def reflect_trader(
+        self,
+        current_state: dict[str, Any],
+        returns_losses: float,
+        trader_memory: FinancialSituationMemory,
+    ) -> None:
         """Reflect on trader's decision and update memory."""
         situation = self._extract_current_situation(current_state)
         trader_decision = current_state["trader_investment_plan"]
@@ -95,7 +112,12 @@ Adhere strictly to these instructions, and ensure your output is detailed, accur
         result = self._reflect_on_component("TRADER", trader_decision, situation, returns_losses)
         trader_memory.add_situations([(situation, result)])
 
-    def reflect_invest_judge(self, current_state, returns_losses, invest_judge_memory) -> None:
+    def reflect_invest_judge(
+        self,
+        current_state: dict[str, Any],
+        returns_losses: float,
+        invest_judge_memory: FinancialSituationMemory,
+    ) -> None:
         """Reflect on investment judge's decision and update memory."""
         situation = self._extract_current_situation(current_state)
         judge_decision = current_state["investment_debate_state"]["judge_decision"]
@@ -105,7 +127,12 @@ Adhere strictly to these instructions, and ensure your output is detailed, accur
         )
         invest_judge_memory.add_situations([(situation, result)])
 
-    def reflect_risk_manager(self, current_state, returns_losses, risk_manager_memory) -> None:
+    def reflect_risk_manager(
+        self,
+        current_state: dict[str, Any],
+        returns_losses: float,
+        risk_manager_memory: FinancialSituationMemory,
+    ) -> None:
         """Reflect on risk manager's decision and update memory."""
         situation = self._extract_current_situation(current_state)
         judge_decision = current_state["risk_debate_state"]["judge_decision"]
