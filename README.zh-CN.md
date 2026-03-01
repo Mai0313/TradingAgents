@@ -23,9 +23,10 @@
 ## ✨ 重点特色
 
 - 多 Agent 架构：分析师团队 → 研究团队 → 交易员 → 风险管理 → 投资组合管理
-- 支持多种 LLM 供应商：OpenAI、Anthropic、Google Gemini
+- 支持多种 LLM 供应商：OpenAI、Anthropic、Google Gemini、xAI (Grok)、OpenRouter、Ollama
 - 多种数据供应商：`yfinance`、Alpha Vantage
-- 带有实时进度显示的交互式 CLI
+- 带有实时进度显示及逐步配置流程的交互式 CLI
+- 分析结果自动保存至 `results/` 目录并按团队分组
 - 现代 `src/` 布局，完整类型注解
 - 通过 `uv` 进行快速依赖管理
 - Pre-commit 包链：ruff、mdformat、codespell、mypy、uv hooks
@@ -46,10 +47,15 @@ cp .env.example .env          # 配置 API 密钥
 编辑 `.env` 并设置您的 LLM 供应商密钥：
 
 ```bash
+# LLM 供应商（设置您使用的那一个）
 OPENAI_API_KEY=sk-...
 ANTHROPIC_API_KEY=sk-ant-...
 GOOGLE_API_KEY=AIza...
-ALPHA_VANTAGE_API_KEY=... # Optional
+XAI_API_KEY=...
+OPENROUTER_API_KEY=...
+
+# 可选数据供应商
+ALPHA_VANTAGE_API_KEY=...
 ```
 
 ### 运行 CLI
@@ -60,6 +66,16 @@ uv run tradingagents
 uv run cli
 ```
 
+CLI 将引导您完成以下步骤：
+
+1. **股票代码** — 输入要分析的股票代码（例如 `NVDA`）
+2. **分析日期** — 输入日期，格式为 `YYYY-MM-DD`
+3. **分析师团队** — 选择一个或多个分析师（市场、社交、新闻、基本面）
+4. **研究深度** — 选择浅层 / 中等 / 深度辩论轮次
+5. **LLM 供应商** — 选择 OpenAI、Google、Anthropic、xAI、OpenRouter 或 Ollama
+6. **思考 Agent** — 选择快速思考和深度思考 LLM 模型
+7. **供应商配置** — 设置推理努力程度（OpenAI）或思考模式（Google Gemini）
+
 ### 作为库使用
 
 您也可以在自己的脚本中以程序化方式使用 `TradingAgents`：
@@ -69,8 +85,9 @@ from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 
 config = DEFAULT_CONFIG.copy()
-config["deep_think_llm"] = "gpt-4o"
-config["quick_think_llm"] = "gpt-4o-mini"
+config["llm_provider"] = "openai"
+config["deep_think_llm"] = "gpt-5.2"
+config["quick_think_llm"] = "gpt-5-mini"
 config["max_debate_rounds"] = 1
 config["data_vendors"] = {
     "core_stock_apis": "yfinance",
@@ -99,10 +116,12 @@ src/
     ├── cli/              # 交互式 CLI 应用程序
     │   ├── main.py       # CLI 入口（Typer app）
     │   ├── utils.py      # CLI 辅助函数
+    │   ├── announcements.py  # 启动公告
+    │   ├── stats_handler.py  # LLM/工具调用统计
     │   └── static/       # 静态资源（欢迎画面）
     ├── dataflows/        # 数据采集与供应商路由
     ├── graph/            # LangGraph 交易图配置
-    ├── llm_clients/      # LLM 供应商客户端
+    ├── llm_clients/      # LLM 供应商客户端（OpenAI、Anthropic、Google、xAI、OpenRouter、Ollama）
     └── default_config.py # 默认配置
 ```
 
@@ -113,6 +132,8 @@ src/
 3. **交易员** — 根据研究制定交易计划
 4. **风险管理** — 三位风险分析师（激进、中性、保守）辩论风险
 5. **投资组合管理者** — 根据所有输入做出最终交易决策
+
+分析结果保存至 `results/<股票代码>/<日期>/`，各团队报告分文件夹，并生成合并报告 `complete_report.md`。
 
 ## 🤝 贡献
 

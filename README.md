@@ -23,9 +23,10 @@ Other Languages: [English](README.md) | [繁體中文](README.zh-TW.md) | [简�
 ## ✨ Highlights
 
 - Multi-agent architecture: Analyst Team → Research Team → Trader → Risk Management → Portfolio Management
-- Support for multiple LLM providers: OpenAI, Anthropic, Google Gemini
+- Support for multiple LLM providers: OpenAI, Anthropic, Google Gemini, xAI (Grok), OpenRouter, Ollama
 - Multiple data vendors: `yfinance`, Alpha Vantage
-- Interactive CLI with real-time progress display
+- Interactive CLI with real-time progress display and step-by-step configuration
+- Analysis results automatically saved to `results/` with organized subfolders
 - Modern `src/` layout with full type-annotated code
 - Fast dependency management via `uv`
 - Pre-commit suite: ruff, mdformat, codespell, mypy, uv hooks
@@ -46,10 +47,15 @@ cp .env.example .env          # Configure your API keys
 Edit `.env` and set your LLM provider keys:
 
 ```bash
+# LLM Providers (set the one you use)
 OPENAI_API_KEY=sk-...
 ANTHROPIC_API_KEY=sk-ant-...
 GOOGLE_API_KEY=AIza...
-ALPHA_VANTAGE_API_KEY=... # Optional
+XAI_API_KEY=...
+OPENROUTER_API_KEY=...
+
+# Optional Data Vendors
+ALPHA_VANTAGE_API_KEY=...
 ```
 
 ### Run the CLI
@@ -60,6 +66,16 @@ uv run tradingagents
 uv run cli
 ```
 
+The CLI will guide you through the following steps:
+
+1. **Ticker Symbol** — Enter the stock ticker to analyze (e.g., `NVDA`)
+2. **Analysis Date** — Enter the date in `YYYY-MM-DD` format
+3. **Analyst Team** — Select one or more analysts (Market, Social, News, Fundamentals)
+4. **Research Depth** — Choose Shallow / Medium / Deep debate rounds
+5. **LLM Provider** — Select OpenAI, Google, Anthropic, xAI, OpenRouter, or Ollama
+6. **Thinking Agents** — Choose quick-thinking and deep-thinking LLM models
+7. **Provider Config** — Set reasoning effort (OpenAI) or thinking mode (Google Gemini)
+
 ### Use as a Library
 
 You can also use `TradingAgents` programmatically in your own scripts:
@@ -69,8 +85,9 @@ from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 
 config = DEFAULT_CONFIG.copy()
-config["deep_think_llm"] = "gpt-4o"
-config["quick_think_llm"] = "gpt-4o-mini"
+config["llm_provider"] = "openai"
+config["deep_think_llm"] = "gpt-5.2"
+config["quick_think_llm"] = "gpt-5-mini"
 config["max_debate_rounds"] = 1
 config["data_vendors"] = {
     "core_stock_apis": "yfinance",
@@ -99,10 +116,12 @@ src/
     ├── cli/              # Interactive CLI application
     │   ├── main.py       # CLI entrypoint (Typer app)
     │   ├── utils.py      # CLI helper functions
+    │   ├── announcements.py  # Startup announcements
+    │   ├── stats_handler.py  # LLM/tool call statistics
     │   └── static/       # Static assets (welcome screen)
     ├── dataflows/        # Data ingestion & vendor routing
     ├── graph/            # LangGraph trading graph setup
-    ├── llm_clients/      # LLM provider clients
+    ├── llm_clients/      # LLM provider clients (OpenAI, Anthropic, Google, xAI, OpenRouter, Ollama)
     └── default_config.py # Default configuration
 ```
 
@@ -113,6 +132,8 @@ src/
 3. **Trader** — Formulates a trade plan based on research
 4. **Risk Management** — Three risk analysts (aggressive, neutral, conservative) debate risk
 5. **Portfolio Manager** — Makes the final trade decision based on all inputs
+
+Results are saved to `results/<TICKER>/<DATE>/` with per-team sub-folders and a consolidated `complete_report.md`.
 
 ## 🤝 Contributing
 
