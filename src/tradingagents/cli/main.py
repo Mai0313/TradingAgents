@@ -120,8 +120,8 @@ class MessageBuffer:
 
         # Build report_sections dynamically
         self.report_sections = {}
-        for section, (analyst_key, _) in self.REPORT_SECTIONS.items():
-            if analyst_key is None or analyst_key in self.selected_analysts:
+        for section, (section_analyst_key, _) in self.REPORT_SECTIONS.items():
+            if section_analyst_key is None or section_analyst_key in self.selected_analysts:
                 self.report_sections[section] = None
 
         # Reset other state
