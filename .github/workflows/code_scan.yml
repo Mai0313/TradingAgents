@@ -13,14 +13,10 @@ jobs:
   secret-scanning:
     name: Secret Scanning
     runs-on: ubuntu-latest
-    # container: catthehacker/ubuntu:act-22.04  # Uncomment it if you use it on Gitea
 
     steps:
       - name: Disable SSL Verify
         run: git config --global http.sslVerify false
-
-      # - name: Setup MTK Certification
-      #   uses: https://gitea.mediatek.inc/actions/mtk-cert-action@v1.2.0
 
       - name: Checkout
         uses: actions/checkout@v6
@@ -34,21 +30,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Trufflehog Scanning
-        uses: trufflesecurity/trufflehog@v3.93.4
+        uses: trufflesecurity/trufflehog@v3.93.6
         with:
           extra_args: --results=verified,unknown
 
   codeql-scanning:
     name: CodeQL Scanning
     runs-on: ubuntu-latest
-    # container: catthehacker/ubuntu:act-22.04  # Uncomment it if you use it on Gitea
 
     steps:
       - name: Disable SSL Verify
         run: git config --global http.sslVerify false
-
-      # - name: Setup MTK Certification
-      #   uses: https://gitea.mediatek.inc/actions/mtk-cert-action@v1.2.0
 
       - name: Checkout
         uses: actions/checkout@v6
@@ -65,14 +57,10 @@ jobs:
   trivy-scanning:
     name: Trivy Scanning
     runs-on: ubuntu-latest
-    # container: catthehacker/ubuntu:act-22.04  # Uncomment it if you use it on Gitea
 
     steps:
       - name: Disable SSL Verify
         run: git config --global http.sslVerify false
-
-      # - name: Setup MTK Certification
-      #   uses: https://gitea.mediatek.inc/actions/mtk-cert-action@v1.2.0
 
       - name: Checkout
         uses: actions/checkout@v6

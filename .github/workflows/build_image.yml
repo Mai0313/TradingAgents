@@ -23,7 +23,6 @@ jobs:
   build_images:
     name: Build and Push Images
     runs-on: ubuntu-latest
-    # container: catthehacker/ubuntu:act-22.04  # Uncomment it if you use it on Gitea
 
     strategy:
       matrix:
@@ -35,9 +34,6 @@ jobs:
     steps:
       - name: Disable SSL Verify
         run: git config --global http.sslVerify false
-
-      # - name: Setup MTK Certification
-      #   uses: https://gitea.mediatek.inc/actions/mtk-cert-action@v1.2.0
 
       - name: Checkout
         uses: actions/checkout@v6
@@ -73,26 +69,6 @@ jobs:
 
       - name: Set up Docker BuildX
         uses: docker/setup-buildx-action@v3.12.0
-        # with:
-        #   endpoint: builders
-        #   config-inline: |
-        #     debug = true
-        #     insecure-entitlements = [ "network.host", "security.insecure" ]
-        #     [registry."oa-mirror.mediatek.inc:5000"]
-        #       http = true
-        #       insecure = true
-        #     [registry."mtkomcr.mediatek.inc"]
-        #       http = false
-        #       insecure = true
-        #     [registry."mtksms10.mediatek.inc:5000"]
-        #       http = true
-        #       insecure = true
-        #     [registry."gitea.mediatek.inc"]
-        #       http = false
-        #       insecure = true
-        #     [worker.oci]
-        #       [worker.oci.environmentfile]
-        #         GIT_SSL_NO_VERIFY = "true"
 
       - name: Docker meta
         id: meta

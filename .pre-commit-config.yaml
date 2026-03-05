@@ -127,6 +127,7 @@ repos:
           - "Types-urllib3"
           - "Types-redis"
           - "Types-attrs"
+          - "types-python-dateutil"
 
   # - repo: local
   #   hooks:
