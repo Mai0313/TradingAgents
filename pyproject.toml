@@ -69,6 +69,7 @@ authors = [
 dependencies = [
     "backtrader>=1.9.78.123",
     "chainlit>=2.9.6",
+    "ag2[anthropic,gemini,openai]>=0.7.5",
     "langchain-anthropic>=1.3.4",
     "langchain-core>=1.2.17",
     "langchain-experimental>=0.4.1",
