@@ -15,4 +15,4 @@ config["data_vendors"] = {
 
 ta = TradingAgentsGraph(debug=True, config=config)
 _, decision = ta.propagate("NVDA", "2026-03-05")
-print(decision)
+print(decision)  # noqa: T201
