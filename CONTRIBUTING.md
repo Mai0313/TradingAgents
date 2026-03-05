@@ -32,26 +32,20 @@ make gen-docs
 uv run mkdocs serve    # http://localhost:9987
 ```
 
-## 🐳 Docker and Local Services
+## 🐳 Docker Environment
 
-`docker-compose.yaml` includes optional services for local development: `redis`, `postgresql`, `mongodb`, `mysql`, and an example `app` service that runs the CLI.
+A `Dockerfile` is provided in the `docker/` directory for building a containerized version of the application.
 
-Create a `.env` file to configure ports and credentials (defaults shown):
+Build the Docker image:
 
 ```bash
-REDIS_PORT=6379
-POSTGRES_PORT=5432
-MONGO_PORT=27017
-MYSQL_PORT=3306
+docker build -t tradingagents -f docker/Dockerfile .
 ```
 
-Run services:
+Run the containerized CLI:
 
 ```bash
-docker compose up -d redis
-
-# Or run the example app container
-docker compose up -d app
+docker run -it --env-file .env tradingagents uv run tradingagents
 ```
 
 ## 📦 Packaging and Distribution

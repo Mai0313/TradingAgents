@@ -22,6 +22,7 @@
 
 ## ✨ 重点特色
 
+- 基于 **LangGraph** 和 **AG2** (AutoGen) 构建，提供稳健的多 Agent 编排机制
 - 多 Agent 架构：分析师团队 → 研究团队 → 交易员 → 风险管理 → 投资组合管理
 - 支持多种 LLM 供应商：OpenAI、Anthropic、Google Gemini、xAI (Grok)、OpenRouter、Ollama
 - 多种数据供应商：`yfinance`、Alpha Vantage
