@@ -231,7 +231,7 @@ The system currently contains **12** agent roles plus **2** supporting component
 | **Definition File**      | `src/tradingagents/agents/analysts/market_analyst.py`                                                                                                                             |
 | **Factory Function**     | `create_market_analyst(llm: BaseChatModel)` (L10-73)                                                                                                                              |
 | **LLM**                  | `quick_thinking_llm` + `bind_tools([get_stock_data, get_indicators])`                                                                                                             |
-| **Prompt Location**      | Same file, L18-55 (inline)                                                                                                                                                        |
+| **Prompt Location**      | `agents/prompts/market_analyst.md`                                                                                                                                                |
 | **Responsibilities**     | Select up to 8 complementary technical indicators for analysis. It must call `get_stock_data` before `get_indicators`, and produce a detailed market report with Markdown tables. |
 | **Available Indicators** | close_50_sma, close_200_sma, close_10_ema, macd, macds, macdh, rsi_14, boll, boll_ub, boll_lb, atr_14, vwma                                                                       |
 | **Output**               | Writes to `state["market_report"]`                                                                                                                                                |
@@ -243,7 +243,7 @@ The system currently contains **12** agent roles plus **2** supporting component
 | **Definition File**  | `src/tradingagents/agents/analysts/social_media_analyst.py`                                                                               |
 | **Factory Function** | `create_social_media_analyst(llm: BaseChatModel)` (L10-52)                                                                                |
 | **LLM**              | `quick_thinking_llm` + `bind_tools([get_news])`                                                                                           |
-| **Prompt Location**  | Same file, L17-19 (inline)                                                                                                                |
+| **Prompt Location**  | `agents/prompts/social_media_analyst.md`                                                                                                  |
 | **Responsibilities** | Analyze the sentiment trend in company-related social media and news, and produce a report with sentiment assessment and Markdown tables. |
 | **Output**           | Writes to `state["sentiment_report"]`                                                                                                     |
 
@@ -254,7 +254,7 @@ The system currently contains **12** agent roles plus **2** supporting component
 | **Definition File**  | `src/tradingagents/agents/analysts/news_analyst.py`                                                          |
 | **Factory Function** | `create_news_analyst(llm: BaseChatModel)` (L10-52)                                                           |
 | **LLM**              | `quick_thinking_llm` + `bind_tools([get_news, get_global_news])`                                             |
-| **Prompt Location**  | Same file, L17-19 (inline)                                                                                   |
+| **Prompt Location**  | `agents/prompts/news_analyst.md`                                                                             |
 | **Responsibilities** | Analyze company news and global macro news, and produce a trading-oriented news report with Markdown tables. |
 | **Output**           | Writes to `state["news_report"]`                                                                             |
 
@@ -265,7 +265,7 @@ The system currently contains **12** agent roles plus **2** supporting component
 | **Definition File**  | `src/tradingagents/agents/analysts/fundamentals_analyst.py`                                                                              |
 | **Factory Function** | `create_fundamentals_analyst(llm: BaseChatModel)` (L15-59)                                                                               |
 | **LLM**              | `quick_thinking_llm` + `bind_tools([get_fundamentals, get_balance_sheet, get_cashflow, get_income_statement])`                           |
-| **Prompt Location**  | Same file, L21-25 (inline)                                                                                                               |
+| **Prompt Location**  | `agents/prompts/fundamentals_analyst.md`                                                                                                 |
 | **Responsibilities** | Analyze financial statements, balance sheets, cash flows, and income statements, and produce a fundamentals report with Markdown tables. |
 | **Output**           | Writes to `state["fundamentals_report"]`                                                                                                 |
 
@@ -276,7 +276,7 @@ The system currently contains **12** agent roles plus **2** supporting component
 | **Definition File**  | `src/tradingagents/agents/researchers/bull_researcher.py`                                                                             |
 | **Factory Function** | `create_bull_researcher(llm: BaseChatModel, memory: FinancialSituationMemory)` (L9-63)                                                |
 | **LLM**              | `quick_thinking_llm` (no tool binding)                                                                                                |
-| **Prompt Location**  | Same file, L29-47 (inline template)                                                                                                   |
+| **Prompt Location**  | `agents/prompts/bull_researcher.md`                                                                                                   |
 | **Input**            | `market_report`, `sentiment_report`, `news_report`, `fundamentals_report`, debate history, previous bear argument, memory             |
 | **Responsibilities** | Present bullish arguments focused on growth potential, competitive strengths, and positive indicators, while rebutting the bear view. |
 | **Output**           | Updates `investment_debate_state`                                                                                                     |
@@ -288,7 +288,7 @@ The system currently contains **12** agent roles plus **2** supporting component
 | **Definition File**  | `src/tradingagents/agents/researchers/bear_researcher.py`                                                                   |
 | **Factory Function** | `create_bear_researcher(llm: BaseChatModel, memory: FinancialSituationMemory)` (L9-65)                                      |
 | **LLM**              | `quick_thinking_llm` (no tool binding)                                                                                      |
-| **Prompt Location**  | Same file, L29-48 (inline template)                                                                                         |
+| **Prompt Location**  | `agents/prompts/bear_researcher.md`                                                                                         |
 | **Input**            | Same as Bull Researcher, but receives the previous bull argument                                                            |
 | **Responsibilities** | Present bearish arguments focused on risks, competitive weaknesses, and negative indicators, while rebutting the bull view. |
 | **Output**           | Updates `investment_debate_state`                                                                                           |
@@ -300,7 +300,7 @@ The system currently contains **12** agent roles plus **2** supporting component
 | **Definition File**  | `src/tradingagents/agents/managers/research_manager.py`                                      |
 | **Factory Function** | `create_research_manager(llm: BaseChatModel, memory: FinancialSituationMemory)` (L9-62)      |
 | **LLM**              | `deep_thinking_llm` (no tool binding)                                                        |
-| **Prompt Location**  | Same file, L27-45 (inline template)                                                          |
+| **Prompt Location**  | `agents/prompts/research_manager.md`                                                         |
 | **Input**            | Debate history and prior reflection memory                                                   |
 | **Responsibilities** | Evaluate the Bull/Bear debate, decide Buy/Sell/Hold, and produce an investment plan.         |
 | **Output**           | Writes to `state["investment_plan"]` and updates `investment_debate_state["judge_decision"]` |
@@ -312,7 +312,7 @@ The system currently contains **12** agent roles plus **2** supporting component
 | **Definition File**  | `src/tradingagents/agents/trader/trader.py`                                                                                   |
 | **Factory Function** | `create_trader(llm: BaseChatModel, memory: FinancialSituationMemory)` (L10-47)                                                |
 | **LLM**              | `quick_thinking_llm` (no tool binding)                                                                                        |
-| **Prompt Location**  | Same file, L37-39 (inline)                                                                                                    |
+| **Prompt Location**  | `agents/prompts/trader_system.md`, `agents/prompts/trader_user.md`                                                            |
 | **Input**            | `investment_plan` and prior reflection memory                                                                                 |
 | **Responsibilities** | Create a trading strategy based on the investment plan, and it must end with `FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL**`. |
 | **Output**           | Writes to `state["trader_investment_plan"]`                                                                                   |
@@ -324,7 +324,7 @@ The system currently contains **12** agent roles plus **2** supporting component
 | **Definition File**  | `src/tradingagents/agents/risk_mgmt/aggressive_debator.py`                                                            |
 | **Factory Function** | `create_aggressive_debator(llm: BaseChatModel)` (L7-57)                                                               |
 | **LLM**              | `quick_thinking_llm` (no tool binding)                                                                                |
-| **Prompt Location**  | Same file, L22-34 (inline template)                                                                                   |
+| **Prompt Location**  | `agents/prompts/aggressive_debator.md`                                                                                |
 | **Input**            | `trader_investment_plan`, four analysis reports, debate history, and the latest Conservative/Neutral responses        |
 | **Responsibilities** | Analyze from a high-risk high-reward perspective, emphasizing upside potential, growth, and innovation opportunities. |
 | **Output**           | Updates `risk_debate_state`                                                                                           |
@@ -336,7 +336,7 @@ The system currently contains **12** agent roles plus **2** supporting component
 | **Definition File**  | `src/tradingagents/agents/risk_mgmt/conservative_debator.py`                                  |
 | **Factory Function** | `create_conservative_debator(llm: BaseChatModel)` (L7-56)                                     |
 | **LLM**              | `quick_thinking_llm` (no tool binding)                                                        |
-| **Prompt Location**  | Same file, L22-34 (inline template)                                                           |
+| **Prompt Location**  | `agents/prompts/conservative_debator.md`                                                      |
 | **Input**            | Same as Aggressive Debator, but receives the latest Aggressive/Neutral responses              |
 | **Responsibilities** | Analyze from an asset-protection perspective, emphasizing lower volatility and stable growth. |
 | **Output**           | Updates `risk_debate_state`                                                                   |
@@ -348,7 +348,7 @@ The system currently contains **12** agent roles plus **2** supporting component
 | **Definition File**  | `src/tradingagents/agents/risk_mgmt/neutral_debator.py`                                |
 | **Factory Function** | `create_neutral_debator(llm: BaseChatModel)` (L7-58)                                   |
 | **LLM**              | `quick_thinking_llm` (no tool binding)                                                 |
-| **Prompt Location**  | Same file, L22-34 (inline template)                                                    |
+| **Prompt Location**  | `agents/prompts/neutral_debator.md`                                                    |
 | **Input**            | Same as Aggressive Debator, but receives the latest Aggressive/Conservative responses  |
 | **Responsibilities** | Balance risk and return while challenging both aggressive and conservative viewpoints. |
 | **Output**           | Updates `risk_debate_state`                                                            |
@@ -360,14 +360,33 @@ The system currently contains **12** agent roles plus **2** supporting component
 | **Definition File**  | `src/tradingagents/agents/managers/risk_manager.py`                                                        |
 | **Factory Function** | `create_risk_manager(llm: BaseChatModel, memory: FinancialSituationMemory)` (L9-69)                        |
 | **LLM**              | `deep_thinking_llm` (no tool binding)                                                                      |
-| **Prompt Location**  | Same file, L27-46 (inline template)                                                                        |
+| **Prompt Location**  | `agents/prompts/risk_manager.md`                                                                           |
 | **Input**            | Risk debate history and prior reflection memory                                                            |
 | **Responsibilities** | Evaluate the three-sided risk debate, revise the trader's plan, and make the final Buy/Sell/Hold decision. |
 | **Output**           | Writes to `state["final_trade_decision"]` and updates `risk_debate_state["judge_decision"]`                |
 
-### 3.3 Important Notes
+### 3.3 Prompt Management
 
-- **All prompts are currently defined inline**; there is no separate prompt directory.
+All agent prompts are stored as Markdown template files under `src/tradingagents/agents/prompts/`. A `load_prompt(name)` helper (defined in `agents/prompts/__init__.py`) reads the file and returns the raw string, which callers can fill via `str.format()` or pass directly to `ChatPromptTemplate`.
+
+| Prompt File               | Agent                | Placeholders                                                                                                                                                                                     |
+| ------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `market_analyst.md`       | Market Analyst       | `{tool_names}`, `{current_date}`, `{ticker}`                                                                                                                                                     |
+| `news_analyst.md`         | News Analyst         | `{tool_names}`, `{current_date}`, `{ticker}`                                                                                                                                                     |
+| `social_media_analyst.md` | Social Media Analyst | `{tool_names}`, `{current_date}`, `{ticker}`                                                                                                                                                     |
+| `fundamentals_analyst.md` | Fundamentals Analyst | `{tool_names}`, `{current_date}`, `{ticker}`                                                                                                                                                     |
+| `bull_researcher.md`      | Bull Researcher      | `{market_research_report}`, `{sentiment_report}`, `{news_report}`, `{fundamentals_report}`, `{history}`, `{current_response}`, `{past_memory_str}`                                               |
+| `bear_researcher.md`      | Bear Researcher      | same as Bull Researcher                                                                                                                                                                          |
+| `research_manager.md`     | Research Manager     | `{past_memory_str}`, `{history}`                                                                                                                                                                 |
+| `trader_system.md`        | Trader (system)      | `{past_memory_str}`                                                                                                                                                                              |
+| `trader_user.md`          | Trader (user)        | `{company_name}`, `{investment_plan}`                                                                                                                                                            |
+| `aggressive_debator.md`   | Aggressive Debator   | `{trader_decision}`, `{market_research_report}`, `{sentiment_report}`, `{news_report}`, `{fundamentals_report}`, `{history}`, `{current_conservative_response}`, `{current_neutral_response}`    |
+| `conservative_debator.md` | Conservative Debator | `{trader_decision}`, `{market_research_report}`, `{sentiment_report}`, `{news_report}`, `{fundamentals_report}`, `{history}`, `{current_aggressive_response}`, `{current_neutral_response}`      |
+| `neutral_debator.md`      | Neutral Debator      | `{trader_decision}`, `{market_research_report}`, `{sentiment_report}`, `{news_report}`, `{fundamentals_report}`, `{history}`, `{current_aggressive_response}`, `{current_conservative_response}` |
+| `risk_manager.md`         | Risk Manager         | `{trader_plan}`, `{past_memory_str}`, `{history}`                                                                                                                                                |
+
+### 3.4 Other Notes
+
 - Only 4 **analysts** use tools (Function Calling); all other agents rely purely on LLM reasoning.
 - **Bull/Bear/Trader/Research Manager/Risk Manager** use `FinancialSituationMemory` for memory retrieval.
 - **Aggressive/Conservative/Neutral Debator** do not use memory.
