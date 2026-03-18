@@ -1,1 +1,0 @@
-- [ ] 將 `./src/tradingagents/agents` 的 `prompt` 全部抽離至 `./src/tradingagents/agents/prompts`, 依照 agent 名稱來歸類, 例如 `market_analyst.md`, 後續使用時 可以透過 `.format` 來填字就可, 完成後更新 `./DESIGN.md`
