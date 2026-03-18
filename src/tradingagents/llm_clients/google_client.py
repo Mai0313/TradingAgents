@@ -2,7 +2,6 @@ from typing import Protocol, cast
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-from .validators import validate_model
 from .base_client import BaseLLMClient
 
 
@@ -67,7 +66,3 @@ class GoogleClient(BaseLLMClient):
                 llm_kwargs["thinking_budget"] = -1 if thinking_level == "high" else 0
 
         return NormalizedChatGoogleGenerativeAI(**llm_kwargs)
-
-    def validate_model(self) -> bool:
-        """Validate model for Google."""
-        return validate_model("google", self.model)

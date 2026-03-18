@@ -2,7 +2,6 @@ import os
 
 from langchain_openai import ChatOpenAI
 
-from .validators import validate_model
 from .base_client import BaseLLMClient
 
 
@@ -59,7 +58,3 @@ class OpenAIClient(BaseLLMClient):
                 llm_kwargs[key] = self.kwargs[key]
 
         return UnifiedChatOpenAI(**llm_kwargs)
-
-    def validate_model(self) -> bool:
-        """Validate model for the provider."""
-        return validate_model(self.provider, self.model)

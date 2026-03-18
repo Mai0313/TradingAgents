@@ -13,8 +13,3 @@ class BaseLLMClient(ABC):
     def get_llm(self) -> object:
         """Return the configured LLM instance."""
         raise NotImplementedError
-
-    @abstractmethod
-    def validate_model(self) -> bool:
-        """Validate that the model is supported by this client."""
-        raise NotImplementedError

@@ -1,6 +1,5 @@
 from langchain_anthropic import ChatAnthropic
 
-from .validators import validate_model
 from .base_client import BaseLLMClient
 
 
@@ -19,7 +18,3 @@ class AnthropicClient(BaseLLMClient):
                 llm_kwargs[key] = self.kwargs[key]
 
         return ChatAnthropic(**llm_kwargs)
-
-    def validate_model(self) -> bool:
-        """Validate model for Anthropic."""
-        return validate_model("anthropic", self.model)
