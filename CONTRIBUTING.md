@@ -76,7 +76,7 @@ uv run poe main        # run CLI entry (same as uv run tradingagents)
 
 All workflows live in `.github/workflows/`.
 
-- **Tests** (`test.yml`) — Runs pytest on Python 3.11/3.12/3.13/3.14
+- **Tests** (`test.yml`) — Runs pytest on Python 3.12/3.13/3.14
 - **Code Quality** (`code-quality-check.yml`) — Runs ruff and pre-commit hooks
 - **Docs Deploy** (`deploy.yml`) — Builds and publishes MkDocs to GitHub Pages
 - **Build and Release** (`build_release.yml`) — Builds multi-platform executables and Python packages on tag push

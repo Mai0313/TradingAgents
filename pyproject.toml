@@ -92,7 +92,7 @@ dependencies = [
     "yfinance>=1.2.0",
 ]
 readme = "README.md"
-requires-python = ">= 3.11"
+requires-python = ">= 3.12"
 license = { text = "MIT" }
 
 [project.urls]
@@ -619,7 +619,7 @@ extra-paths = []
 # python-platform = "<current-platform>"  # "win32" | "darwin" | "android" | "ios" | "linux" | "all"
 
 # Specifies the version of Python used to analyze the source code.
-# python-version = "3.11"
+# python-version = "3.12"
 
 # The root paths of the project, used for finding first-party modules.
 # root = null  # e.g. ["./src", "./lib"]

@@ -54,7 +54,7 @@ uv run mkdocs serve      # http://localhost:9987
 
 ### Python Style
 
-- **Python ≥ 3.11**; use `X | Y` union syntax, `list[str]` built-in generics (not `List`, `Optional`)
+- **Python ≥ 3.12**; use `X | Y` union syntax, `list[str]` built-in generics (not `List`, `Optional`)
 - **Line length:** 99 characters (ruff enforced)
 - **Type annotations required** on all public functions and methods (`ANN` rules enabled)
 - **Ruff** is the linter/formatter; `unsafe-fixes = true`
@@ -118,7 +118,7 @@ Analysis output is written to `results/<TICKER>/<DATE>/` with per-agent markdown
 
 - Follow **Conventional Commits** (`feat:`, `fix:`, `docs:`, `refactor:`, etc.)
 - Run `uv run pre-commit run -a` and `make test` locally before pushing
-- PRs require passing CI: tests (Python 3.11–3.14) + code-quality checks
+- PRs require passing CI: tests (Python 3.12–3.14) + code-quality checks
 
 ## Common Pitfalls
 

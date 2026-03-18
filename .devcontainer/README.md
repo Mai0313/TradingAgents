@@ -4,7 +4,7 @@ This directory contains configuration files for developing this project in a ful
 
 ## What's Included?
 
-- **Dockerfile**: Builds an image based on Python 3.11 + Node.js 20, with zsh, oh-my-zsh, powerlevel10k, and useful plugins/fonts for a modern terminal experience.
+- **Dockerfile**: Builds an image based on Python 3.12 + Node.js 20, with zsh, oh-my-zsh, powerlevel10k, and useful plugins/fonts for a modern terminal experience.
 - **devcontainer.json**: VS Code configuration for the container, including:
     - Comprehensive extension suite including:
         - Database tools (JDBC client, Redis client)
