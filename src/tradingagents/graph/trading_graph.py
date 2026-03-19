@@ -3,15 +3,16 @@
 import json
 from typing import Any
 from pathlib import Path
+from functools import cached_property
 
+from pydantic import Field, BaseModel, ConfigDict, computed_field, model_validator
 from langgraph.prebuilt import ToolNode
+from langgraph.graph.state import CompiledStateGraph
 
 from tradingagents.llm_clients import create_llm_client
-from tradingagents.default_config import DEFAULT_CONFIG
+from tradingagents.default_config import TradingAgentsConfig
 from tradingagents.dataflows.config import set_config
 from tradingagents.agents.utils.memory import FinancialSituationMemory
-
-# Import the new abstract tool methods from agent_utils
 from tradingagents.agents.utils.agent_utils import (
     get_news,
     get_cashflow,
@@ -31,139 +32,133 @@ from .conditional_logic import ConditionalLogic
 from .signal_processing import SignalProcessor
 
 
-class TradingAgentsGraph:
+class TradingAgentsGraph(BaseModel):
     """Main class that orchestrates the trading agents framework."""
 
-    def __init__(
-        self,
-        selected_analysts: list[str] | None = None,
-        debug: bool = False,
-        config: dict[str, Any] | None = None,
-        callbacks: list | None = None,
-    ):
-        """Initialize the trading agents graph and components.
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-        Args:
-            selected_analysts: List of analyst types to include
-            debug: Whether to run in debug mode
-            config: Configuration dictionary. If None, uses default config
-            callbacks: Optional list of callback handlers (e.g., for tracking LLM/tool stats)
-        """
-        if selected_analysts is None:
-            selected_analysts = ["market", "social", "news", "fundamentals"]
-        self.debug = debug
-        self.config = config or DEFAULT_CONFIG
-        self.callbacks = callbacks or []
+    # --- User-configurable fields ---
+    selected_analysts: list[str] = Field(
+        default=["market", "social", "news", "fundamentals"],
+        title="Selected Analysts",
+        description="List of analyst types to include in the trading graph",
+    )
+    debug: bool = Field(
+        default=False,
+        title="Debug Mode",
+        description="Enable debug mode with step-by-step tracing output",
+    )
+    config: TradingAgentsConfig = Field(
+        default_factory=TradingAgentsConfig,
+        title="Configuration",
+        description="Trading agents configuration settings",
+    )
+    callbacks: list = Field(
+        default_factory=list,
+        title="Callbacks",
+        description="Optional callback handlers for tracking LLM/tool statistics",
+    )
 
-        # Update the interface's config
+    # --- Mutable runtime state (updated by propagate() etc.) ---
+    curr_state: dict[str, Any] = Field(
+        default_factory=dict,
+        title="Current State",
+        description="Current graph execution state, populated after propagate()",
+    )
+    ticker: str = Field(
+        default="", title="Ticker", description="Current stock ticker symbol being analyzed"
+    )
+    log_states_dict: dict[str, Any] = Field(
+        default_factory=dict,
+        title="Log States",
+        description="Accumulated state logs keyed by trade date",
+    )
+
+    @model_validator(mode="after")
+    def _setup(self) -> "TradingAgentsGraph":
+        """Run side effects: update global dataflows config and create dirs."""
         set_config(self.config)
+        self.config.data_cache_dir.mkdir(parents=True, exist_ok=True)
+        return self
 
-        # Create necessary directories
-        Path(str(self.config["project_dir"]), "dataflows/data_cache").mkdir(
-            parents=True, exist_ok=True
-        )
-
-        # Initialize LLMs with provider-specific thinking configuration
-        llm_kwargs = self._get_provider_kwargs()
-
-        # Add callbacks to kwargs if provided (passed to LLM constructor)
-        if self.callbacks:
-            llm_kwargs["callbacks"] = self.callbacks
-
-        deep_client = create_llm_client(
-            provider=self.config["llm_provider"],
-            model=self.config["deep_think_llm"],
-            base_url=self.config.get("backend_url"),
-            **llm_kwargs,
-        )
-        quick_client = create_llm_client(
-            provider=self.config["llm_provider"],
-            model=self.config["quick_think_llm"],
-            base_url=self.config.get("backend_url"),
-            **llm_kwargs,
-        )
-
-        self.deep_thinking_llm = deep_client.get_llm()
-        self.quick_thinking_llm = quick_client.get_llm()
-
-        # Initialize memories
-        self.bull_memory = FinancialSituationMemory("bull_memory", self.config)
-        self.bear_memory = FinancialSituationMemory("bear_memory", self.config)
-        self.trader_memory = FinancialSituationMemory("trader_memory", self.config)
-        self.invest_judge_memory = FinancialSituationMemory("invest_judge_memory", self.config)
-        self.risk_manager_memory = FinancialSituationMemory("risk_manager_memory", self.config)
-
-        memories = MemoryComponents(
-            bull=self.bull_memory,
-            bear=self.bear_memory,
-            trader=self.trader_memory,
-            invest_judge=self.invest_judge_memory,
-            risk_manager=self.risk_manager_memory,
-        )
-
-        # Create tool nodes
-        self.tool_nodes = self._create_tool_nodes()
-
-        # Initialize components
-        self.conditional_logic = ConditionalLogic()
-        self.graph_setup = GraphSetup(
-            self.quick_thinking_llm,
-            self.deep_thinking_llm,
-            self.tool_nodes,
-            memories,
-            self.conditional_logic,
-        )
-
-        self.propagator = Propagator()
-        self.reflector = Reflector(self.quick_thinking_llm)
-        self.signal_processor = SignalProcessor(self.quick_thinking_llm)
-
-        # State tracking
-        self.curr_state: dict[str, Any] | None = None
-        self.ticker: str | None = None
-        self.log_states_dict: dict[str, Any] = {}  # date to full state dict
-
-        # Set up the graph
-        self.graph = self.graph_setup.setup_graph(selected_analysts)
+    # --- Derived state (lazily computed from config) ---
 
     def _get_provider_kwargs(self) -> dict[str, Any]:
         """Get provider-specific kwargs for LLM client creation."""
-        kwargs = {}
-        provider = self.config.get("llm_provider", "").lower()
+        kwargs: dict[str, Any] = {}
+        provider = self.config.llm_provider.lower()
 
-        if provider == "google":
-            thinking_level = self.config.get("google_thinking_level")
-            if thinking_level:
-                kwargs["thinking_level"] = thinking_level
-
-        elif provider == "openai":
-            reasoning_effort = self.config.get("openai_reasoning_effort")
-            if reasoning_effort:
-                kwargs["reasoning_effort"] = reasoning_effort
+        if provider == "google" and self.config.google_thinking_level:
+            kwargs["thinking_level"] = self.config.google_thinking_level
+        elif provider == "openai" and self.config.openai_reasoning_effort:
+            kwargs["reasoning_effort"] = self.config.openai_reasoning_effort
 
         return kwargs
 
-    def _create_tool_nodes(self) -> dict[str, ToolNode]:
-        """Create tool nodes for different data sources using abstract methods."""
+    def _create_llm(self, model: str) -> object:
+        """Create an LLM client instance for the given model name."""
+        llm_kwargs = self._get_provider_kwargs()
+        if self.callbacks:
+            llm_kwargs["callbacks"] = self.callbacks
+        client = create_llm_client(
+            provider=self.config.llm_provider,
+            model=model,
+            base_url=self.config.backend_url,
+            **llm_kwargs,
+        )
+        return client.get_llm()
+
+    @computed_field
+    @cached_property
+    def deep_thinking_llm(self) -> object:
+        """Deep thinking LLM instance, derived from config."""
+        return self._create_llm(self.config.deep_think_llm)
+
+    @computed_field
+    @cached_property
+    def quick_thinking_llm(self) -> object:
+        """Quick thinking LLM instance, derived from config."""
+        return self._create_llm(self.config.quick_think_llm)
+
+    @computed_field
+    @cached_property
+    def bull_memory(self) -> FinancialSituationMemory:
+        """Bull researcher memory instance."""
+        return FinancialSituationMemory("bull_memory")
+
+    @computed_field
+    @cached_property
+    def bear_memory(self) -> FinancialSituationMemory:
+        """Bear researcher memory instance."""
+        return FinancialSituationMemory("bear_memory")
+
+    @computed_field
+    @cached_property
+    def trader_memory(self) -> FinancialSituationMemory:
+        """Trader memory instance."""
+        return FinancialSituationMemory("trader_memory")
+
+    @computed_field
+    @cached_property
+    def invest_judge_memory(self) -> FinancialSituationMemory:
+        """Investment judge memory instance."""
+        return FinancialSituationMemory("invest_judge_memory")
+
+    @computed_field
+    @cached_property
+    def risk_manager_memory(self) -> FinancialSituationMemory:
+        """Risk manager memory instance."""
+        return FinancialSituationMemory("risk_manager_memory")
+
+    @computed_field
+    @cached_property
+    def tool_nodes(self) -> dict[str, ToolNode]:
+        """Tool nodes for different data sources."""
         return {
-            "market": ToolNode([
-                # Core stock data tools
-                get_stock_data,
-                # Technical indicators
-                get_indicators,
-            ]),
-            "social": ToolNode([
-                # News tools for social media analysis
-                get_news
-            ]),
-            "news": ToolNode([
-                # News and insider information
-                get_news,
-                get_global_news,
-                get_insider_transactions,
-            ]),
+            "market": ToolNode([get_stock_data, get_indicators]),
+            "social": ToolNode([get_news]),
+            "news": ToolNode([get_news, get_global_news, get_insider_transactions]),
             "fundamentals": ToolNode([
-                # Fundamental analysis tools
                 get_fundamentals,
                 get_balance_sheet,
                 get_cashflow,
@@ -171,36 +166,65 @@ class TradingAgentsGraph:
             ]),
         }
 
+    @computed_field
+    @cached_property
+    def graph(self) -> CompiledStateGraph:
+        """Compiled LangGraph workflow, derived from config and selected analysts."""
+        memories = MemoryComponents(
+            bull=self.bull_memory,
+            bear=self.bear_memory,
+            trader=self.trader_memory,
+            invest_judge=self.invest_judge_memory,
+            risk_manager=self.risk_manager_memory,
+        )
+        graph_setup = GraphSetup(
+            self.quick_thinking_llm,
+            self.deep_thinking_llm,
+            self.tool_nodes,
+            memories,
+            ConditionalLogic(),
+        )
+        return graph_setup.setup_graph(self.selected_analysts)
+
+    @computed_field
+    @cached_property
+    def propagator(self) -> Propagator:
+        """Graph propagator for state initialization."""
+        return Propagator(max_recur_limit=self.config.max_recur_limit)
+
+    @computed_field
+    @cached_property
+    def reflector(self) -> Reflector:
+        """Post-trade reflector for memory updates."""
+        return Reflector(self.quick_thinking_llm)
+
+    @computed_field
+    @cached_property
+    def signal_processor(self) -> SignalProcessor:
+        """Signal processor for extracting BUY/SELL/HOLD decisions."""
+        return SignalProcessor(self.quick_thinking_llm)
+
+    # --- Public methods ---
+
     def propagate(self, company_name: str, trade_date: str) -> tuple[Any, Any]:
         """Run the trading agents graph for a company on a specific date."""
         self.ticker = company_name
 
-        # Initialize state
         init_agent_state = self.propagator.create_initial_state(company_name, trade_date)
         args = self.propagator.get_graph_args()
 
         if self.debug:
-            # Debug mode with tracing
             trace = []
             for chunk in self.graph.stream(init_agent_state, **args):
-                if len(chunk["messages"]) == 0:
-                    pass
-                else:
+                if chunk["messages"]:
                     chunk["messages"][-1].pretty_print()
                     trace.append(chunk)
-
             final_state = trace[-1]
         else:
-            # Standard mode without tracing
             final_state = self.graph.invoke(init_agent_state, **args)
 
-        # Store current state for reflection
         self.curr_state = final_state
-
-        # Log state
         self._log_state(trade_date, final_state)
-
-        # Return decision and processed signal
         return final_state, self.process_signal(final_state["final_trade_decision"])
 
     def _log_state(self, trade_date: str, final_state: dict[str, Any]) -> None:
@@ -231,20 +255,17 @@ class TradingAgentsGraph:
             "final_trade_decision": final_state["final_trade_decision"],
         }
 
-        # Save to file
-        ticker = self.ticker or "unknown"
-        directory = Path(f"eval_results/{ticker}/TradingAgentsStrategy_logs/")
+        ticker_name = self.ticker or "unknown"
+        directory = Path(f"eval_results/{ticker_name}/TradingAgentsStrategy_logs/")
         directory.mkdir(parents=True, exist_ok=True)
 
-        with open(
-            f"eval_results/{ticker}/TradingAgentsStrategy_logs/full_states_log_{trade_date}.json",
-            "w",
-        ) as f:
+        log_path = directory / f"full_states_log_{trade_date}.json"
+        with open(log_path, "w") as f:
             json.dump(self.log_states_dict, f, indent=4)
 
     def reflect_and_remember(self, returns_losses: float) -> None:
         """Reflect on decisions and update memory based on returns."""
-        if self.curr_state is None:
+        if not self.curr_state:
             raise RuntimeError("No state available to reflect on. Run propagate() first.")
         self.reflector.reflect_bull_researcher(self.curr_state, returns_losses, self.bull_memory)
         self.reflector.reflect_bear_researcher(self.curr_state, returns_losses, self.bear_memory)

@@ -26,7 +26,7 @@ Other Languages: [English](README.md) | [繁體中文](README.zh-TW.md) | [简�
 - Multi-agent architecture: Analyst Team → Research Team → Trader → Risk Management → Portfolio Management
 - Support for multiple LLM providers: OpenAI, Anthropic, Google Gemini, xAI (Grok), OpenRouter, Ollama
 - Multiple data vendors: `yfinance`, Alpha Vantage
-- Interactive CLI with real-time progress display and step-by-step configuration
+- Pydantic-based configuration with strict typing and validation
 - Analysis results automatically saved to `results/` with organized subfolders
 - Modern `src/` layout with full type-annotated code
 - Fast dependency management via `uv`
@@ -59,43 +59,24 @@ OPENROUTER_API_KEY=...
 ALPHA_VANTAGE_API_KEY=...
 ```
 
-### Run the CLI
-
-```bash
-uv run tradingagents
-# or
-uv run cli
-```
-
-The CLI will guide you through the following steps:
-
-1. **Ticker Symbol** — Enter the stock ticker to analyze (e.g., `NVDA`)
-2. **Analysis Date** — Enter the date in `YYYY-MM-DD` format
-3. **Analyst Team** — Select one or more analysts (Market, Social, News, Fundamentals)
-4. **Research Depth** — Choose Shallow / Medium / Deep debate rounds
-5. **LLM Provider** — Select OpenAI, Google, Anthropic, xAI, OpenRouter, or Ollama
-6. **Thinking Agents** — Choose quick-thinking and deep-thinking LLM models
-7. **Provider Config** — Set reasoning effort (OpenAI) or thinking mode (Google Gemini)
-
-### Use as a Library
-
-You can also use `TradingAgents` programmatically in your own scripts:
+### Usage
 
 ```python
-from tradingagents.default_config import DEFAULT_CONFIG
+from tradingagents.default_config import TradingAgentsConfig, DataVendorsConfig
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 
-config = DEFAULT_CONFIG.copy()
-config["llm_provider"] = "openai"
-config["deep_think_llm"] = "gpt-5.2"
-config["quick_think_llm"] = "gpt-5-mini"
-config["max_debate_rounds"] = 1
-config["data_vendors"] = {
-    "core_stock_apis": "yfinance",
-    "technical_indicators": "yfinance",
-    "fundamental_data": "yfinance",
-    "news_data": "yfinance",
-}
+config = TradingAgentsConfig(
+    llm_provider="openai",
+    deep_think_llm="gpt-5.2",
+    quick_think_llm="gpt-5-mini",
+    max_debate_rounds=1,
+    data_vendors=DataVendorsConfig(
+        core_stock_apis="yfinance",
+        technical_indicators="yfinance",
+        fundamental_data="yfinance",
+        news_data="yfinance",
+    ),
+)
 
 ta = TradingAgentsGraph(debug=True, config=config)
 _, decision = ta.propagate("NVDA", "2024-05-10")
@@ -114,12 +95,6 @@ src/
     │   ├── risk_mgmt/    # Risk management agents
     │   ├── trader/       # Trader agent
     │   └── utils/        # Shared agent utilities
-    ├── cli/              # Interactive CLI application
-    │   ├── main.py       # CLI entrypoint (Typer app)
-    │   ├── utils.py      # CLI helper functions
-    │   ├── announcements.py  # Startup announcements
-    │   ├── stats_handler.py  # LLM/tool call statistics
-    │   └── static/       # Static assets (welcome screen)
     ├── dataflows/        # Data ingestion & vendor routing
     ├── graph/            # LangGraph trading graph setup
     ├── llm_clients/      # LLM provider clients (OpenAI, Anthropic, Google, xAI, OpenRouter, Ollama)

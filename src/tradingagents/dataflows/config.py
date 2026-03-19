@@ -1,43 +1,27 @@
-from tradingagents import default_config
+from tradingagents.default_config import TradingAgentsConfig
 
-# Use default config but allow it to be overridden
-# Using a mutable list as a container to avoid global statement warnings
-_config_container: list[dict[str, object] | None] = [None]
-
-
-def _get_config_ref() -> dict[str, object] | None:
-    return _config_container[0]
-
-
-def _set_config_ref(value: dict[str, object] | None) -> None:
-    _config_container[0] = value
+_config_container: list[TradingAgentsConfig | None] = [None]
 
 
 def initialize_config() -> None:
     """Initialize the configuration with default values."""
     if _config_container[0] is None:
-        _config_container[0] = default_config.DEFAULT_CONFIG.copy()
+        _config_container[0] = TradingAgentsConfig()
 
 
-def set_config(config: dict[str, object]) -> None:
-    """Update the configuration with custom values."""
-    if _config_container[0] is None:
-        _config_container[0] = default_config.DEFAULT_CONFIG.copy()
-    cfg = _config_container[0]
-    if cfg is None:
-        raise RuntimeError("Configuration not initialized")
-    cfg.update(config)
+def set_config(config: TradingAgentsConfig) -> None:
+    """Set the configuration."""
+    _config_container[0] = config
 
 
-def get_config() -> dict[str, object]:
+def get_config() -> TradingAgentsConfig:
     """Get the current configuration."""
     if _config_container[0] is None:
         initialize_config()
     cfg = _config_container[0]
     if cfg is None:
         raise RuntimeError("Configuration not initialized")
-    return cfg.copy()
+    return cfg
 
 
-# Initialize with default config
 initialize_config()

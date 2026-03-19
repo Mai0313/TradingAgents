@@ -554,11 +554,11 @@ START
 
 ### 4.5 Graph Compilation and Execution Entry Points
 
-- **Main class:** `TradingAgentsGraph` (`src/tradingagents/graph/trading_graph.py` L34-261)
-- **Initialization:** `__init__()` (L37-127) - Initializes LLM clients, memory, `ToolNode`s, and `ConditionalLogic`, then compiles the graph
-- **Execution:** `propagate(company_name, trade_date)` (L174-204) - Builds the initial state and executes the graph
-- **Reflection:** `reflect_and_remember(returns_losses)` (L245-257) - Performs post-trade reflection
-- **Signal extraction:** `process_signal(full_signal)` (L259-261) - Extracts BUY/SELL/HOLD
+- **Main class:** `TradingAgentsGraph` (`src/tradingagents/graph/trading_graph.py`) — Pydantic `BaseModel` subclass. User-configurable fields use `Field()`, derived state (LLMs, memories, compiled graph) uses `@computed_field` + `@cached_property`.
+- **Configuration:** Accepts a `TradingAgentsConfig` Pydantic model; side effects (`set_config`, `mkdir`) run in a `@model_validator(mode="after")` hook
+- **Execution:** `propagate(company_name, trade_date)` - Builds the initial state and executes the graph
+- **Reflection:** `reflect_and_remember(returns_losses)` - Performs post-trade reflection
+- **Signal extraction:** `process_signal(full_signal)` - Extracts BUY/SELL/HOLD
 
 ---
 
@@ -645,7 +645,7 @@ Defined in `src/tradingagents/agents/utils/agent_states.py`.
 
 ### 7.1 Configuration Locations
 
-- **Default config:** `src/tradingagents/default_config.py` (L1-33)
+- **Default config:** `src/tradingagents/default_config.py` — Pydantic models `TradingAgentsConfig` and `DataVendorsConfig`
 - **LLM factory:** `src/tradingagents/llm_clients/factory.py` - `create_llm_client()` (L7-38)
 
 ### 7.2 LLM Tier Assignment

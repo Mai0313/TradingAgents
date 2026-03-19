@@ -26,7 +26,7 @@
 - 多 Agent 架构：分析师团队 → 研究团队 → 交易员 → 风险管理 → 投资组合管理
 - 支持多种 LLM 供应商：OpenAI、Anthropic、Google Gemini、xAI (Grok)、OpenRouter、Ollama
 - 多种数据供应商：`yfinance`、Alpha Vantage
-- 带有实时进度显示及逐步配置流程的交互式 CLI
+- 基于 Pydantic 的配置系统，提供严格类型检查与验证
 - 分析结果自动保存至 `results/` 目录并按团队分组
 - 现代 `src/` 布局，完整类型注解
 - 通过 `uv` 进行快速依赖管理
@@ -59,43 +59,24 @@ OPENROUTER_API_KEY=...
 ALPHA_VANTAGE_API_KEY=...
 ```
 
-### 运行 CLI
-
-```bash
-uv run tradingagents
-# 或
-uv run cli
-```
-
-CLI 将引导您完成以下步骤：
-
-1. **股票代码** — 输入要分析的股票代码（例如 `NVDA`）
-2. **分析日期** — 输入日期，格式为 `YYYY-MM-DD`
-3. **分析师团队** — 选择一个或多个分析师（市场、社交、新闻、基本面）
-4. **研究深度** — 选择浅层 / 中等 / 深度辩论轮次
-5. **LLM 供应商** — 选择 OpenAI、Google、Anthropic、xAI、OpenRouter 或 Ollama
-6. **思考 Agent** — 选择快速思考和深度思考 LLM 模型
-7. **供应商配置** — 设置推理努力程度（OpenAI）或思考模式（Google Gemini）
-
-### 作为库使用
-
-您也可以在自己的脚本中以程序化方式使用 `TradingAgents`：
+### 使用方式
 
 ```python
-from tradingagents.default_config import DEFAULT_CONFIG
+from tradingagents.default_config import TradingAgentsConfig, DataVendorsConfig
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 
-config = DEFAULT_CONFIG.copy()
-config["llm_provider"] = "openai"
-config["deep_think_llm"] = "gpt-5.2"
-config["quick_think_llm"] = "gpt-5-mini"
-config["max_debate_rounds"] = 1
-config["data_vendors"] = {
-    "core_stock_apis": "yfinance",
-    "technical_indicators": "yfinance",
-    "fundamental_data": "yfinance",
-    "news_data": "yfinance",
-}
+config = TradingAgentsConfig(
+    llm_provider="openai",
+    deep_think_llm="gpt-5.2",
+    quick_think_llm="gpt-5-mini",
+    max_debate_rounds=1,
+    data_vendors=DataVendorsConfig(
+        core_stock_apis="yfinance",
+        technical_indicators="yfinance",
+        fundamental_data="yfinance",
+        news_data="yfinance",
+    ),
+)
 
 ta = TradingAgentsGraph(debug=True, config=config)
 _, decision = ta.propagate("NVDA", "2024-05-10")
@@ -114,12 +95,6 @@ src/
     │   ├── risk_mgmt/    # 风险管理 Agents
     │   ├── trader/       # 交易员 Agent
     │   └── utils/        # 共用 Agent 工具
-    ├── cli/              # 交互式 CLI 应用程序
-    │   ├── main.py       # CLI 入口（Typer app）
-    │   ├── utils.py      # CLI 辅助函数
-    │   ├── announcements.py  # 启动公告
-    │   ├── stats_handler.py  # LLM/工具调用统计
-    │   └── static/       # 静态资源（欢迎画面）
     ├── dataflows/        # 数据采集与供应商路由
     ├── graph/            # LangGraph 交易图配置
     ├── llm_clients/      # LLM 供应商客户端（OpenAI、Anthropic、Google、xAI、OpenRouter、Ollama）

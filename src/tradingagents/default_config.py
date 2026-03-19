@@ -1,33 +1,110 @@
-import os
+from pathlib import Path
 
-DEFAULT_CONFIG = {
-    "project_dir": os.path.abspath(os.path.join(os.path.dirname(__file__), ".")),
-    "results_dir": os.getenv("TRADINGAGENTS_RESULTS_DIR", "./results"),
-    "data_cache_dir": os.path.join(
-        os.path.abspath(os.path.join(os.path.dirname(__file__), ".")), "dataflows/data_cache"
-    ),
-    # LLM settings
-    "llm_provider": "openai",
-    "deep_think_llm": "gpt-5.2",
-    "quick_think_llm": "gpt-5-mini",
-    "backend_url": "https://api.openai.com/v1",
-    # Provider-specific thinking configuration
-    "google_thinking_level": None,  # "high", "minimal", etc.
-    "openai_reasoning_effort": None,  # "medium", "high", "low"
-    # Debate and discussion settings
-    "max_debate_rounds": 1,
-    "max_risk_discuss_rounds": 1,
-    "max_recur_limit": 100,
-    # Data vendor configuration
-    # Category-level configuration (default for all tools in category)
-    "data_vendors": {
-        "core_stock_apis": "yfinance",  # Options: alpha_vantage, yfinance
-        "technical_indicators": "yfinance",  # Options: alpha_vantage, yfinance
-        "fundamental_data": "yfinance",  # Options: alpha_vantage, yfinance
-        "news_data": "yfinance",  # Options: alpha_vantage, yfinance
-    },
-    # Tool-level configuration (takes precedence over category-level)
-    "tool_vendors": {
-        # Example: "get_stock_data": "alpha_vantage",  # Override category default
-    },
-}
+from pydantic import Field, BaseModel
+
+_PROJECT_DIR = Path(__file__).resolve().parent
+_RESULTS_DIR = Path("./results")
+_DATA_CACHE_DIR = _PROJECT_DIR / "dataflows" / "data_cache"
+
+
+class DataVendorsConfig(BaseModel):
+    """Category-level data vendor configuration."""
+
+    core_stock_apis: str = Field(
+        default="yfinance",
+        title="Core Stock APIs Vendor",
+        description="Data vendor for OHLCV stock price data. Options: yfinance, alpha_vantage",
+    )
+    technical_indicators: str = Field(
+        default="yfinance",
+        title="Technical Indicators Vendor",
+        description="Data vendor for technical analysis indicators. Options: yfinance, alpha_vantage",
+    )
+    fundamental_data: str = Field(
+        default="yfinance",
+        title="Fundamental Data Vendor",
+        description="Data vendor for company fundamentals. Options: yfinance, alpha_vantage",
+    )
+    news_data: str = Field(
+        default="yfinance",
+        title="News Data Vendor",
+        description="Data vendor for news and insider data. Options: yfinance, alpha_vantage",
+    )
+
+
+class TradingAgentsConfig(BaseModel):
+    """Configuration for the TradingAgents framework."""
+
+    project_dir: Path = Field(
+        default=_PROJECT_DIR,
+        title="Project Directory",
+        description="Root directory of the tradingagents package",
+    )
+    results_dir: Path = Field(
+        default=_RESULTS_DIR,
+        title="Results Directory",
+        description="Directory for saving analysis results",
+    )
+    data_cache_dir: Path = Field(
+        default=_DATA_CACHE_DIR,
+        title="Data Cache Directory",
+        description="Directory for caching downloaded data",
+    )
+    llm_provider: str = Field(
+        default="openai",
+        title="LLM Provider",
+        description="LLM provider to use. Options: openai, anthropic, google, xai, ollama, openrouter",
+    )
+    deep_think_llm: str = Field(
+        default="gpt-5.2",
+        title="Deep Thinking LLM",
+        description="Model name for deep thinking tasks (Research Manager, Risk Manager)",
+    )
+    quick_think_llm: str = Field(
+        default="gpt-5-mini",
+        title="Quick Thinking LLM",
+        description="Model name for quick thinking tasks (analysts, researchers, trader, debators)",
+    )
+    backend_url: str = Field(
+        default="https://api.openai.com/v1",
+        title="Backend URL",
+        description="Base URL for the LLM API endpoint",
+    )
+    google_thinking_level: str | None = Field(
+        default=None,
+        title="Google Thinking Level",
+        description="Thinking level for Google Gemini models (e.g. 'high', 'minimal')",
+    )
+    openai_reasoning_effort: str | None = Field(
+        default=None,
+        title="OpenAI Reasoning Effort",
+        description="Reasoning effort for OpenAI models (e.g. 'low', 'medium', 'high')",
+    )
+    max_debate_rounds: int = Field(
+        default=1,
+        title="Max Debate Rounds",
+        description="Maximum number of Bull/Bear investment debate rounds",
+    )
+    max_risk_discuss_rounds: int = Field(
+        default=1,
+        title="Max Risk Discussion Rounds",
+        description="Maximum number of risk management debate rounds",
+    )
+    max_recur_limit: int = Field(
+        default=100,
+        title="Max Recursion Limit",
+        description="Maximum recursion limit for the LangGraph execution",
+    )
+    data_vendors: DataVendorsConfig = Field(
+        default_factory=DataVendorsConfig,
+        title="Data Vendors",
+        description="Category-level data vendor configuration",
+    )
+    tool_vendors: dict[str, str] = Field(
+        default_factory=dict,
+        title="Tool Vendors",
+        description="Tool-level vendor overrides (takes precedence over category-level)",
+    )
+
+
+DEFAULT_CONFIG = TradingAgentsConfig()

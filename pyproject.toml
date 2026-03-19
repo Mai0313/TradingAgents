@@ -79,7 +79,7 @@ dependencies = [
     "pandas>=3.0.1",
     "parsel>=1.11.0",
     "pytz>=2026.1.post1",
-    "questionary>=2.1.1",
+    "pydantic>=2.11.3",
     "rank-bm25>=0.2.2",
     "redis>=7.2.1",
     "requests>=2.32.5",
@@ -87,7 +87,6 @@ dependencies = [
     "setuptools>=82.0.0",
     "stockstats>=0.6.8",
     "tqdm>=4.67.3",
-    "typer>=0.24.1",
     "typing-extensions>=4.15.0",
     "yfinance>=1.2.0",
 ]
@@ -98,10 +97,6 @@ license = { text = "MIT" }
 [project.urls]
 Homepage = "https://mai0313.github.io/tradingagents"
 Repository = "https://github.com/Mai0313/tradingagents"
-
-[project.scripts]
-cli = "tradingagents.cli.main:app"
-tradingagents = "tradingagents.cli.main:app"
 
 [dependency-groups]
 dev = [
@@ -184,10 +179,6 @@ exclude = [
 ]
 
 [tool.poe.tasks]
-cli = "python ./src/tradingagents/cli/main.py"
-api = "python ./src/tradingagents/cli/main.py"
-main = "python ./src/tradingagents/cli/main.py"
-
 # Documentation
 docs_gen = "make gen-docs"
 docs_deploy = "mkdocs gh-deploy --force --clean"

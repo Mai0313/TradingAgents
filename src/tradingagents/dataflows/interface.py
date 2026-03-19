@@ -89,21 +89,15 @@ def get_category_for_method(method: str) -> str:
 
 def get_vendor(category: str, method: str | None = None) -> str:
     """Get the configured vendor for a data category or specific tool method.
+
     Tool-level configuration takes precedence over category-level.
     """
     config = get_config()
 
-    # Check tool-level configuration first (if method provided)
-    if method:
-        tool_vendors = config.get("tool_vendors", {})
-        if isinstance(tool_vendors, dict) and method in tool_vendors:
-            return str(tool_vendors[method])
+    if method and method in config.tool_vendors:
+        return config.tool_vendors[method]
 
-    # Fall back to category-level configuration
-    data_vendors = config.get("data_vendors", {})
-    if isinstance(data_vendors, dict):
-        return str(data_vendors.get(category, "default"))
-    return "default"
+    return getattr(config.data_vendors, category, "default")
 
 
 def route_to_vendor(method: str, *args: object, **kwargs: object) -> object:

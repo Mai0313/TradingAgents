@@ -42,10 +42,10 @@ Build the Docker image:
 docker build -t tradingagents -f docker/Dockerfile .
 ```
 
-Run the containerized CLI:
+Run the container:
 
 ```bash
-docker run -it --env-file .env tradingagents uv run tradingagents
+docker run -it --env-file .env tradingagents
 ```
 
 ## 📦 Packaging and Distribution
@@ -69,7 +69,6 @@ Convenience tasks are defined under `[tool.poe.tasks]` in `pyproject.toml`:
 ```bash
 uv run poe docs        # generate + serve docs
 uv run poe gen         # generate + deploy docs (gh-deploy)
-uv run poe main        # run CLI entry (same as uv run tradingagents)
 ```
 
 ## 🔁 CI/CD Actions Overview
