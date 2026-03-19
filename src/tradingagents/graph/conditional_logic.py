@@ -1,50 +1,55 @@
 # TradingAgents/graph/conditional_logic.py
 
+from typing import Literal
+
+from pydantic import Field, BaseModel
+
 from tradingagents.agents.utils.agent_states import AgentState
 
 
-class ConditionalLogic:
-    """Handles conditional logic for determining graph flow."""
+class ConditionalLogic(BaseModel):
+    max_debate_rounds: int = Field(
+        default=1, description="Maximum number of Bull/Bear investment debate rounds"
+    )
+    max_risk_discuss_rounds: int = Field(
+        default=1, description="Maximum number of Risk debate rounds"
+    )
 
-    def __init__(self, max_debate_rounds: int = 1, max_risk_discuss_rounds: int = 1):
-        """Initialize with configuration parameters."""
-        self.max_debate_rounds = max_debate_rounds
-        self.max_risk_discuss_rounds = max_risk_discuss_rounds
-
-    def should_continue_market(self, state: AgentState) -> str:
-        """Determine if market analysis should continue."""
+    def should_continue_market(
+        self, state: AgentState
+    ) -> Literal["tools_market", "Msg Clear Market"]:
         messages = state["messages"]
         last_message = messages[-1]
-        if last_message.tool_calls:
-            return "tools_market"
-        return "Msg Clear Market"
+        return "tools_market" if last_message.tool_calls else "Msg Clear Market"
 
-    def should_continue_social(self, state: AgentState) -> str:
-        """Determine if social media analysis should continue."""
+    def should_continue_social(
+        self, state: AgentState
+    ) -> Literal["tools_social", "Msg Clear Social"]:
         messages = state["messages"]
         last_message = messages[-1]
         if last_message.tool_calls:
             return "tools_social"
         return "Msg Clear Social"
 
-    def should_continue_news(self, state: AgentState) -> str:
-        """Determine if news analysis should continue."""
+    def should_continue_news(self, state: AgentState) -> Literal["tools_news", "Msg Clear News"]:
         messages = state["messages"]
         last_message = messages[-1]
         if last_message.tool_calls:
             return "tools_news"
         return "Msg Clear News"
 
-    def should_continue_fundamentals(self, state: AgentState) -> str:
-        """Determine if fundamentals analysis should continue."""
+    def should_continue_fundamentals(
+        self, state: AgentState
+    ) -> Literal["tools_fundamentals", "Msg Clear Fundamentals"]:
         messages = state["messages"]
         last_message = messages[-1]
         if last_message.tool_calls:
             return "tools_fundamentals"
         return "Msg Clear Fundamentals"
 
-    def should_continue_debate(self, state: AgentState) -> str:
-        """Determine if debate should continue."""
+    def should_continue_debate(
+        self, state: AgentState
+    ) -> Literal["Bull Researcher", "Bear Researcher", "Research Manager"]:
         if (
             state["investment_debate_state"]["count"] >= 2 * self.max_debate_rounds
         ):  # 3 rounds of back-and-forth between 2 agents
@@ -53,8 +58,9 @@ class ConditionalLogic:
             return "Bear Researcher"
         return "Bull Researcher"
 
-    def should_continue_risk_analysis(self, state: AgentState) -> str:
-        """Determine if risk analysis should continue."""
+    def should_continue_risk_analysis(
+        self, state: AgentState
+    ) -> Literal["Aggressive Analyst", "Conservative Analyst", "Neutral Analyst", "Risk Judge"]:
         if (
             state["risk_debate_state"]["count"] >= 3 * self.max_risk_discuss_rounds
         ):  # 3 rounds of back-and-forth between 3 agents

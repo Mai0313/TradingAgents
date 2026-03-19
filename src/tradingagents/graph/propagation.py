@@ -2,15 +2,13 @@
 
 from typing import Any
 
+from pydantic import Field, BaseModel
+
 from tradingagents.agents.utils.agent_states import RiskDebateState, InvestDebateState
 
 
-class Propagator:
-    """Handles state initialization and propagation through the graph."""
-
-    def __init__(self, max_recur_limit: int = 100):
-        """Initialize with configuration parameters."""
-        self.max_recur_limit = max_recur_limit
+class Propagator(BaseModel):
+    max_recur_limit: int = Field(default=100, description="Maximum number of recursive calls")
 
     def create_initial_state(self, company_name: str, trade_date: str) -> dict[str, Any]:
         """Create the initial state for the agent graph."""
