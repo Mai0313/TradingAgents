@@ -3,6 +3,7 @@ from collections.abc import Callable
 
 from langchain_core.messages import HumanMessage, RemoveMessage
 
+from tradingagents.agents.utils.agent_states import AgentState
 from tradingagents.agents.utils.news_data_tools import (
     get_news,
     get_global_news,
@@ -33,17 +34,11 @@ __all__ = [
 ]
 
 
-def create_msg_delete() -> Callable[[dict[str, Any]], dict[str, Any]]:
-    def delete_messages(state: dict[str, Any]) -> dict[str, Any]:
-        """Clear messages and add placeholder for Anthropic compatibility"""
-        messages = state["messages"]
-
-        # Remove all messages
-        removal_operations = [RemoveMessage(id=m.id) for m in messages]
-
-        # Add a minimal placeholder message
+def create_msg_delete() -> Callable[[AgentState], dict[str, Any]]:
+    def delete_messages(state: AgentState) -> dict[str, Any]:
+        """Clear messages and add placeholder for Anthropic compatibility."""
+        removal_operations = [RemoveMessage(id=m.id) for m in state.messages]
         placeholder = HumanMessage(content="Continue")
-
         return {"messages": [*removal_operations, placeholder]}
 
     return delete_messages

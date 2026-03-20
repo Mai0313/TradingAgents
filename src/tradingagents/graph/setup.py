@@ -1,8 +1,8 @@
 # TradingAgents/graph/setup.py
 
 from typing import Any
-from dataclasses import dataclass
 
+from pydantic import Field, BaseModel, ConfigDict
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
 from langgraph.graph.state import CompiledStateGraph
@@ -29,38 +29,62 @@ from tradingagents.agents.utils.memory import FinancialSituationMemory
 from .conditional_logic import ConditionalLogic
 
 
-@dataclass
-class MemoryComponents:
+class MemoryComponents(BaseModel):
     """Groups all memory components for the trading agents."""
 
-    bull: FinancialSituationMemory
-    bear: FinancialSituationMemory
-    trader: FinancialSituationMemory
-    invest_judge: FinancialSituationMemory
-    risk_manager: FinancialSituationMemory
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    bull: FinancialSituationMemory = Field(
+        ..., title="Bull Memory", description="Memory store for the bull researcher agent"
+    )
+    bear: FinancialSituationMemory = Field(
+        ..., title="Bear Memory", description="Memory store for the bear researcher agent"
+    )
+    trader: FinancialSituationMemory = Field(
+        ..., title="Trader Memory", description="Memory store for the trader agent"
+    )
+    invest_judge: FinancialSituationMemory = Field(
+        ...,
+        title="Investment Judge Memory",
+        description="Memory store for the investment judge agent",
+    )
+    risk_manager: FinancialSituationMemory = Field(
+        ..., title="Risk Manager Memory", description="Memory store for the risk manager agent"
+    )
 
 
-class GraphSetup:
+class GraphSetup(BaseModel):
     """Handles the setup and configuration of the agent graph."""
 
-    def __init__(
-        self,
-        quick_thinking_llm: BaseChatModel,
-        deep_thinking_llm: BaseChatModel,
-        tool_nodes: dict[str, ToolNode],
-        memories: MemoryComponents,
-        conditional_logic: ConditionalLogic,
-    ):
-        """Initialize with required components."""
-        self.quick_thinking_llm = quick_thinking_llm
-        self.deep_thinking_llm = deep_thinking_llm
-        self.tool_nodes = tool_nodes
-        self.bull_memory = memories.bull
-        self.bear_memory = memories.bear
-        self.trader_memory = memories.trader
-        self.invest_judge_memory = memories.invest_judge
-        self.risk_manager_memory = memories.risk_manager
-        self.conditional_logic = conditional_logic
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    # --- User-configurable fields ---
+
+    quick_thinking_llm: BaseChatModel = Field(
+        ...,
+        title="Quick Thinking LLM",
+        description="LLM instance used for analyst and researcher nodes",
+    )
+    deep_thinking_llm: BaseChatModel = Field(
+        ...,
+        title="Deep Thinking LLM",
+        description="LLM instance used for manager and judge nodes requiring deeper reasoning",
+    )
+    tool_nodes: dict[str, ToolNode] = Field(
+        ...,
+        title="Tool Nodes",
+        description="Mapping of analyst type to its corresponding LangGraph ToolNode",
+    )
+    memories: MemoryComponents = Field(
+        ..., title="Memory Components", description="All agent memory stores grouped together"
+    )
+    conditional_logic: ConditionalLogic = Field(
+        default_factory=ConditionalLogic,
+        title="Conditional Logic",
+        description="Logic instance that determines graph edge routing",
+    )
+
+    # --- Private helpers ---
 
     def _build_analyst_nodes(
         self, selected_analysts: list[str]
@@ -106,6 +130,8 @@ class GraphSetup:
             else:
                 workflow.add_edge(current_clear, "Bull Researcher")
 
+    # --- Public methods ---
+
     def setup_graph(self, selected_analysts: list[str] | None = None) -> CompiledStateGraph:
         """Set up and compile the agent workflow graph.
 
@@ -124,18 +150,18 @@ class GraphSetup:
         analyst_nodes, delete_nodes, tool_nodes = self._build_analyst_nodes(selected_analysts)
 
         # Create researcher and manager nodes
-        bull_researcher_node = create_bull_researcher(self.quick_thinking_llm, self.bull_memory)
-        bear_researcher_node = create_bear_researcher(self.quick_thinking_llm, self.bear_memory)
+        bull_researcher_node = create_bull_researcher(self.quick_thinking_llm, self.memories.bull)
+        bear_researcher_node = create_bear_researcher(self.quick_thinking_llm, self.memories.bear)
         research_manager_node = create_research_manager(
-            self.deep_thinking_llm, self.invest_judge_memory
+            self.deep_thinking_llm, self.memories.invest_judge
         )
-        trader_node = create_trader(self.quick_thinking_llm, self.trader_memory)
+        trader_node = create_trader(self.quick_thinking_llm, self.memories.trader)
 
         # Create risk analysis nodes
         aggressive_analyst = create_aggressive_debator(self.quick_thinking_llm)
         neutral_analyst = create_neutral_debator(self.quick_thinking_llm)
         conservative_analyst = create_conservative_debator(self.quick_thinking_llm)
-        risk_manager_node = create_risk_manager(self.deep_thinking_llm, self.risk_manager_memory)
+        risk_manager_node = create_risk_manager(self.deep_thinking_llm, self.memories.risk_manager)
 
         # Create workflow
         workflow = StateGraph(AgentState)

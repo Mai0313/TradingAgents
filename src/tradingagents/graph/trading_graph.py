@@ -24,6 +24,7 @@ from tradingagents.agents.utils.agent_utils import (
     get_income_statement,
     get_insider_transactions,
 )
+from tradingagents.agents.utils.agent_states import AgentState
 
 from .setup import GraphSetup, MemoryComponents
 from .reflection import Reflector
@@ -60,8 +61,8 @@ class TradingAgentsGraph(BaseModel):
     )
 
     # --- Mutable runtime state (updated by propagate() etc.) ---
-    curr_state: dict[str, Any] = Field(
-        default_factory=dict,
+    curr_state: AgentState | None = Field(
+        default=None,
         title="Current State",
         description="Current graph execution state, populated after propagate()",
     )
@@ -178,11 +179,11 @@ class TradingAgentsGraph(BaseModel):
             risk_manager=self.risk_manager_memory,
         )
         graph_setup = GraphSetup(
-            self.quick_thinking_llm,
-            self.deep_thinking_llm,
-            self.tool_nodes,
-            memories,
-            ConditionalLogic(),
+            quick_thinking_llm=self.quick_thinking_llm,
+            deep_thinking_llm=self.deep_thinking_llm,
+            tool_nodes=self.tool_nodes,
+            memories=memories,
+            conditional_logic=ConditionalLogic(),
         )
         return graph_setup.setup_graph(self.selected_analysts)
 
@@ -196,17 +197,17 @@ class TradingAgentsGraph(BaseModel):
     @cached_property
     def reflector(self) -> Reflector:
         """Post-trade reflector for memory updates."""
-        return Reflector(self.quick_thinking_llm)
+        return Reflector(quick_thinking_llm=self.quick_thinking_llm)
 
     @computed_field
     @cached_property
     def signal_processor(self) -> SignalProcessor:
         """Signal processor for extracting BUY/SELL/HOLD decisions."""
-        return SignalProcessor(self.quick_thinking_llm)
+        return SignalProcessor(quick_thinking_llm=self.quick_thinking_llm)
 
     # --- Public methods ---
 
-    def propagate(self, company_name: str, trade_date: str) -> tuple[Any, Any]:
+    def propagate(self, company_name: str, trade_date: str) -> tuple[AgentState, str]:
         """Run the trading agents graph for a company on a specific date."""
         self.ticker = company_name
 
@@ -216,43 +217,45 @@ class TradingAgentsGraph(BaseModel):
         if self.debug:
             trace = []
             for chunk in self.graph.stream(init_agent_state, **args):
-                if chunk["messages"]:
-                    chunk["messages"][-1].pretty_print()
+                if chunk.messages:
+                    chunk.messages[-1].pretty_print()
                     trace.append(chunk)
-            final_state = trace[-1]
+            final_state: AgentState = trace[-1]
         else:
             final_state = self.graph.invoke(init_agent_state, **args)
 
         self.curr_state = final_state
         self._log_state(trade_date, final_state)
-        return final_state, self.process_signal(final_state["final_trade_decision"])
+        return final_state, self.process_signal(final_state.final_trade_decision)
 
-    def _log_state(self, trade_date: str, final_state: dict[str, Any]) -> None:
+    def _log_state(self, trade_date: str, final_state: AgentState) -> None:
         """Log the final state to a JSON file."""
+        invest = final_state.investment_debate_state
+        risk = final_state.risk_debate_state
         self.log_states_dict[str(trade_date)] = {
-            "company_of_interest": final_state["company_of_interest"],
-            "trade_date": final_state["trade_date"],
-            "market_report": final_state["market_report"],
-            "sentiment_report": final_state["sentiment_report"],
-            "news_report": final_state["news_report"],
-            "fundamentals_report": final_state["fundamentals_report"],
+            "company_of_interest": final_state.company_of_interest,
+            "trade_date": final_state.trade_date,
+            "market_report": final_state.market_report,
+            "sentiment_report": final_state.sentiment_report,
+            "news_report": final_state.news_report,
+            "fundamentals_report": final_state.fundamentals_report,
             "investment_debate_state": {
-                "bull_history": final_state["investment_debate_state"]["bull_history"],
-                "bear_history": final_state["investment_debate_state"]["bear_history"],
-                "history": final_state["investment_debate_state"]["history"],
-                "current_response": final_state["investment_debate_state"]["current_response"],
-                "judge_decision": final_state["investment_debate_state"]["judge_decision"],
+                "bull_history": invest.bull_history,
+                "bear_history": invest.bear_history,
+                "history": invest.history,
+                "current_response": invest.current_response,
+                "judge_decision": invest.judge_decision,
             },
-            "trader_investment_decision": final_state["trader_investment_plan"],
+            "trader_investment_decision": final_state.trader_investment_plan,
             "risk_debate_state": {
-                "aggressive_history": final_state["risk_debate_state"]["aggressive_history"],
-                "conservative_history": final_state["risk_debate_state"]["conservative_history"],
-                "neutral_history": final_state["risk_debate_state"]["neutral_history"],
-                "history": final_state["risk_debate_state"]["history"],
-                "judge_decision": final_state["risk_debate_state"]["judge_decision"],
+                "aggressive_history": risk.aggressive_history,
+                "conservative_history": risk.conservative_history,
+                "neutral_history": risk.neutral_history,
+                "history": risk.history,
+                "judge_decision": risk.judge_decision,
             },
-            "investment_plan": final_state["investment_plan"],
-            "final_trade_decision": final_state["final_trade_decision"],
+            "investment_plan": final_state.investment_plan,
+            "final_trade_decision": final_state.final_trade_decision,
         }
 
         ticker_name = self.ticker or "unknown"
@@ -265,7 +268,7 @@ class TradingAgentsGraph(BaseModel):
 
     def reflect_and_remember(self, returns_losses: float) -> None:
         """Reflect on decisions and update memory based on returns."""
-        if not self.curr_state:
+        if self.curr_state is None:
             raise RuntimeError("No state available to reflect on. Run propagate() first.")
         self.reflector.reflect_bull_researcher(self.curr_state, returns_losses, self.bull_memory)
         self.reflector.reflect_bear_researcher(self.curr_state, returns_losses, self.bear_memory)

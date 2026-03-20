@@ -3,36 +3,25 @@
 from typing import Any
 
 from pydantic import Field, BaseModel
+from langchain_core.messages import HumanMessage
 
-from tradingagents.agents.utils.agent_states import RiskDebateState, InvestDebateState
+from tradingagents.agents.utils.agent_states import AgentState
 
 
 class Propagator(BaseModel):
-    max_recur_limit: int = Field(default=100, description="Maximum number of recursive calls")
+    max_recur_limit: int = Field(
+        default=100,
+        title="Max Recursion Limit",
+        description="Maximum number of recursive calls allowed in the LangGraph execution",
+    )
 
-    def create_initial_state(self, company_name: str, trade_date: str) -> dict[str, Any]:
-        """Create the initial state for the agent graph."""
-        return {
-            "messages": [("human", company_name)],
-            "company_of_interest": company_name,
-            "trade_date": str(trade_date),
-            "investment_debate_state": InvestDebateState({
-                "history": "",
-                "current_response": "",
-                "count": 0,
-            }),
-            "risk_debate_state": RiskDebateState({
-                "history": "",
-                "current_aggressive_response": "",
-                "current_conservative_response": "",
-                "current_neutral_response": "",
-                "count": 0,
-            }),
-            "market_report": "",
-            "fundamentals_report": "",
-            "sentiment_report": "",
-            "news_report": "",
-        }
+    def create_initial_state(self, company_name: str, trade_date: str) -> AgentState:
+        """Create the initial AgentState for the graph execution."""
+        return AgentState(
+            messages=[HumanMessage(content=company_name)],
+            company_of_interest=company_name,
+            trade_date=str(trade_date),
+        )
 
     def get_graph_args(self, callbacks: list | None = None) -> dict[str, Any]:
         """Get arguments for the graph invocation.

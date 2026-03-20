@@ -134,7 +134,7 @@ There are **9** tools in total, grouped into 4 major categories:
 Binding method:
 
 - Each analyst creation function binds tools to the LLM through `llm.bind_tools(tools)`
-- LangGraph `ToolNode` wrappers are created in `TradingAgentsGraph._create_tool_nodes()` (L146-172 of `graph/trading_graph.py`)
+- LangGraph `ToolNode` wrappers are exposed via the `tool_nodes` `@computed_field` in `TradingAgentsGraph` (`graph/trading_graph.py`)
 
 ---
 
@@ -397,14 +397,16 @@ All agent prompts are stored as Markdown template files under `src/tradingagents
 
 ### 4.1 Core Files
 
-| File                                           | Purpose                                                                                             |
-| ---------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `src/tradingagents/graph/trading_graph.py`     | Main `TradingAgentsGraph` class; initializes LLMs, memory, and `ToolNode`s, then compiles the graph |
-| `src/tradingagents/graph/setup.py`             | `GraphSetup` class; defines all nodes and edges                                                     |
-| `src/tradingagents/graph/conditional_logic.py` | `ConditionalLogic` class; defines conditional routing logic                                         |
-| `src/tradingagents/graph/propagation.py`       | `Propagator` class; builds the initial state                                                        |
-| `src/tradingagents/graph/reflection.py`        | `Reflector` class; performs post-trade reflection and memory updates                                |
-| `src/tradingagents/graph/signal_processing.py` | `SignalProcessor` class; extracts BUY/SELL/HOLD from text                                           |
+All six classes below are Pydantic `BaseModel` subclasses.
+
+| File                                           | Purpose                                                                                                                            |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `src/tradingagents/graph/trading_graph.py`     | `TradingAgentsGraph` — main orchestrator; initializes LLMs, memory, and `ToolNode`s via `@computed_field`, then compiles the graph |
+| `src/tradingagents/graph/setup.py`             | `MemoryComponents` — groups all five memory instances; `GraphSetup` — defines all graph nodes and edges                            |
+| `src/tradingagents/graph/conditional_logic.py` | `ConditionalLogic` — conditional routing logic for analyst loops and debate loops                                                  |
+| `src/tradingagents/graph/propagation.py`       | `Propagator` — builds the initial graph state and LangGraph invocation arguments                                                   |
+| `src/tradingagents/graph/reflection.py`        | `Reflector` — performs post-trade reflection and updates memory for each agent role                                                |
+| `src/tradingagents/graph/signal_processing.py` | `SignalProcessor` — extracts BUY/SELL/HOLD from the Risk Judge's natural-language output                                           |
 
 ### 4.2 Graph Node List
 
@@ -555,6 +557,7 @@ START
 ### 4.5 Graph Compilation and Execution Entry Points
 
 - **Main class:** `TradingAgentsGraph` (`src/tradingagents/graph/trading_graph.py`) — Pydantic `BaseModel` subclass. User-configurable fields use `Field()`, derived state (LLMs, memories, compiled graph) uses `@computed_field` + `@cached_property`.
+- **Full Pydantic coverage:** Every class in `src/tradingagents/graph/` — `TradingAgentsGraph`, `GraphSetup`, `MemoryComponents`, `ConditionalLogic`, `Propagator`, `Reflector`, and `SignalProcessor` — inherits from `BaseModel`. All fields declare `title` and `description`; non-Pydantic objects (LLMs, ToolNodes, FinancialSituationMemory) are wrapped with `ConfigDict(arbitrary_types_allowed=True)`.
 - **Configuration:** Accepts a `TradingAgentsConfig` Pydantic model; side effects (`set_config`, `mkdir`) run in a `@model_validator(mode="after")` hook
 - **Execution:** `propagate(company_name, trade_date)` - Builds the initial state and executes the graph
 - **Reflection:** `reflect_and_remember(returns_losses)` - Performs post-trade reflection
@@ -624,18 +627,23 @@ Defined in `src/tradingagents/agents/utils/agent_states.py`.
 
 ### 6.2 Reflector - Reflection system
 
-- **File:** `src/tradingagents/graph/reflection.py` (L10-143)
+- **File:** `src/tradingagents/graph/reflection.py`
+- **Class:** Pydantic `BaseModel` with `ConfigDict(arbitrary_types_allowed=True)`
+- **Field:** `quick_thinking_llm: BaseChatModel` — LLM used to generate reflection analysis
+- **System prompt:** Stored as a module-level constant `_REFLECTION_SYSTEM_PROMPT` (not a field)
 - **Purpose:** Reflects on the quality of each agent's decision after the trade based on actual profit/loss, then updates the corresponding memory
 - **Trigger:** After calling `TradingAgentsGraph.reflect_and_remember(returns_losses)`, reflection runs in this order:
-    1. Bull Researcher (L76-87)
-    2. Bear Researcher (L89-100)
-    3. Trader (L102-113)
-    4. Invest Judge (L115-128)
-    5. Risk Manager (L130-143)
+    1. `reflect_bull_researcher()`
+    2. `reflect_bear_researcher()`
+    3. `reflect_trader()`
+    4. `reflect_invest_judge()`
+    5. `reflect_risk_manager()`
 
 ### 6.3 SignalProcessor - Signal extraction
 
-- **File:** `src/tradingagents/graph/signal_processing.py` (L6-30)
+- **File:** `src/tradingagents/graph/signal_processing.py`
+- **Class:** Pydantic `BaseModel` with `ConfigDict(arbitrary_types_allowed=True)`
+- **Field:** `quick_thinking_llm: BaseChatModel` — LLM used to extract the decision (changed from concrete `ChatOpenAI` to abstract `BaseChatModel`)
 - **Purpose:** Extracts BUY/SELL/HOLD from the Risk Judge's natural-language decision text
 - **Method:** Uses an LLM for text extraction
 
@@ -676,7 +684,7 @@ The following LangGraph/LangChain related dependencies will need to be replaced 
 | ------------------------ | ------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
 | `langgraph`              | Graph construction, `StateGraph`, `ToolNode`, `CompiledStateGraph`                   | `graph/setup.py`, `graph/trading_graph.py`                 |
 | `langchain_core`         | `BaseChatModel`, `@tool` decorator, `MessagesState`, `HumanMessage`, `RemoveMessage` | All agent definitions, `agent_states.py`, `agent_utils.py` |
-| `langchain_openai`       | `ChatOpenAI` (used in a type hint in `signal_processing.py`)                         | `graph/signal_processing.py`                               |
+| `langchain_openai`       | `ChatOpenAI` LLM client                                                              | `llm_clients/openai_client.py`                             |
 | `langchain_anthropic`    | Anthropic LLM client                                                                 | `llm_clients/anthropic_client.py`                          |
 | `langchain_google_genai` | Google LLM client                                                                    | `llm_clients/google_client.py`                             |
 

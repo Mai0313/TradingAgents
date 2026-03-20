@@ -6,13 +6,11 @@ from langchain_core.language_models import BaseChatModel
 
 from tradingagents.agents.prompts import load_prompt
 from tradingagents.agents.utils.agent_utils import get_news
+from tradingagents.agents.utils.agent_states import AgentState
 
 
-def create_social_media_analyst(llm: BaseChatModel) -> Callable[[dict[str, Any]], dict[str, Any]]:
-    def social_media_analyst_node(state: dict[str, Any]) -> dict[str, Any]:
-        current_date = state["trade_date"]
-        ticker = state["company_of_interest"]
-
+def create_social_media_analyst(llm: BaseChatModel) -> Callable[[AgentState], dict[str, Any]]:
+    def social_media_analyst_node(state: AgentState) -> dict[str, Any]:
         tools = [get_news]
 
         prompt = ChatPromptTemplate.from_messages([
@@ -21,17 +19,14 @@ def create_social_media_analyst(llm: BaseChatModel) -> Callable[[dict[str, Any]]
         ])
 
         prompt = prompt.partial(tool_names=", ".join([tool.name for tool in tools]))
-        prompt = prompt.partial(current_date=current_date)
-        prompt = prompt.partial(ticker=ticker)
+        prompt = prompt.partial(current_date=state.trade_date)
+        prompt = prompt.partial(ticker=state.company_of_interest)
 
         chain = prompt | llm.bind_tools(tools)
 
-        result = chain.invoke(state["messages"])
+        result = chain.invoke(state.messages)
 
-        report = ""
-
-        if len(result.tool_calls) == 0:
-            report = result.content
+        report = "" if result.tool_calls else result.content
 
         return {"messages": [result], "sentiment_report": report}
 
