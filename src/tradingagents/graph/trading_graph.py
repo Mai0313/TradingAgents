@@ -215,14 +215,19 @@ class TradingAgentsGraph(BaseModel):
         args = self.propagator.get_graph_args()
 
         if self.debug:
-            trace = []
+            raw_state = None
             for chunk in self.graph.stream(init_agent_state, **args):
-                if chunk.messages:
-                    chunk.messages[-1].pretty_print()
-                    trace.append(chunk)
-            final_state: AgentState = trace[-1]
+                messages = chunk.get("messages") if isinstance(chunk, dict) else getattr(chunk, "messages", None)
+                if messages:
+                    messages[-1].pretty_print()
+                raw_state = chunk
         else:
-            final_state = self.graph.invoke(init_agent_state, **args)
+            raw_state = self.graph.invoke(init_agent_state, **args)
+
+        if raw_state is None:
+            raise RuntimeError("Graph produced no output")
+
+        final_state = AgentState.model_validate(raw_state) if isinstance(raw_state, dict) else raw_state
 
         self.curr_state = final_state
         self._log_state(trade_date, final_state)
