@@ -94,13 +94,72 @@ src/
 
 ## 🤖 Agent Workflow
 
-1. **Analyst Team** — Each selected analyst independently researches market data, news, sentiment, and fundamentals
-2. **Research Team** — Bull and Bear researchers debate; Research Manager makes a final investment decision
-3. **Trader** — Formulates a trade plan based on research
-4. **Risk Management** — Three risk analysts (aggressive, neutral, conservative) debate risk
-5. **Portfolio Manager** — Makes the final trade decision based on all inputs
+TradingAgents orchestrates **12 LLM agents** plus **2 supporting components** through a LangGraph `StateGraph`. Every run goes through 4 sequential phases, and the state (reports, debate transcripts, trade decisions) is persisted through a Pydantic `AgentState` shared across all nodes.
 
-Results are saved to `results/<TICKER>/<DATE>/` with per-team sub-folders and a consolidated `complete_report.md`.
+> Full architectural reference: [DESIGN.md](DESIGN.md).
+
+### Phase 1 — Analyst Team (Data Collection)
+
+Four analysts run in sequence. Each analyst has its LLM bound to a specific set of `yfinance`-backed `@tool` functions, and loops with its own `ToolNode` until no more tool calls are emitted. Between analysts a `Msg Clear` node resets the conversation history (emitting `RemoveMessage` + a `HumanMessage("Continue")` placeholder for Anthropic compatibility).
+
+| Analyst                  | LLM-bound tools                                                                 | Writes to state       |
+| ------------------------ | ------------------------------------------------------------------------------- | --------------------- |
+| **Market Analyst**       | `get_stock_data`, `get_indicators`                                              | `market_report`       |
+| **Social Media Analyst** | `get_news`                                                                      | `sentiment_report`    |
+| **News Analyst**         | `get_news`, `get_global_news`                                                   | `news_report`         |
+| **Fundamentals Analyst** | `get_fundamentals`, `get_balance_sheet`, `get_cashflow`, `get_income_statement` | `fundamentals_report` |
+
+Supported technical indicators (selected by the Market Analyst, up to 8 per run): `close_50_sma`, `close_200_sma`, `close_10_ema`, `macd`, `macds`, `macdh`, `rsi`, `boll`, `boll_ub`, `boll_lb`, `atr`, `vwma`.
+
+### Phase 2 — Research Debate
+
+- **Bull Researcher** and **Bear Researcher** debate for `max_debate_rounds` rounds (default: 1 round each), taking turns based on who spoke last. Each researcher retrieves top-k BM25 matches from its own `FinancialSituationMemory` before arguing.
+- Termination: `count >= 2 * max_debate_rounds` routes the graph to **Research Manager** (deep-thinking LLM), which evaluates the full debate, produces the `investment_plan`, and populates `investment_debate_state.judge_decision`.
+
+### Phase 3 — Trader
+
+**Trader** (quick-thinking LLM) consumes `investment_plan` plus the top-k `trader_memory` matches and produces `trader_investment_plan`. Its output must end with `FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL**`.
+
+### Phase 4 — Risk Control Debate
+
+Three debators rotate in a fixed order — **Aggressive → Conservative → Neutral → Aggressive → …** — for `max_risk_discuss_rounds` rounds (default: 1 round per stance). Termination: `count >= 3 * max_risk_discuss_rounds` routes to the **Risk Judge** (deep-thinking LLM via `create_risk_manager`), which revises the trader's plan and writes the `final_trade_decision`. A lightweight `SignalProcessor` LLM then extracts the canonical `BUY` / `SELL` / `HOLD` token from that natural-language decision.
+
+### Supporting components
+
+- **FinancialSituationMemory** — BM25Okapi-backed per-agent memory (5 instances: bull, bear, trader, invest_judge, risk_manager). Purely lexical, no external embeddings API required.
+- **Reflector** — After the trade outcome is known, `TradingAgentsGraph.reflect_and_remember(returns_losses)` runs post-trade reflection against each of the 5 memories so future runs can learn from past decisions.
+
+### Flow Diagram
+
+```
+START
+  │
+  ▼
+[Market Analyst ⇄ tools_market] → Msg Clear
+  │
+  ▼
+[Social Analyst ⇄ tools_social] → Msg Clear
+  │
+  ▼
+[News Analyst ⇄ tools_news] → Msg Clear
+  │
+  ▼
+[Fundamentals Analyst ⇄ tools_fundamentals] → Msg Clear
+  │
+  ▼
+[Bull Researcher ⇄ Bear Researcher] × max_debate_rounds
+  │
+  ▼
+Research Manager  →  Trader
+                        │
+                        ▼
+[Aggressive → Conservative → Neutral] × max_risk_discuss_rounds
+  │
+  ▼
+Risk Judge  →  SignalProcessor  →  END
+```
+
+Per-run logs are written to `eval_results/<TICKER>/TradingAgentsStrategy_logs/full_states_log_<DATE>.json`.
 
 ## 🤝 Contributing
 

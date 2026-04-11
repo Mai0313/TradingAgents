@@ -134,8 +134,8 @@ class MyConfig(BaseModel):
 # Bad — inline path construction is hard to read and cannot be reused
 class MyConfig(BaseModel):
     data_cache_dir: Path = Field(
-        default=Path(__file__).resolve().parent / "dataflows" / "data_cache",
-        ...
+        default=Path(__file__).resolve().parent / "dataflows" / "data_cache"
+        # ... other Field arguments
     )
 ```
 

@@ -94,13 +94,72 @@ src/
 
 ## 🤖 Agent 工作流程
 
-1. **分析师团队** — 每位选定的分析师独立研究市场数据、新闻、情绪和基本面
-2. **研究团队** — 多头和空头研究员辩论；研究经理做出最终投资决策
-3. **交易员** — 根据研究制定交易计划
-4. **风险管理** — 三位风险分析师（激进、中性、保守）辩论风险
-5. **投资组合管理者** — 根据所有输入做出最终交易决策
+TradingAgents 通过 LangGraph `StateGraph` 编排 **12 个 LLM agent** 加上 **2 个支持组件**，每次执行会依序跑过 4 个 phase，所有状态（各类 report、debate transcript、trade decision）都通过一个共用的 Pydantic `AgentState` 在所有节点之间传递。
 
-分析结果保存至 `results/<股票代码>/<日期>/`，各团队报告分文件夹，并生成合并报告 `complete_report.md`。
+> 完整架构参考文档：[DESIGN.md](DESIGN.md)。
+
+### Phase 1 — 分析师团队（数据采集）
+
+四位 analyst 依序执行。每位 analyst 的 LLM 都会 `bind_tools(...)` 到一组以 `yfinance` 为 backend 的 `@tool` 函数，并与其专属的 `ToolNode` 配对，持续 loop 直到没有新的 tool call 为止。每位 analyst 结束之后会经过一个 `Msg Clear` node，它会发出 `RemoveMessage` 并补上一个 `HumanMessage("Continue")` placeholder（这是为了维持 Anthropic 对最后一则消息必须是 human 的要求）。
+
+| Analyst                  | LLM 绑定的 tools                                                                | 写入 state            |
+| ------------------------ | ------------------------------------------------------------------------------- | --------------------- |
+| **Market Analyst**       | `get_stock_data`, `get_indicators`                                              | `market_report`       |
+| **Social Media Analyst** | `get_news`                                                                      | `sentiment_report`    |
+| **News Analyst**         | `get_news`, `get_global_news`                                                   | `news_report`         |
+| **Fundamentals Analyst** | `get_fundamentals`, `get_balance_sheet`, `get_cashflow`, `get_income_statement` | `fundamentals_report` |
+
+Market Analyst 可挑选的 technical indicator（一次最多 8 个）：`close_50_sma`、`close_200_sma`、`close_10_ema`、`macd`、`macds`、`macdh`、`rsi`、`boll`、`boll_ub`、`boll_lb`、`atr`、`vwma`。
+
+### Phase 2 — 研究辩论
+
+- **Bull Researcher** 与 **Bear Researcher** 会按照 `max_debate_rounds`（默认为 1，等于双方各讲一轮）互相辩论，依据 "上一位发言者是谁" 决定下一个轮到谁。每位 researcher 会先用自己的 `FinancialSituationMemory` 做 BM25 retrieval，把 top-k 的过往经验灌进 prompt 再开讲。
+- 终止条件：当 `count >= 2 * max_debate_rounds` 时，graph 会 route 到 **Research Manager**（deep-thinking LLM），由它汇整整场辩论、产出 `investment_plan`，并填入 `investment_debate_state.judge_decision`。
+
+### Phase 3 — Trader
+
+**Trader**（quick-thinking LLM）会读取 `investment_plan` 以及来自 `trader_memory` 的 top-k 历史经验，输出 `trader_investment_plan`。它的输出必须以 `FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL**` 结尾。
+
+### Phase 4 — 风险辩论
+
+三位 risk debator 以固定顺序轮流发言：**Aggressive → Conservative → Neutral → Aggressive → …**，循环 `max_risk_discuss_rounds` 轮（默认为 1，代表每种立场各发言一次）。终止条件：当 `count >= 3 * max_risk_discuss_rounds` 时，graph route 到 **Risk Judge**（由 `create_risk_manager` 建立的 deep-thinking LLM），由它修正 trader 的计划并写入 `final_trade_decision`。最后再由一个轻量的 `SignalProcessor` LLM 把这段自然语言决策抽成单一 token — `BUY` / `SELL` / `HOLD`。
+
+### 支持组件
+
+- **FinancialSituationMemory** — 采 BM25Okapi 做 retrieval，整个流程共有 5 个 instance（bull、bear、trader、invest_judge、risk_manager）。纯 lexical 相似度，不需要任何 embedding API。
+- **Reflector** — 交易结果出炉之后，调用 `TradingAgentsGraph.reflect_and_remember(returns_losses)` 会针对 5 个 memory 各跑一轮 post-trade reflection，把这次的成败写回对应的 memory 供之后 retrieval 使用。
+
+### 流程示意
+
+```
+START
+  │
+  ▼
+[Market Analyst ⇄ tools_market] → Msg Clear
+  │
+  ▼
+[Social Analyst ⇄ tools_social] → Msg Clear
+  │
+  ▼
+[News Analyst ⇄ tools_news] → Msg Clear
+  │
+  ▼
+[Fundamentals Analyst ⇄ tools_fundamentals] → Msg Clear
+  │
+  ▼
+[Bull Researcher ⇄ Bear Researcher] × max_debate_rounds
+  │
+  ▼
+Research Manager  →  Trader
+                        │
+                        ▼
+[Aggressive → Conservative → Neutral] × max_risk_discuss_rounds
+  │
+  ▼
+Risk Judge  →  SignalProcessor  →  END
+```
+
+每次执行的完整 state 会写入 `eval_results/<股票代码>/TradingAgentsStrategy_logs/full_states_log_<日期>.json`。
 
 ## 🤝 贡献
 
