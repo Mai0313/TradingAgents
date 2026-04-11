@@ -24,9 +24,9 @@ class ReasoningEffort(StrEnum):
 
     Provider mappings:
     - OpenAI:    low -> low,  medium -> medium, high -> high, max -> xhigh
-    - Google:    low -> LOW,  medium -> MEDIUM, high -> HIGH, max -> HIGH
+    - Google:    low -> low,  medium -> medium, high -> high, max -> high
                  (Gemini 2.5 uses thinking_budget: low/medium disabled, high/max dynamic)
-                 (Gemini 3 Pro lacks medium; it falls back to LOW)
+                 (Gemini 3 Pro lacks medium; it falls back to low)
     - Anthropic: low -> low,  medium -> medium, high -> high, max -> max
     """
 
