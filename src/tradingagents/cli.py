@@ -9,8 +9,8 @@ def main() -> None:
         llm_provider=LLMProvider.GOOGLE,
         deep_think_llm="gemini-3.1-pro-preview",
         quick_think_llm="gemini-3-flash-preview",
-        max_debate_rounds=100,
-        max_risk_discuss_rounds=100,
+        max_debate_rounds=10,
+        max_risk_discuss_rounds=10,
         max_recur_limit=100,
         reasoning_effort="high",
     )
