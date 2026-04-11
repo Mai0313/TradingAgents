@@ -19,6 +19,23 @@ class LLMProvider(StrEnum):
     OPENROUTER = "openrouter"
 
 
+class ReasoningEffort(StrEnum):
+    """Unified reasoning effort levels, mapped per-provider at the client layer.
+
+    Provider mappings:
+    - OpenAI:    low -> low,  medium -> medium, high -> high, max -> xhigh
+    - Google:    low -> LOW,  medium -> MEDIUM, high -> HIGH, max -> HIGH
+                 (Gemini 2.5 uses thinking_budget: low/medium disabled, high/max dynamic)
+                 (Gemini 3 Pro lacks medium; it falls back to LOW)
+    - Anthropic: low -> low,  medium -> medium, high -> high, max -> max
+    """
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    MAX = "max"
+
+
 class TradingAgentsConfig(BaseModel):
     """Configuration for the TradingAgents framework."""
 
@@ -57,15 +74,13 @@ class TradingAgentsConfig(BaseModel):
         title="Backend URL",
         description="Base URL for the LLM API endpoint",
     )
-    google_thinking_level: str | None = Field(
+    reasoning_effort: ReasoningEffort | None = Field(
         default=None,
-        title="Google Thinking Level",
-        description="Thinking level for Google Gemini models (e.g. 'high', 'minimal')",
-    )
-    openai_reasoning_effort: str | None = Field(
-        default=None,
-        title="OpenAI Reasoning Effort",
-        description="Reasoning effort for OpenAI models (e.g. 'low', 'medium', 'high')",
+        title="Reasoning Effort",
+        description=(
+            "Unified reasoning effort level for reasoning-capable LLMs. "
+            "Mapped per-provider at the client layer (see ReasoningEffort docstring)."
+        ),
     )
     max_debate_rounds: int = Field(
         ...,
