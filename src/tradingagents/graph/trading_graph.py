@@ -94,11 +94,7 @@ class TradingAgentsGraph(BaseModel):
         llm_kwargs = self._get_provider_kwargs()
         if self.callbacks:
             llm_kwargs["callbacks"] = self.callbacks
-        client = create_llm_client(
-            provider=self.config.llm_provider,
-            model=model,
-            **llm_kwargs,
-        )
+        client = create_llm_client(provider=self.config.llm_provider, model=model, **llm_kwargs)
         return client.get_llm()
 
     @computed_field

@@ -10,7 +10,7 @@ config = TradingAgentsConfig(
     max_debate_rounds=1,
     max_risk_discuss_rounds=1,
     max_recur_limit=100,
-    reasoning_effort="high"
+    reasoning_effort="high",
 )
 
 ta = TradingAgentsGraph(debug=True, config=config)
