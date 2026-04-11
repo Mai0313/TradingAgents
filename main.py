@@ -1,13 +1,15 @@
 import datetime
 
-from tradingagents.default_config import TradingAgentsConfig
+from tradingagents.default_config import LLMProvider, TradingAgentsConfig
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 
 config = TradingAgentsConfig(
-    llm_provider="google",
+    llm_provider=LLMProvider.GOOGLE,
     deep_think_llm="gemini-3-flash-preview",
     quick_think_llm="gemini-3-flash-preview",
     max_debate_rounds=1,
+    max_risk_discuss_rounds=1,
+    max_recur_limit=100,
 )
 
 ta = TradingAgentsGraph(debug=True, config=config)

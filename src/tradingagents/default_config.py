@@ -1,3 +1,4 @@
+from enum import StrEnum
 from pathlib import Path
 
 from pydantic import Field, BaseModel
@@ -5,6 +6,17 @@ from pydantic import Field, BaseModel
 _PROJECT_DIR = Path(__file__).resolve().parent
 _RESULTS_DIR = Path("./results")
 _DATA_CACHE_DIR = _PROJECT_DIR / "dataflows" / "data_cache"
+
+
+class LLMProvider(StrEnum):
+    """Supported LLM providers for TradingAgents."""
+
+    OPENAI = "openai"
+    ANTHROPIC = "anthropic"
+    GOOGLE = "google"
+    XAI = "xai"
+    OLLAMA = "ollama"
+    OPENROUTER = "openrouter"
 
 
 class TradingAgentsConfig(BaseModel):
@@ -25,18 +37,18 @@ class TradingAgentsConfig(BaseModel):
         title="Data Cache Directory",
         description="Directory for caching downloaded data",
     )
-    llm_provider: str = Field(
-        default="openai",
+    llm_provider: LLMProvider = Field(
+        ...,
         title="LLM Provider",
-        description="LLM provider to use. Options: openai, anthropic, google, xai, ollama, openrouter",
+        description="LLM provider to use. Must be one of the supported providers in LLMProvider enum.",
     )
     deep_think_llm: str = Field(
-        default="gpt-5.2",
+        ...,
         title="Deep Thinking LLM",
         description="Model name for deep thinking tasks (Research Manager, Risk Manager)",
     )
     quick_think_llm: str = Field(
-        default="gpt-5-mini",
+        ...,
         title="Quick Thinking LLM",
         description="Model name for quick thinking tasks (analysts, researchers, trader, debators)",
     )
@@ -56,20 +68,18 @@ class TradingAgentsConfig(BaseModel):
         description="Reasoning effort for OpenAI models (e.g. 'low', 'medium', 'high')",
     )
     max_debate_rounds: int = Field(
-        default=1,
+        ...,
         title="Max Debate Rounds",
         description="Maximum number of Bull/Bear investment debate rounds",
     )
     max_risk_discuss_rounds: int = Field(
-        default=1,
+        ...,
         title="Max Risk Discussion Rounds",
         description="Maximum number of risk management debate rounds",
     )
     max_recur_limit: int = Field(
-        default=100,
+        ...,
+        ge=25,
         title="Max Recursion Limit",
         description="Maximum recursion limit for the LangGraph execution",
     )
-
-
-DEFAULT_CONFIG = TradingAgentsConfig()

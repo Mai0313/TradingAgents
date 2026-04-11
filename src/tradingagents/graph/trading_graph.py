@@ -50,9 +50,7 @@ class TradingAgentsGraph(BaseModel):
         description="Enable debug mode with step-by-step tracing output",
     )
     config: TradingAgentsConfig = Field(
-        default_factory=TradingAgentsConfig,
-        title="Configuration",
-        description="Trading agents configuration settings",
+        ..., title="Configuration", description="Trading agents configuration settings"
     )
     callbacks: list = Field(
         default_factory=list,
