@@ -653,9 +653,9 @@ The class is decorated with `ConfigDict(arbitrary_types_allowed=True)` so that t
     - `LLMProvider` — `StrEnum` of the 6 supported providers
     - `ReasoningEffort` — `StrEnum` of `low` / `medium` / `high` / `max`, mapped per-provider at the client layer
     - `TradingAgentsConfig` — Pydantic `BaseModel` that carries directories, LLM provider/model names, debate caps, and the recursion limit
-- **LLM factory:** `src/tradingagents/llm_clients/factory.py` — `create_llm_client(provider, model, base_url=None, **kwargs)`
+- **LLM factory:** `src/tradingagents/llm_clients/factory.py` — `create_llm_client(provider, model, **kwargs)`
 - **Client classes:**
-    - `llm_clients/openai_client.py` — `OpenAIClient` and `UnifiedChatOpenAI`; strips `temperature` / `top_p` for reasoning models (o1, o3, gpt-5\*) and handles xAI / OpenRouter / Ollama base-URL and API-key routing
+    - `llm_clients/openai_client.py` — `OpenAIClient` and `UnifiedChatOpenAI`; strips `temperature` / `top_p` for reasoning models (o1, o3, gpt-5\*) and hardcodes the per-provider `base_url` plus API-key routing for OpenAI / xAI / OpenRouter / Ollama
     - `llm_clients/anthropic_client.py` — `AnthropicClient`
     - `llm_clients/google_client.py` — `GoogleClient` and `NormalizedChatGoogleGenerativeAI`; flattens Gemini 3's list-of-parts content into a plain string and maps `ReasoningEffort` to either Gemini 3 `thinking_level` or Gemini 2.5 `thinking_budget`
 
@@ -668,7 +668,7 @@ The class is decorated with `ConfigDict(arbitrary_types_allowed=True)` so that t
 | `quick_thinking_llm` | `quick_think_llm` | All analysts, researchers, trader, debators, reflector, and signal processor |
 | `deep_thinking_llm`  | `deep_think_llm`  | Research Manager and Risk Manager                                            |
 
-Both LLM instances are created lazily through `TradingAgentsGraph._create_llm`, which calls `create_llm_client(...)` with the configured provider, model, `backend_url`, optional `reasoning_effort`, and the optional callbacks list.
+Both LLM instances are created lazily through `TradingAgentsGraph._create_llm`, which calls `create_llm_client(...)` with the configured provider, model, optional `reasoning_effort`, and the optional callbacks list. The endpoint URL is no longer configurable — each provider's `base_url` is hardcoded inside `OpenAIClient`.
 
 ### 7.3 Supported LLM Providers
 
