@@ -200,50 +200,35 @@ def _get_stock_stats_bulk(
     Returns dict mapping date strings to indicator values.
     """
     config = get_config()
-    data_vendors = config.data_vendors
-    online = data_vendors.technical_indicators != "local"
 
-    if not online:
-        # Local data path
-        try:
-            data = pd.read_csv(
-                Path(str(config.data_cache_dir))
-                / f"{symbol}-YFin-data-2015-01-01-2025-03-25.csv"
-            )
-            df = wrap(data)
-        except FileNotFoundError as exc:
-            raise RuntimeError("Stockstats fail: Yahoo Finance data not fetched yet!") from exc
+    today_date = pd.Timestamp.today()
+    end_date = today_date
+    start_date = today_date - pd.DateOffset(years=15)
+    start_date_str = start_date.strftime("%Y-%m-%d")
+    end_date_str = end_date.strftime("%Y-%m-%d")
+
+    cache_dir = Path(str(config.data_cache_dir))
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    data_file = cache_dir / f"{symbol}-YFin-data-{start_date_str}-{end_date_str}.csv"
+
+    if data_file.exists():
+        data = pd.read_csv(data_file)
+        data["Date"] = pd.to_datetime(data["Date"])
     else:
-        # Online data fetching with caching
-        today_date = pd.Timestamp.today()
+        data = yf.download(
+            symbol,
+            start=start_date_str,
+            end=end_date_str,
+            multi_level_index=False,
+            progress=False,
+            auto_adjust=True,
+        )
+        data = data.reset_index()
+        data.to_csv(data_file, index=False)
 
-        end_date = today_date
-        start_date = today_date - pd.DateOffset(years=15)
-        start_date_str = start_date.strftime("%Y-%m-%d")
-        end_date_str = end_date.strftime("%Y-%m-%d")
-
-        cache_dir = Path(str(config.data_cache_dir))
-        cache_dir.mkdir(parents=True, exist_ok=True)
-
-        data_file = cache_dir / f"{symbol}-YFin-data-{start_date_str}-{end_date_str}.csv"
-
-        if data_file.exists():
-            data = pd.read_csv(data_file)
-            data["Date"] = pd.to_datetime(data["Date"])
-        else:
-            data = yf.download(
-                symbol,
-                start=start_date_str,
-                end=end_date_str,
-                multi_level_index=False,
-                progress=False,
-                auto_adjust=True,
-            )
-            data = data.reset_index()
-            data.to_csv(data_file, index=False)
-
-        df = wrap(data)
-        df["Date"] = df["Date"].dt.strftime("%Y-%m-%d")
+    df = wrap(data)
+    df["Date"] = df["Date"].dt.strftime("%Y-%m-%d")
 
     # Calculate the indicator for all rows at once
     df[indicator]  # This triggers stockstats to calculate the indicator

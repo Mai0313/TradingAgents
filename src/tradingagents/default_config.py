@@ -7,31 +7,6 @@ _RESULTS_DIR = Path("./results")
 _DATA_CACHE_DIR = _PROJECT_DIR / "dataflows" / "data_cache"
 
 
-class DataVendorsConfig(BaseModel):
-    """Category-level data vendor configuration."""
-
-    core_stock_apis: str = Field(
-        default="yfinance",
-        title="Core Stock APIs Vendor",
-        description="Data vendor for OHLCV stock price data. Options: yfinance, alpha_vantage",
-    )
-    technical_indicators: str = Field(
-        default="yfinance",
-        title="Technical Indicators Vendor",
-        description="Data vendor for technical analysis indicators. Options: yfinance, alpha_vantage",
-    )
-    fundamental_data: str = Field(
-        default="yfinance",
-        title="Fundamental Data Vendor",
-        description="Data vendor for company fundamentals. Options: yfinance, alpha_vantage",
-    )
-    news_data: str = Field(
-        default="yfinance",
-        title="News Data Vendor",
-        description="Data vendor for news and insider data. Options: yfinance, alpha_vantage",
-    )
-
-
 class TradingAgentsConfig(BaseModel):
     """Configuration for the TradingAgents framework."""
 
@@ -94,16 +69,6 @@ class TradingAgentsConfig(BaseModel):
         default=100,
         title="Max Recursion Limit",
         description="Maximum recursion limit for the LangGraph execution",
-    )
-    data_vendors: DataVendorsConfig = Field(
-        default_factory=DataVendorsConfig,
-        title="Data Vendors",
-        description="Category-level data vendor configuration",
-    )
-    tool_vendors: dict[str, str] = Field(
-        default_factory=dict,
-        title="Tool Vendors",
-        description="Tool-level vendor overrides (takes precedence over category-level)",
     )
 
 

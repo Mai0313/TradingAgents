@@ -217,7 +217,11 @@ class TradingAgentsGraph(BaseModel):
         if self.debug:
             raw_state = None
             for chunk in self.graph.stream(init_agent_state, **args):
-                messages = chunk.get("messages") if isinstance(chunk, dict) else getattr(chunk, "messages", None)
+                messages = (
+                    chunk.get("messages")
+                    if isinstance(chunk, dict)
+                    else getattr(chunk, "messages", None)
+                )
                 if messages:
                     messages[-1].pretty_print()
                 raw_state = chunk
@@ -227,7 +231,9 @@ class TradingAgentsGraph(BaseModel):
         if raw_state is None:
             raise RuntimeError("Graph produced no output")
 
-        final_state = AgentState.model_validate(raw_state) if isinstance(raw_state, dict) else raw_state
+        final_state = (
+            AgentState.model_validate(raw_state) if isinstance(raw_state, dict) else raw_state
+        )
 
         self.curr_state = final_state
         self._log_state(trade_date, final_state)

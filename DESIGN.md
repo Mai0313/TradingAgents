@@ -9,7 +9,7 @@ This document records the TradingAgents system architecture, data acquisition me
 ## Table of Contents
 
 1. [Market Data and External Information Access (Tools / Function Calling)](#1-market-data-and-external-information-access-tools--function-calling)
-2. [Data Routing Mechanism](#2-data-routing-mechanism)
+2. [Data Acquisition Layer](#2-data-acquisition-layer)
 3. [Complete Agent List and Detailed Definitions](#3-complete-agent-list-and-detailed-definitions)
 4. [Complete LangGraph Workflow](#4-complete-langgraph-workflow)
 5. [Shared State Structure (State Schema)](#5-shared-state-structure-state-schema)
@@ -25,19 +25,19 @@ At present, market data, news, financial statements, and other information are p
 
 ### 1.1 Tool Overview
 
-There are **9** tools in total, grouped into 4 major categories:
+There are **9** tools in total, grouped into 4 major categories. All of them are backed by `yfinance`.
 
-| #   | Tool Name                  | Category             | Definition File                              | Line Range | Default Data Vendor |
-| --- | -------------------------- | -------------------- | -------------------------------------------- | ---------- | ------------------- |
-| 1   | `get_stock_data`           | core_stock_apis      | `agents/utils/core_stock_tools.py`           | 8-24       | yfinance            |
-| 2   | `get_indicators`           | technical_indicators | `agents/utils/technical_indicators_tools.py` | 8-26       | yfinance            |
-| 3   | `get_fundamentals`         | fundamental_data     | `agents/utils/fundamental_data_tools.py`     | 8-22       | yfinance            |
-| 4   | `get_balance_sheet`        | fundamental_data     | `agents/utils/fundamental_data_tools.py`     | 25-41      | yfinance            |
-| 5   | `get_cashflow`             | fundamental_data     | `agents/utils/fundamental_data_tools.py`     | 44-60      | yfinance            |
-| 6   | `get_income_statement`     | fundamental_data     | `agents/utils/fundamental_data_tools.py`     | 63-79      | yfinance            |
-| 7   | `get_news`                 | news_data            | `agents/utils/news_data_tools.py`            | 8-24       | yfinance            |
-| 8   | `get_global_news`          | news_data            | `agents/utils/news_data_tools.py`            | 27-44      | yfinance            |
-| 9   | `get_insider_transactions` | news_data            | `agents/utils/news_data_tools.py`            | 47-57      | yfinance            |
+| #   | Tool Name                  | Category             | Definition File                              |
+| --- | -------------------------- | -------------------- | -------------------------------------------- |
+| 1   | `get_stock_data`           | core_stock_apis      | `agents/utils/core_stock_tools.py`           |
+| 2   | `get_indicators`           | technical_indicators | `agents/utils/technical_indicators_tools.py` |
+| 3   | `get_fundamentals`         | fundamental_data     | `agents/utils/fundamental_data_tools.py`     |
+| 4   | `get_balance_sheet`        | fundamental_data     | `agents/utils/fundamental_data_tools.py`     |
+| 5   | `get_cashflow`             | fundamental_data     | `agents/utils/fundamental_data_tools.py`     |
+| 6   | `get_income_statement`     | fundamental_data     | `agents/utils/fundamental_data_tools.py`     |
+| 7   | `get_news`                 | news_data            | `agents/utils/news_data_tools.py`            |
+| 8   | `get_global_news`          | news_data            | `agents/utils/news_data_tools.py`            |
+| 9   | `get_insider_transactions` | news_data            | `agents/utils/news_data_tools.py`            |
 
 > All file paths are relative to `src/tradingagents/`
 
@@ -45,76 +45,76 @@ There are **9** tools in total, grouped into 4 major categories:
 
 #### `get_stock_data` - Stock OHLCV data
 
-- **File:** `src/tradingagents/agents/utils/core_stock_tools.py` (L8-24)
+- **File:** `src/tradingagents/agents/utils/core_stock_tools.py`
 - **Parameters:**
     - `symbol: str` - Stock ticker symbol (e.g. AAPL, TSM)
     - `start_date: str` - Start date (`yyyy-mm-dd`)
     - `end_date: str` - End date (`yyyy-mm-dd`)
-- **Routing:** `route_to_vendor("get_stock_data", symbol, start_date, end_date)`
+- **Backend:** `y_finance.get_yfin_data_online`
 
 #### `get_indicators` - Technical analysis indicators
 
-- **File:** `src/tradingagents/agents/utils/technical_indicators_tools.py` (L8-26)
+- **File:** `src/tradingagents/agents/utils/technical_indicators_tools.py`
 - **Parameters:**
     - `symbol: str` - Stock ticker symbol
     - `indicator: str` - Technical indicator name
     - `curr_date: str` - Current trading date (`YYYY-mm-dd`)
     - `look_back_days: int = 30` - Look-back window in days
-- **Routing:** `route_to_vendor("get_indicators", symbol, indicator, curr_date, look_back_days)`
+- **Backend:** `y_finance.get_stock_stats_indicators_window`
 
 #### `get_fundamentals` - Company fundamentals data
 
-- **File:** `src/tradingagents/agents/utils/fundamental_data_tools.py` (L8-22)
+- **File:** `src/tradingagents/agents/utils/fundamental_data_tools.py`
 - **Parameters:**
     - `ticker: str` - Stock ticker symbol
     - `curr_date: str` - Trading date (`yyyy-mm-dd`)
-- **Routing:** `route_to_vendor("get_fundamentals", ticker, curr_date)`
+- **Backend:** `y_finance.get_fundamentals`
 
 #### `get_balance_sheet` - Balance sheet
 
-- **File:** `src/tradingagents/agents/utils/fundamental_data_tools.py` (L25-41)
+- **File:** `src/tradingagents/agents/utils/fundamental_data_tools.py`
 - **Parameters:**
     - `ticker: str` - Stock ticker symbol
     - `freq: str = "quarterly"` - Frequency (`annual` / `quarterly`)
     - `curr_date: str = None` - Trading date
-- **Routing:** `route_to_vendor("get_balance_sheet", ticker, freq, curr_date)`
+- **Backend:** `y_finance.get_balance_sheet`
 
 #### `get_cashflow` - Cash flow statement
 
-- **File:** `src/tradingagents/agents/utils/fundamental_data_tools.py` (L44-60)
+- **File:** `src/tradingagents/agents/utils/fundamental_data_tools.py`
 - **Parameters:** Same as `get_balance_sheet`
-- **Routing:** `route_to_vendor("get_cashflow", ticker, freq, curr_date)`
+- **Backend:** `y_finance.get_cashflow`
 
 #### `get_income_statement` - Income statement
 
-- **File:** `src/tradingagents/agents/utils/fundamental_data_tools.py` (L63-79)
+- **File:** `src/tradingagents/agents/utils/fundamental_data_tools.py`
 - **Parameters:** Same as `get_balance_sheet`
-- **Routing:** `route_to_vendor("get_income_statement", ticker, freq, curr_date)`
+- **Backend:** `y_finance.get_income_statement`
 
 #### `get_news` - Company-related news
 
-- **File:** `src/tradingagents/agents/utils/news_data_tools.py` (L8-24)
+- **File:** `src/tradingagents/agents/utils/news_data_tools.py`
 - **Parameters:**
     - `ticker: str` - Stock ticker symbol
     - `start_date: str` - Start date (`yyyy-mm-dd`)
     - `end_date: str` - End date (`yyyy-mm-dd`)
-- **Routing:** `route_to_vendor("get_news", ticker, start_date, end_date)`
+- **Backend:** `yfinance_news.get_news_yfinance`
 
 #### `get_global_news` - Global macro news
 
-- **File:** `src/tradingagents/agents/utils/news_data_tools.py` (L27-44)
+- **File:** `src/tradingagents/agents/utils/news_data_tools.py`
 - **Parameters:**
     - `curr_date: str` - Current date (`yyyy-mm-dd`)
     - `look_back_days: int = 7` - Look-back window in days
     - `limit: int = 5` - Maximum number of articles
-- **Routing:** `route_to_vendor("get_global_news", curr_date, look_back_days, limit)`
+- **Backend:** `yfinance_news.get_global_news_yfinance`
 
 #### `get_insider_transactions` - Insider transactions
 
-- **File:** `src/tradingagents/agents/utils/news_data_tools.py` (L47-57)
+- **File:** `src/tradingagents/agents/utils/news_data_tools.py`
 - **Parameters:**
     - `ticker: str` - Stock ticker symbol
-- **Routing:** `route_to_vendor("get_insider_transactions", ticker)`
+- **Backend:** `y_finance.get_insider_transactions`
 
 ### 1.3 Tool Export Entry Point
 
@@ -138,64 +138,45 @@ Binding method:
 
 ---
 
-## 2. Data Routing Mechanism
+## 2. Data Acquisition Layer
 
-All tool functions internally call `route_to_vendor()` for data routing, with support for automatic switching across multiple vendors.
+All market data, fundamentals, and news are fetched through `yfinance`. Each `@tool` function is a thin wrapper around a concrete implementation in `src/tradingagents/dataflows/`.
 
 ### 2.1 Architecture Overview
 
 ```
-Tool Function (@tool) --> route_to_vendor() --> Vendor Implementation
-                              |
-                              |-- get_category_for_method()  // Look up the tool category
-                              |-- get_vendor()               // Fetch the vendor from config
-                              `-- VENDOR_METHODS[method]     // Resolve the implementation function
+Tool Function (@tool) --> y_finance / yfinance_news backend
 ```
+
+Tool definitions under `agents/utils/*_tools.py` import their backend function directly — there is no routing or vendor indirection.
 
 ### 2.2 Core Files
 
-| File                     | Purpose                  | Key Contents                                                                           |
-| ------------------------ | ------------------------ | -------------------------------------------------------------------------------------- |
-| `dataflows/interface.py` | Routing core             | `TOOLS_CATEGORIES` (L25-39), `VENDOR_METHODS` (L44-79), `route_to_vendor()` (L109-137) |
-| `dataflows/config.py`    | Configuration management | `initialize_config()` (L16-19), `set_config()` (L22-29), `get_config()` (L32-39)       |
-| `default_config.py`      | Default settings         | `data_vendors` (L23-28), `tool_vendors` (L30-32)                                       |
+| File                            | Purpose                                                           |
+| ------------------------------- | ----------------------------------------------------------------- |
+| `dataflows/y_finance.py`        | Stock price, fundamentals, insider transactions, indicator window |
+| `dataflows/yfinance_news.py`    | Ticker news and global macro news                                 |
+| `dataflows/stockstats_utils.py` | Technical indicator calculations (used by `y_finance`)            |
+| `dataflows/interface.py`        | Re-exports backend functions for external consumers               |
+| `dataflows/config.py`           | Global config container (`get_config`, `set_config`)              |
 
-### 2.3 Vendor Mapping Table
+### 2.3 Tool-to-Backend Mapping
 
-| Tool                       | yfinance Implementation                       | alpha_vantage Implementation             |
-| -------------------------- | --------------------------------------------- | ---------------------------------------- |
-| `get_stock_data`           | `y_finance.get_yfin_data_online`              | `alpha_vantage.get_stock`                |
-| `get_indicators`           | `y_finance.get_stock_stats_indicators_window` | `alpha_vantage.get_indicator`            |
-| `get_fundamentals`         | `y_finance.get_fundamentals`                  | `alpha_vantage.get_fundamentals`         |
-| `get_balance_sheet`        | `y_finance.get_balance_sheet`                 | `alpha_vantage.get_balance_sheet`        |
-| `get_cashflow`             | `y_finance.get_cashflow`                      | `alpha_vantage.get_cashflow`             |
-| `get_income_statement`     | `y_finance.get_income_statement`              | `alpha_vantage.get_income_statement`     |
-| `get_news`                 | `yfinance_news.get_news_yfinance`             | `alpha_vantage.get_news`                 |
-| `get_global_news`          | `yfinance_news.get_global_news_yfinance`      | `alpha_vantage.get_global_news`          |
-| `get_insider_transactions` | `y_finance.get_insider_transactions`          | `alpha_vantage.get_insider_transactions` |
+| Tool                       | Backend Function                              |
+| -------------------------- | --------------------------------------------- |
+| `get_stock_data`           | `y_finance.get_yfin_data_online`              |
+| `get_indicators`           | `y_finance.get_stock_stats_indicators_window` |
+| `get_fundamentals`         | `y_finance.get_fundamentals`                  |
+| `get_balance_sheet`        | `y_finance.get_balance_sheet`                 |
+| `get_cashflow`             | `y_finance.get_cashflow`                      |
+| `get_income_statement`     | `y_finance.get_income_statement`              |
+| `get_news`                 | `yfinance_news.get_news_yfinance`             |
+| `get_global_news`          | `yfinance_news.get_global_news_yfinance`      |
+| `get_insider_transactions` | `y_finance.get_insider_transactions`          |
 
-### 2.4 Vendor Implementation Files
+### 2.4 Caching
 
-| File                                      | Purpose                                                                 |
-| ----------------------------------------- | ----------------------------------------------------------------------- |
-| `dataflows/y_finance.py`                  | yfinance stock price, fundamentals, and insider transaction data        |
-| `dataflows/yfinance_news.py`              | yfinance news                                                           |
-| `dataflows/stockstats_utils.py`           | Technical indicator calculations (used by `y_finance`)                  |
-| `dataflows/alpha_vantage.py`              | Alpha Vantage main entry point                                          |
-| `dataflows/alpha_vantage_stock.py`        | Alpha Vantage stock data                                                |
-| `dataflows/alpha_vantage_news.py`         | Alpha Vantage news                                                      |
-| `dataflows/alpha_vantage_fundamentals.py` | Alpha Vantage fundamentals                                              |
-| `dataflows/alpha_vantage_indicator.py`    | Alpha Vantage technical indicators                                      |
-| `dataflows/alpha_vantage_common.py`       | Alpha Vantage shared utilities (including `AlphaVantageRateLimitError`) |
-| `dataflows/utils.py`                      | Shared utility functions                                                |
-
-### 2.5 Fallback Mechanism
-
-`route_to_vendor()` (`interface.py` L109-137) implements automatic fallback:
-
-1. It first uses the configured primary vendor.
-2. If an `AlphaVantageRateLimitError` occurs, it automatically switches to the next available vendor.
-3. It supports comma-separated vendor lists in config as a fallback chain.
+`y_finance._get_stock_stats_bulk()` caches 15 years of daily OHLCV data as CSV in `config.data_cache_dir` (`dataflows/data_cache/`). Subsequent calls for the same symbol reuse the cached file.
 
 ---
 
@@ -653,7 +634,7 @@ Defined in `src/tradingagents/agents/utils/agent_states.py`.
 
 ### 7.1 Configuration Locations
 
-- **Default config:** `src/tradingagents/default_config.py` — Pydantic models `TradingAgentsConfig` and `DataVendorsConfig`
+- **Default config:** `src/tradingagents/default_config.py` — Pydantic model `TradingAgentsConfig`
 - **LLM factory:** `src/tradingagents/llm_clients/factory.py` - `create_llm_client()` (L7-38)
 
 ### 7.2 LLM Tier Assignment

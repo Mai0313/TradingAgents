@@ -2,7 +2,7 @@ from typing import Annotated
 
 from langchain_core.tools import tool
 
-from tradingagents.dataflows.interface import route_to_vendor
+from tradingagents.dataflows.y_finance import get_stock_stats_indicators_window
 
 
 @tool
@@ -13,7 +13,6 @@ def get_indicators(
     look_back_days: Annotated[int, "how many days to look back"] = 30,
 ) -> str:
     """Retrieve technical indicators for a given ticker symbol.
-    Uses the configured technical_indicators vendor.
 
     Args:
         symbol (str): Ticker symbol of the company, e.g. AAPL, TSM
@@ -23,4 +22,4 @@ def get_indicators(
     Returns:
         str: A formatted dataframe containing the technical indicators for the specified ticker symbol and indicator.
     """
-    return route_to_vendor("get_indicators", symbol, indicator, curr_date, look_back_days)
+    return get_stock_stats_indicators_window(symbol, indicator, curr_date, look_back_days)

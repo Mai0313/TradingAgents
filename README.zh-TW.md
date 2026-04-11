@@ -25,7 +25,7 @@
 - 基於 **LangGraph** 和 **AG2** (AutoGen) 建構，提供穩健的多 Agent 編排機制
 - 多 Agent 架構：分析師團隊 → 研究團隊 → 交易員 → 風險管理 → 投資組合管理
 - 支援多種 LLM 供應商：OpenAI、Anthropic、Google Gemini、xAI (Grok)、OpenRouter、Ollama
-- 多種數據供應商：`yfinance`、Alpha Vantage
+- 市場數據全由 `yfinance` 提供：OHLCV、基本面、技術指標、新聞與內部人交易
 - 基於 Pydantic 的設定系統，提供嚴格型別檢查與驗證
 - 分析結果自動儲存至 `results/` 目錄並依團隊分資料夾
 - 現代 `src/` 佈局，完整型別註解
@@ -54,15 +54,12 @@ ANTHROPIC_API_KEY=sk-ant-...
 GOOGLE_API_KEY=AIza...
 XAI_API_KEY=...
 OPENROUTER_API_KEY=...
-
-# 可選數據供應商
-ALPHA_VANTAGE_API_KEY=...
 ```
 
 ### 使用方式
 
 ```python
-from tradingagents.default_config import TradingAgentsConfig, DataVendorsConfig
+from tradingagents.default_config import TradingAgentsConfig
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 
 config = TradingAgentsConfig(
@@ -70,12 +67,6 @@ config = TradingAgentsConfig(
     deep_think_llm="gpt-5.2",
     quick_think_llm="gpt-5-mini",
     max_debate_rounds=1,
-    data_vendors=DataVendorsConfig(
-        core_stock_apis="yfinance",
-        technical_indicators="yfinance",
-        fundamental_data="yfinance",
-        news_data="yfinance",
-    ),
 )
 
 ta = TradingAgentsGraph(debug=True, config=config)
@@ -95,7 +86,7 @@ src/
     │   ├── risk_mgmt/    # 風險管理 Agents
     │   ├── trader/       # 交易員 Agent
     │   └── utils/        # 共用 Agent 工具
-    ├── dataflows/        # 數據擷取與供應商路由
+    ├── dataflows/        # yfinance 數據擷取
     ├── graph/            # LangGraph 交易圖設定
     ├── llm_clients/      # LLM 供應商客戶端（OpenAI、Anthropic、Google、xAI、OpenRouter、Ollama）
     └── default_config.py # 預設設定

@@ -93,18 +93,18 @@ _RESULTS_DIR = Path("./results")
 _DATA_CACHE_DIR = _PROJECT_DIR / "dataflows" / "data_cache"
 
 
-class DataVendorsConfig(BaseModel):
-    """Category-level data vendor configuration."""
+class RetryConfig(BaseModel):
+    """Example nested config block (used below to demonstrate nesting)."""
 
-    core_stock_apis: str = Field(
-        default="yfinance",
-        title="Core Stock APIs Vendor",
-        description="Data vendor for OHLCV stock price data. Options: yfinance, alpha_vantage",
+    max_retries: int = Field(
+        default=3,
+        title="Max Retries",
+        description="Maximum number of retry attempts for transient failures",
     )
-    technical_indicators: str = Field(
-        default="yfinance",
-        title="Technical Indicators Vendor",
-        description="Data vendor for technical analysis indicators. Options: yfinance, alpha_vantage",
+    backoff_seconds: float = Field(
+        default=1.0,
+        title="Backoff Seconds",
+        description="Initial backoff delay between retries in seconds",
     )
 
 
@@ -126,15 +126,18 @@ class TradingAgentsConfig(BaseModel):
         title="Data Cache Directory",
         description="Directory for caching downloaded data",
     )
-    data_vendors: DataVendorsConfig = Field(
-        default_factory=DataVendorsConfig,
-        title="Data Vendors",
-        description="Category-level data vendor configuration",
+    llm_provider: str = Field(
+        default="openai", title="LLM Provider", description="LLM provider to use"
     )
-    tool_vendors: dict[str, str] = Field(
+    retry: RetryConfig = Field(
+        default_factory=RetryConfig,
+        title="Retry Policy",
+        description="Retry behaviour for transient failures",
+    )
+    extra_headers: dict[str, str] = Field(
         default_factory=dict,
-        title="Tool Vendors",
-        description="Tool-level vendor overrides (takes precedence over category-level)",
+        title="Extra Headers",
+        description="Additional HTTP headers to attach to outbound requests",
     )
 ```
 

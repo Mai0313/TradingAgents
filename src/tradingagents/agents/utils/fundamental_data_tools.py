@@ -2,7 +2,10 @@ from typing import Annotated
 
 from langchain_core.tools import tool
 
-from tradingagents.dataflows.interface import route_to_vendor
+from tradingagents.dataflows.y_finance import get_cashflow as _get_cashflow
+from tradingagents.dataflows.y_finance import get_fundamentals as _get_fundamentals
+from tradingagents.dataflows.y_finance import get_balance_sheet as _get_balance_sheet
+from tradingagents.dataflows.y_finance import get_income_statement as _get_income_statement
 
 
 @tool
@@ -11,7 +14,6 @@ def get_fundamentals(
     curr_date: Annotated[str, "current date you are trading at, yyyy-mm-dd"],
 ) -> str:
     """Retrieve comprehensive fundamental data for a given ticker symbol.
-    Uses the configured fundamental_data vendor.
 
     Args:
         ticker (str): Ticker symbol of the company
@@ -19,7 +21,7 @@ def get_fundamentals(
     Returns:
         str: A formatted report containing comprehensive fundamental data
     """
-    return route_to_vendor("get_fundamentals", ticker, curr_date)
+    return _get_fundamentals(ticker, curr_date)
 
 
 @tool
@@ -29,7 +31,6 @@ def get_balance_sheet(
     curr_date: Annotated[str | None, "current date you are trading at, yyyy-mm-dd"] = None,
 ) -> str:
     """Retrieve balance sheet data for a given ticker symbol.
-    Uses the configured fundamental_data vendor.
 
     Args:
         ticker (str): Ticker symbol of the company
@@ -38,7 +39,7 @@ def get_balance_sheet(
     Returns:
         str: A formatted report containing balance sheet data
     """
-    return route_to_vendor("get_balance_sheet", ticker, freq, curr_date)
+    return _get_balance_sheet(ticker, freq, curr_date)
 
 
 @tool
@@ -48,7 +49,6 @@ def get_cashflow(
     curr_date: Annotated[str | None, "current date you are trading at, yyyy-mm-dd"] = None,
 ) -> str:
     """Retrieve cash flow statement data for a given ticker symbol.
-    Uses the configured fundamental_data vendor.
 
     Args:
         ticker (str): Ticker symbol of the company
@@ -57,7 +57,7 @@ def get_cashflow(
     Returns:
         str: A formatted report containing cash flow statement data
     """
-    return route_to_vendor("get_cashflow", ticker, freq, curr_date)
+    return _get_cashflow(ticker, freq, curr_date)
 
 
 @tool
@@ -67,7 +67,6 @@ def get_income_statement(
     curr_date: Annotated[str | None, "current date you are trading at, yyyy-mm-dd"] = None,
 ) -> str:
     """Retrieve income statement data for a given ticker symbol.
-    Uses the configured fundamental_data vendor.
 
     Args:
         ticker (str): Ticker symbol of the company
@@ -76,4 +75,4 @@ def get_income_statement(
     Returns:
         str: A formatted report containing income statement data
     """
-    return route_to_vendor("get_income_statement", ticker, freq, curr_date)
+    return _get_income_statement(ticker, freq, curr_date)
