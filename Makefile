@@ -16,10 +16,10 @@ uv-install:  ## Install uv on your system
 	@echo 'Installed uv, please re-open your bash terminal or zsh terminal.'
 
 format: ## Run pre-commit hooks
-	pre-commit run -a
+	uv run pre-commit run -a
 
 test: ## Run all tests
-	pytest
+	uv run pytest
 
 submodule-init: ## Install and update all submodules
 	git submodule update --recursive --init
