@@ -171,7 +171,10 @@ class TradingAgentsGraph(BaseModel):
             deep_thinking_llm=self.deep_thinking_llm,
             tool_nodes=self.tool_nodes,
             memories=memories,
-            conditional_logic=ConditionalLogic(),
+            conditional_logic=ConditionalLogic(
+                max_debate_rounds=self.config.max_debate_rounds,
+                max_risk_discuss_rounds=self.config.max_risk_discuss_rounds,
+            ),
         )
         return graph_setup.setup_graph(self.selected_analysts)
 
@@ -204,14 +207,16 @@ class TradingAgentsGraph(BaseModel):
 
         if self.debug:
             raw_state = None
+            last_printed_id = None
             for chunk in self.graph.stream(init_agent_state, **args):
                 messages = (
                     chunk.get("messages")
                     if isinstance(chunk, dict)
                     else getattr(chunk, "messages", None)
                 )
-                if messages:
+                if messages and messages[-1].id != last_printed_id:
                     messages[-1].pretty_print()
+                    last_printed_id = messages[-1].id
                 raw_state = chunk
         else:
             raw_state = self.graph.invoke(init_agent_state, **args)
