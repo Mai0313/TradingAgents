@@ -118,9 +118,9 @@ There are **9** tools in total, grouped into 4 major categories. All of them are
 
 ### 1.3 Tool Export Entry Point
 
-- **File:** `src/tradingagents/agents/utils/agent_utils.py` (L1-50)
+- **File:** `src/tradingagents/agents/utils/agent_utils.py`
 - Re-exports all 9 tool functions from their respective tool modules in one place
-- Also defines `create_msg_delete()` (L36-49), which creates a function for clearing conversation history when passing state between analysts
+- Also defines `create_msg_delete()`, which creates a function for clearing conversation history when passing state between analysts
 
 ### 1.4 Tool-to-Analyst Binding
 
@@ -128,13 +128,15 @@ There are **9** tools in total, grouped into 4 major categories. All of them are
 | -------------------- | ------------------------------------------------------------------------------- | -------------------- |
 | Market Analyst       | `get_stock_data`, `get_indicators`                                              | `tools_market`       |
 | Social Media Analyst | `get_news`                                                                      | `tools_social`       |
-| News Analyst         | `get_news`, `get_global_news`, `get_insider_transactions`                       | `tools_news`         |
+| News Analyst         | `get_news`, `get_global_news`                                                   | `tools_news`         |
 | Fundamentals Analyst | `get_fundamentals`, `get_balance_sheet`, `get_cashflow`, `get_income_statement` | `tools_fundamentals` |
 
 Binding method:
 
 - Each analyst creation function binds tools to the LLM through `llm.bind_tools(tools)`
 - LangGraph `ToolNode` wrappers are exposed via the `tool_nodes` `@computed_field` in `TradingAgentsGraph` (`graph/trading_graph.py`)
+
+> **Note:** The `tools_news` `ToolNode` in `TradingAgentsGraph.tool_nodes` also contains `get_insider_transactions` as a fourth tool, but the News Analyst only binds two tools (`get_news`, `get_global_news`) to its LLM via `bind_tools()`. As a result, the LLM can never emit a `tool_call` for `get_insider_transactions` and this tool is effectively dead inside the current graph. Either remove it from the `ToolNode` or add it to `news_analyst.py`'s `tools` list to reconcile.
 
 ---
 
@@ -190,7 +192,7 @@ The system currently contains **12** agent roles plus **2** supporting component
 | --------------- | ----------------------------------- | ------------------------------------------------------------------------------- | -------- |
 | **Analyst**     | Market Analyst                      | `get_stock_data`, `get_indicators`                                              | quick    |
 | **Analyst**     | Social Media Analyst                | `get_news`                                                                      | quick    |
-| **Analyst**     | News Analyst                        | `get_news`, `get_global_news`, `get_insider_transactions`                       | quick    |
+| **Analyst**     | News Analyst                        | `get_news`, `get_global_news`                                                   | quick    |
 | **Analyst**     | Fundamentals Analyst                | `get_fundamentals`, `get_balance_sheet`, `get_cashflow`, `get_income_statement` | quick    |
 | **Researcher**  | Bull Researcher                     | None                                                                            | quick    |
 | **Researcher**  | Bear Researcher                     | None                                                                            | quick    |
@@ -210,11 +212,11 @@ The system currently contains **12** agent roles plus **2** supporting component
 | Item                     | Content                                                                                                                                                                           |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Definition File**      | `src/tradingagents/agents/analysts/market_analyst.py`                                                                                                                             |
-| **Factory Function**     | `create_market_analyst(llm: BaseChatModel)` (L10-73)                                                                                                                              |
+| **Factory Function**     | `create_market_analyst(llm: BaseChatModel)`                                                                                                                                       |
 | **LLM**                  | `quick_thinking_llm` + `bind_tools([get_stock_data, get_indicators])`                                                                                                             |
 | **Prompt Location**      | `agents/prompts/market_analyst.md`                                                                                                                                                |
 | **Responsibilities**     | Select up to 8 complementary technical indicators for analysis. It must call `get_stock_data` before `get_indicators`, and produce a detailed market report with Markdown tables. |
-| **Available Indicators** | close_50_sma, close_200_sma, close_10_ema, macd, macds, macdh, rsi_14, boll, boll_ub, boll_lb, atr_14, vwma                                                                       |
+| **Available Indicators** | close_50_sma, close_200_sma, close_10_ema, macd, macds, macdh, rsi, boll, boll_ub, boll_lb, atr, vwma                                                                             |
 | **Output**               | Writes to `state["market_report"]`                                                                                                                                                |
 
 #### Social Media Analyst - Social sentiment analyst
@@ -222,7 +224,7 @@ The system currently contains **12** agent roles plus **2** supporting component
 | Item                 | Content                                                                                                                                   |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | **Definition File**  | `src/tradingagents/agents/analysts/social_media_analyst.py`                                                                               |
-| **Factory Function** | `create_social_media_analyst(llm: BaseChatModel)` (L10-52)                                                                                |
+| **Factory Function** | `create_social_media_analyst(llm: BaseChatModel)`                                                                                         |
 | **LLM**              | `quick_thinking_llm` + `bind_tools([get_news])`                                                                                           |
 | **Prompt Location**  | `agents/prompts/social_media_analyst.md`                                                                                                  |
 | **Responsibilities** | Analyze the sentiment trend in company-related social media and news, and produce a report with sentiment assessment and Markdown tables. |
@@ -233,7 +235,7 @@ The system currently contains **12** agent roles plus **2** supporting component
 | Item                 | Content                                                                                                      |
 | -------------------- | ------------------------------------------------------------------------------------------------------------ |
 | **Definition File**  | `src/tradingagents/agents/analysts/news_analyst.py`                                                          |
-| **Factory Function** | `create_news_analyst(llm: BaseChatModel)` (L10-52)                                                           |
+| **Factory Function** | `create_news_analyst(llm: BaseChatModel)`                                                                    |
 | **LLM**              | `quick_thinking_llm` + `bind_tools([get_news, get_global_news])`                                             |
 | **Prompt Location**  | `agents/prompts/news_analyst.md`                                                                             |
 | **Responsibilities** | Analyze company news and global macro news, and produce a trading-oriented news report with Markdown tables. |
@@ -244,7 +246,7 @@ The system currently contains **12** agent roles plus **2** supporting component
 | Item                 | Content                                                                                                                                  |
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | **Definition File**  | `src/tradingagents/agents/analysts/fundamentals_analyst.py`                                                                              |
-| **Factory Function** | `create_fundamentals_analyst(llm: BaseChatModel)` (L15-59)                                                                               |
+| **Factory Function** | `create_fundamentals_analyst(llm: BaseChatModel)`                                                                                        |
 | **LLM**              | `quick_thinking_llm` + `bind_tools([get_fundamentals, get_balance_sheet, get_cashflow, get_income_statement])`                           |
 | **Prompt Location**  | `agents/prompts/fundamentals_analyst.md`                                                                                                 |
 | **Responsibilities** | Analyze financial statements, balance sheets, cash flows, and income statements, and produce a fundamentals report with Markdown tables. |
@@ -255,7 +257,7 @@ The system currently contains **12** agent roles plus **2** supporting component
 | Item                 | Content                                                                                                                               |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | **Definition File**  | `src/tradingagents/agents/researchers/bull_researcher.py`                                                                             |
-| **Factory Function** | `create_bull_researcher(llm: BaseChatModel, memory: FinancialSituationMemory)` (L9-63)                                                |
+| **Factory Function** | `create_bull_researcher(llm: BaseChatModel, memory: FinancialSituationMemory)`                                                        |
 | **LLM**              | `quick_thinking_llm` (no tool binding)                                                                                                |
 | **Prompt Location**  | `agents/prompts/bull_researcher.md`                                                                                                   |
 | **Input**            | `market_report`, `sentiment_report`, `news_report`, `fundamentals_report`, debate history, previous bear argument, memory             |
@@ -267,7 +269,7 @@ The system currently contains **12** agent roles plus **2** supporting component
 | Item                 | Content                                                                                                                     |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | **Definition File**  | `src/tradingagents/agents/researchers/bear_researcher.py`                                                                   |
-| **Factory Function** | `create_bear_researcher(llm: BaseChatModel, memory: FinancialSituationMemory)` (L9-65)                                      |
+| **Factory Function** | `create_bear_researcher(llm: BaseChatModel, memory: FinancialSituationMemory)`                                              |
 | **LLM**              | `quick_thinking_llm` (no tool binding)                                                                                      |
 | **Prompt Location**  | `agents/prompts/bear_researcher.md`                                                                                         |
 | **Input**            | Same as Bull Researcher, but receives the previous bull argument                                                            |
@@ -279,7 +281,7 @@ The system currently contains **12** agent roles plus **2** supporting component
 | Item                 | Content                                                                                      |
 | -------------------- | -------------------------------------------------------------------------------------------- |
 | **Definition File**  | `src/tradingagents/agents/managers/research_manager.py`                                      |
-| **Factory Function** | `create_research_manager(llm: BaseChatModel, memory: FinancialSituationMemory)` (L9-62)      |
+| **Factory Function** | `create_research_manager(llm: BaseChatModel, memory: FinancialSituationMemory)`              |
 | **LLM**              | `deep_thinking_llm` (no tool binding)                                                        |
 | **Prompt Location**  | `agents/prompts/research_manager.md`                                                         |
 | **Input**            | Debate history and prior reflection memory                                                   |
@@ -291,7 +293,7 @@ The system currently contains **12** agent roles plus **2** supporting component
 | Item                 | Content                                                                                                                       |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | **Definition File**  | `src/tradingagents/agents/trader/trader.py`                                                                                   |
-| **Factory Function** | `create_trader(llm: BaseChatModel, memory: FinancialSituationMemory)` (L10-47)                                                |
+| **Factory Function** | `create_trader(llm: BaseChatModel, memory: FinancialSituationMemory)`                                                         |
 | **LLM**              | `quick_thinking_llm` (no tool binding)                                                                                        |
 | **Prompt Location**  | `agents/prompts/trader_system.md`, `agents/prompts/trader_user.md`                                                            |
 | **Input**            | `investment_plan` and prior reflection memory                                                                                 |
@@ -303,7 +305,7 @@ The system currently contains **12** agent roles plus **2** supporting component
 | Item                 | Content                                                                                                               |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | **Definition File**  | `src/tradingagents/agents/risk_mgmt/aggressive_debator.py`                                                            |
-| **Factory Function** | `create_aggressive_debator(llm: BaseChatModel)` (L7-57)                                                               |
+| **Factory Function** | `create_aggressive_debator(llm: BaseChatModel)`                                                                       |
 | **LLM**              | `quick_thinking_llm` (no tool binding)                                                                                |
 | **Prompt Location**  | `agents/prompts/aggressive_debator.md`                                                                                |
 | **Input**            | `trader_investment_plan`, four analysis reports, debate history, and the latest Conservative/Neutral responses        |
@@ -315,7 +317,7 @@ The system currently contains **12** agent roles plus **2** supporting component
 | Item                 | Content                                                                                       |
 | -------------------- | --------------------------------------------------------------------------------------------- |
 | **Definition File**  | `src/tradingagents/agents/risk_mgmt/conservative_debator.py`                                  |
-| **Factory Function** | `create_conservative_debator(llm: BaseChatModel)` (L7-56)                                     |
+| **Factory Function** | `create_conservative_debator(llm: BaseChatModel)`                                             |
 | **LLM**              | `quick_thinking_llm` (no tool binding)                                                        |
 | **Prompt Location**  | `agents/prompts/conservative_debator.md`                                                      |
 | **Input**            | Same as Aggressive Debator, but receives the latest Aggressive/Neutral responses              |
@@ -327,7 +329,7 @@ The system currently contains **12** agent roles plus **2** supporting component
 | Item                 | Content                                                                                |
 | -------------------- | -------------------------------------------------------------------------------------- |
 | **Definition File**  | `src/tradingagents/agents/risk_mgmt/neutral_debator.py`                                |
-| **Factory Function** | `create_neutral_debator(llm: BaseChatModel)` (L7-58)                                   |
+| **Factory Function** | `create_neutral_debator(llm: BaseChatModel)`                                           |
 | **LLM**              | `quick_thinking_llm` (no tool binding)                                                 |
 | **Prompt Location**  | `agents/prompts/neutral_debator.md`                                                    |
 | **Input**            | Same as Aggressive Debator, but receives the latest Aggressive/Conservative responses  |
@@ -339,7 +341,7 @@ The system currently contains **12** agent roles plus **2** supporting component
 | Item                 | Content                                                                                                    |
 | -------------------- | ---------------------------------------------------------------------------------------------------------- |
 | **Definition File**  | `src/tradingagents/agents/managers/risk_manager.py`                                                        |
-| **Factory Function** | `create_risk_manager(llm: BaseChatModel, memory: FinancialSituationMemory)` (L9-69)                        |
+| **Factory Function** | `create_risk_manager(llm: BaseChatModel, memory: FinancialSituationMemory)`                                |
 | **LLM**              | `deep_thinking_llm` (no tool binding)                                                                      |
 | **Prompt Location**  | `agents/prompts/risk_manager.md`                                                                           |
 | **Input**            | Risk debate history and prior reflection memory                                                            |
@@ -391,30 +393,34 @@ All six classes below are Pydantic `BaseModel` subclasses.
 
 ### 4.2 Graph Node List
 
-Defined in the `setup_graph()` method in `src/tradingagents/graph/setup.py` (L109-200):
+Defined in the `setup_graph()` method of `GraphSetup` in `src/tradingagents/graph/setup.py`.
 
-| Node Name                | Handler                                                           | Line | Description                 |
-| ------------------------ | ----------------------------------------------------------------- | ---- | --------------------------- |
-| `Market Analyst`         | `create_market_analyst(quick_thinking_llm)`                       | L144 | Market analysis             |
-| `tools_market`           | `ToolNode([get_stock_data, get_indicators])`                      | L147 | Market tool execution       |
-| `Msg Clear Market`       | `create_msg_delete()`                                             | L146 | Clear conversation history  |
-| `Social Analyst`         | `create_social_media_analyst(quick_thinking_llm)`                 | L144 | Social analysis             |
-| `tools_social`           | `ToolNode([get_news])`                                            | L147 | Social tool execution       |
-| `Msg Clear Social`       | `create_msg_delete()`                                             | L146 | Clear conversation history  |
-| `News Analyst`           | `create_news_analyst(quick_thinking_llm)`                         | L144 | News analysis               |
-| `tools_news`             | `ToolNode([get_news, get_global_news, get_insider_transactions])` | L147 | News tool execution         |
-| `Msg Clear News`         | `create_msg_delete()`                                             | L146 | Clear conversation history  |
-| `Fundamentals Analyst`   | `create_fundamentals_analyst(quick_thinking_llm)`                 | L144 | Fundamentals analysis       |
-| `tools_fundamentals`     | `ToolNode([get_fundamentals, ...])`                               | L147 | Fundamentals tool execution |
-| `Msg Clear Fundamentals` | `create_msg_delete()`                                             | L146 | Clear conversation history  |
-| `Bull Researcher`        | `create_bull_researcher(quick_thinking_llm, bull_memory)`         | L150 | Bullish debate              |
-| `Bear Researcher`        | `create_bear_researcher(quick_thinking_llm, bear_memory)`         | L151 | Bearish debate              |
-| `Research Manager`       | `create_research_manager(deep_thinking_llm, invest_judge_memory)` | L152 | Investment judge            |
-| `Trader`                 | `create_trader(quick_thinking_llm, trader_memory)`                | L153 | Trading decision            |
-| `Aggressive Analyst`     | `create_aggressive_debator(quick_thinking_llm)`                   | L154 | Aggressive risk analysis    |
-| `Neutral Analyst`        | `create_neutral_debator(quick_thinking_llm)`                      | L155 | Neutral risk analysis       |
-| `Conservative Analyst`   | `create_conservative_debator(quick_thinking_llm)`                 | L156 | Conservative risk analysis  |
-| `Risk Judge`             | `create_risk_manager(deep_thinking_llm, risk_manager_memory)`     | L157 | Risk judge                  |
+Analyst / tool / clear nodes are created dynamically in `_build_analyst_nodes()` based on `selected_analysts`, then wired up by `_add_analyst_edges()`. Researcher, manager, trader, and risk nodes are created directly inside `setup_graph()`.
+
+| Node Name                | Handler                                                                               | Description                 |
+| ------------------------ | ------------------------------------------------------------------------------------- | --------------------------- |
+| `Market Analyst`         | `create_market_analyst(quick_thinking_llm)`                                           | Market analysis             |
+| `tools_market`           | `ToolNode([get_stock_data, get_indicators])`                                          | Market tool execution       |
+| `Msg Clear Market`       | `create_msg_delete()`                                                                 | Clear conversation history  |
+| `Social Analyst`         | `create_social_media_analyst(quick_thinking_llm)`                                     | Social analysis             |
+| `tools_social`           | `ToolNode([get_news])`                                                                | Social tool execution       |
+| `Msg Clear Social`       | `create_msg_delete()`                                                                 | Clear conversation history  |
+| `News Analyst`           | `create_news_analyst(quick_thinking_llm)`                                             | News analysis               |
+| `tools_news`             | `ToolNode([get_news, get_global_news, get_insider_transactions])` *(see §1.4)*        | News tool execution         |
+| `Msg Clear News`         | `create_msg_delete()`                                                                 | Clear conversation history  |
+| `Fundamentals Analyst`   | `create_fundamentals_analyst(quick_thinking_llm)`                                     | Fundamentals analysis       |
+| `tools_fundamentals`     | `ToolNode([get_fundamentals, get_balance_sheet, get_cashflow, get_income_statement])` | Fundamentals tool execution |
+| `Msg Clear Fundamentals` | `create_msg_delete()`                                                                 | Clear conversation history  |
+| `Bull Researcher`        | `create_bull_researcher(quick_thinking_llm, bull_memory)`                             | Bullish debate              |
+| `Bear Researcher`        | `create_bear_researcher(quick_thinking_llm, bear_memory)`                             | Bearish debate              |
+| `Research Manager`       | `create_research_manager(deep_thinking_llm, invest_judge_memory)`                     | Investment judge            |
+| `Trader`                 | `create_trader(quick_thinking_llm, trader_memory)`                                    | Trading decision            |
+| `Aggressive Analyst`     | `create_aggressive_debator(quick_thinking_llm)`                                       | Aggressive risk analysis    |
+| `Neutral Analyst`        | `create_neutral_debator(quick_thinking_llm)`                                          | Neutral risk analysis       |
+| `Conservative Analyst`   | `create_conservative_debator(quick_thinking_llm)`                                     | Conservative risk analysis  |
+| `Risk Judge`             | `create_risk_manager(deep_thinking_llm, risk_manager_memory)`                         | Risk judge                  |
+
+> The four `tool_nodes` themselves are not built inside `setup_graph()` — they come from the `tool_nodes` `@computed_field` on `TradingAgentsGraph` (`trading_graph.py`), and `GraphSetup` receives them through its `tool_nodes` field.
 
 ### 4.3 Edge Definitions
 
