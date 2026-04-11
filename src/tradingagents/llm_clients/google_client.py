@@ -35,6 +35,11 @@ class NormalizedChatGoogleGenerativeAI(ChatGoogleGenerativeAI):
         return self._normalize_content(super().invoke(prompt_input, config, **kwargs))
 
 
+_GEMINI3_FLASH_LEVEL_MAP = {"low": "LOW", "medium": "MEDIUM", "high": "HIGH", "max": "HIGH"}
+
+_GEMINI3_PRO_LEVEL_MAP = {"low": "LOW", "medium": "LOW", "high": "HIGH", "max": "HIGH"}
+
+
 class GoogleClient(BaseLLMClient):
     """Client for Google Gemini models."""
 
@@ -49,20 +54,17 @@ class GoogleClient(BaseLLMClient):
             if key in self.kwargs:
                 llm_kwargs[key] = self.kwargs[key]
 
-        # Map thinking_level to appropriate API param based on model
-        # Gemini 3 Pro: low, high
-        # Gemini 3 Flash: minimal, low, medium, high
-        # Gemini 2.5: thinking_budget (0=disable, -1=dynamic)
-        thinking_level = self.kwargs.get("thinking_level")
-        if thinking_level:
+        reasoning_effort = self.kwargs.get("reasoning_effort")
+        if reasoning_effort:
+            effort = str(reasoning_effort).lower()
             model_lower = self.model.lower()
             if "gemini-3" in model_lower:
-                # Gemini 3 Pro doesn't support "minimal", use "low" instead
-                if "pro" in model_lower and thinking_level == "minimal":
-                    thinking_level = "low"
-                llm_kwargs["thinking_level"] = thinking_level
+                level_map = (
+                    _GEMINI3_PRO_LEVEL_MAP if "pro" in model_lower else _GEMINI3_FLASH_LEVEL_MAP
+                )
+                llm_kwargs["thinking_level"] = level_map[effort]
             else:
-                # Gemini 2.5: map to thinking_budget
-                llm_kwargs["thinking_budget"] = -1 if thinking_level == "high" else 0
+                # Gemini 2.5 only exposes thinking_budget (0=disabled, -1=dynamic)
+                llm_kwargs["thinking_budget"] = -1 if effort in ("high", "max") else 0
 
         return NormalizedChatGoogleGenerativeAI(**llm_kwargs)

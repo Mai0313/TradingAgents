@@ -53,8 +53,14 @@ class OpenAIClient(BaseLLMClient):
         elif self.base_url:
             llm_kwargs["base_url"] = self.base_url
 
-        for key in ("timeout", "max_retries", "reasoning_effort", "api_key", "callbacks"):
+        for key in ("timeout", "max_retries", "api_key", "callbacks"):
             if key in self.kwargs:
                 llm_kwargs[key] = self.kwargs[key]
+
+        reasoning_effort = self.kwargs.get("reasoning_effort")
+        if reasoning_effort:
+            effort = str(reasoning_effort).lower()
+            # OpenAI's highest tier is "xhigh"; our unified name is "max".
+            llm_kwargs["reasoning_effort"] = "xhigh" if effort == "max" else effort
 
         return UnifiedChatOpenAI(**llm_kwargs)

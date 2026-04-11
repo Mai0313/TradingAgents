@@ -85,13 +85,8 @@ class TradingAgentsGraph(BaseModel):
     def _get_provider_kwargs(self) -> dict[str, Any]:
         """Get provider-specific kwargs for LLM client creation."""
         kwargs: dict[str, Any] = {}
-        provider = self.config.llm_provider.lower()
-
-        if provider == "google" and self.config.google_thinking_level:
-            kwargs["thinking_level"] = self.config.google_thinking_level
-        elif provider == "openai" and self.config.openai_reasoning_effort:
-            kwargs["reasoning_effort"] = self.config.openai_reasoning_effort
-
+        if self.config.reasoning_effort is not None:
+            kwargs["reasoning_effort"] = self.config.reasoning_effort
         return kwargs
 
     def _create_llm(self, model: str) -> object:
