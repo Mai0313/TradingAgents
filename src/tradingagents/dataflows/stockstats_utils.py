@@ -28,7 +28,7 @@ class StockstatsUtils:
         end_date_str = end_date.strftime("%Y-%m-%d")
 
         # Ensure cache directory exists
-        cache_dir = Path(str(config["data_cache_dir"]))
+        cache_dir = Path(str(config.data_cache_dir))
         cache_dir.mkdir(parents=True, exist_ok=True)
 
         data_file = cache_dir / f"{symbol}-YFin-data-{start_date_str}-{end_date_str}.csv"

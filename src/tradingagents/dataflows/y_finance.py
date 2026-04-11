@@ -200,14 +200,14 @@ def _get_stock_stats_bulk(
     Returns dict mapping date strings to indicator values.
     """
     config = get_config()
-    data_vendors = config["data_vendors"]
-    online = isinstance(data_vendors, dict) and data_vendors.get("technical_indicators") != "local"
+    data_vendors = config.data_vendors
+    online = data_vendors.technical_indicators != "local"
 
     if not online:
         # Local data path
         try:
             data = pd.read_csv(
-                Path(str(config.get("data_cache_dir", "data")))
+                Path(str(config.data_cache_dir))
                 / f"{symbol}-YFin-data-2015-01-01-2025-03-25.csv"
             )
             df = wrap(data)
@@ -222,7 +222,7 @@ def _get_stock_stats_bulk(
         start_date_str = start_date.strftime("%Y-%m-%d")
         end_date_str = end_date.strftime("%Y-%m-%d")
 
-        cache_dir = Path(str(config["data_cache_dir"]))
+        cache_dir = Path(str(config.data_cache_dir))
         cache_dir.mkdir(parents=True, exist_ok=True)
 
         data_file = cache_dir / f"{symbol}-YFin-data-{start_date_str}-{end_date_str}.csv"
