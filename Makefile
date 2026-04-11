@@ -28,5 +28,10 @@ submodule-update:  # Update all submodules
 	git submodule update --recursive --remote
 
 gen-docs:  ## Generate documentation
+	rm -rf docs
+	mkdir -p docs
+	cp ./README.md ./docs/index.md
+	cp ./README.zh-CN.md ./docs/README.zh-CN.md
+	cp ./README.zh-TW.md ./docs/README.zh-TW.md
 	uv run ./scripts/gen_docs.py --source ./src --output ./docs/Reference gen_docs
 	uv run ./scripts/gen_docs.py --source ./scripts --output ./docs/Scripts gen_docs

@@ -8,7 +8,6 @@ edit_uri: edit/main/docs/
 
 docs_dir: docs
 site_dir: site
-remote_branch: wiki
 dev_addr: 0.0.0.0:9987
 
 theme:
@@ -173,11 +172,6 @@ extra:
   # - link: /
   #   lang: zh-hant
   #   name: zh-hant - 繁體中文
-
-watch:
-  # - src
-  - mkdocs.yml
-  - docs
 
 markdown_extensions:
   - abbr

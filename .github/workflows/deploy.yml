@@ -33,16 +33,12 @@ jobs:
 
       - name: Deploy docs
         run: |
-          mkdir docs
-          cp ./README.md ./docs/index.md
-          cp ./README.zh-CN.md ./docs/README.zh-CN.md
-          cp ./README.zh-TW.md ./docs/README.zh-TW.md
           uv sync --group docs
           uv run make gen-docs
-          uv run mkdocs build
+          uv run zensical build
 
       - name: Setup Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Upload to GitHub Pages
         uses: actions/upload-pages-artifact@v4

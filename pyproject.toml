@@ -98,6 +98,10 @@ license = { text = "MIT" }
 Homepage = "https://mai0313.github.io/tradingagents"
 Repository = "https://github.com/Mai0313/tradingagents"
 
+[project.scripts]
+cli = "tradingagents.cli:main"
+tradingagents = "tradingagents.cli:main"
+
 [dependency-groups]
 dev = [
     "ipykernel",
@@ -120,12 +124,11 @@ docs = [
     "griffe-typingdoc",
     "markdown-exec[ansi]",
     "mkdocs-autorefs",
-    "mkdocs-coverage",
-    "mkdocs-material",
     "mkdocstrings[python]",
     "rich",
     "ruff",
     "tabulate",
+    "zensical",
 ]
 
 [build-system]
@@ -179,10 +182,14 @@ exclude = [
 ]
 
 [tool.poe.tasks]
+cli = "python ./src/tradingagents/cli.py"
+api = "python ./src/tradingagents/cli.py"
+main = "python ./src/tradingagents/cli.py"
+
 # Documentation
 docs_gen = "make gen-docs"
-docs_deploy = "mkdocs gh-deploy --force --clean"
-docs_run = "mkdocs serve"
+docs_deploy = "zensical build"
+docs_run = "zensical serve"
 gen = ["docs_gen", "docs_deploy"]
 docs = ["docs_gen", "docs_run"]
 
