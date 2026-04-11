@@ -1,9 +1,11 @@
+import datetime
+
 from tradingagents.default_config import DataVendorsConfig, TradingAgentsConfig
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 
 config = TradingAgentsConfig(
     llm_provider="google",
-    deep_think_llm="gemini-3-flash-preview",
+    deep_think_llm="gemini-3.1-pro-preview",
     quick_think_llm="gemini-3-flash-preview",
     max_debate_rounds=1,
     data_vendors=DataVendorsConfig(
@@ -15,5 +17,6 @@ config = TradingAgentsConfig(
 )
 
 ta = TradingAgentsGraph(debug=True, config=config)
-_, decision = ta.propagate("NVDA", "2026-03-05")
+today = datetime.date.today().strftime("%Y-%m-%d")
+_, decision = ta.propagate("PLTR", today)
 print(decision)  # noqa: T201
