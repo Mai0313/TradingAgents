@@ -65,7 +65,7 @@ jobs:
 
       - name: Packaging to Executable file
         run: |
-          uv run pyinstaller -F src/${{ github.event.repository.name }}/cli.py --onefile -n ${{ github.event.repository.name }}
+          uv run pyinstaller -F src/tradingagents/cli.py --onefile -n tradingagents
 
       - name: Stage Artifact
         shell: bash
@@ -73,7 +73,7 @@ jobs:
           set -euo pipefail
           dest="dist/${{ matrix.target }}"
           mkdir -p "$dest"
-          bin="${{ github.event.repository.name }}"
+          bin="tradingagents"
           if [[ "${{ matrix.runner }}" == windows* ]]; then
             bin="${bin}.exe"
           fi
@@ -86,8 +86,8 @@ jobs:
           $ErrorActionPreference = "Stop"
           $dest = "dist/${{ matrix.target }}"
           $version = "${env:GITHUB_REF_NAME}".Substring(1)
-          $bin = "${{ github.event.repository.name }}.exe"
-          $zip = "${{ github.event.repository.name }}-v$version-${{ matrix.friendly_id }}.zip"
+          $bin = "tradingagents.exe"
+          $zip = "tradingagents-v$version-${{ matrix.friendly_id }}.zip"
           Compress-Archive -Path "$dest\$bin" -DestinationPath "$dest\$zip" -Force
 
       - name: Create .tar.gz (all platforms)
@@ -97,8 +97,8 @@ jobs:
           set -euo pipefail
           dest="dist/${{ matrix.target }}"
           version="${GITHUB_REF_NAME#v}"
-          bin="${{ github.event.repository.name }}"
-          archive="${{ github.event.repository.name }}-v${version}-${{ matrix.friendly_id }}.tar.gz"
+          bin="tradingagents"
+          archive="tradingagents-v${version}-${{ matrix.friendly_id }}.tar.gz"
           # Try to include .exe if present, otherwise fall back to unix name
           tar -C "$dest" -czf "$dest/${archive}" "${bin}" "${bin}.exe" 2>/dev/null || \
           tar -C "$dest" -czf "$dest/${archive}" "${bin}"
@@ -177,7 +177,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           path: ./dist/*
-          name: ${{ github.event.repository.name }}-py${{ matrix.python-version }}
+          name: tradingagents-py${{ matrix.python-version }}
           if-no-files-found: ignore
           retention-days: 7
           compression-level: 6

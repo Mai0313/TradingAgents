@@ -29,9 +29,9 @@ submodule-update:  # Update all submodules
 
 gen-docs:  ## Generate documentation
 	rm -rf docs
-	mkdir -p docs
+	mkdir -p docs/zh-CN docs/zh-TW
 	cp ./README.md ./docs/index.md
-	cp ./README.zh-CN.md ./docs/README.zh-CN.md
-	cp ./README.zh-TW.md ./docs/README.zh-TW.md
+	cp ./README.zh-CN.md ./docs/zh-CN/index.md
+	cp ./README.zh-TW.md ./docs/zh-TW/index.md
 	uv run ./scripts/gen_docs.py --source ./src --output ./docs/Reference gen_docs
 	uv run ./scripts/gen_docs.py --source ./scripts --output ./docs/Scripts gen_docs
