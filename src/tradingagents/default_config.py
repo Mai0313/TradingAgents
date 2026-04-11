@@ -69,11 +69,6 @@ class TradingAgentsConfig(BaseModel):
         title="Quick Thinking LLM",
         description="Model name for quick thinking tasks (analysts, researchers, trader, debators)",
     )
-    backend_url: str = Field(
-        default="https://api.openai.com/v1",
-        title="Backend URL",
-        description="Base URL for the LLM API endpoint",
-    )
     reasoning_effort: ReasoningEffort | None = Field(
         default=None,
         title="Reasoning Effort",

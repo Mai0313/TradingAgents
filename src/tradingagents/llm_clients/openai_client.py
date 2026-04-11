@@ -27,10 +27,8 @@ class UnifiedChatOpenAI(ChatOpenAI):
 class OpenAIClient(BaseLLMClient):
     """Client for OpenAI, Ollama, OpenRouter, and xAI providers."""
 
-    def __init__(
-        self, model: str, base_url: str | None = None, provider: str = "openai", **kwargs: object
-    ) -> None:
-        super().__init__(model, base_url, **kwargs)
+    def __init__(self, model: str, provider: str = "openai", **kwargs: object) -> None:
+        super().__init__(model, **kwargs)
         self.provider = provider.lower()
 
     def get_llm(self) -> ChatOpenAI:
@@ -50,8 +48,8 @@ class OpenAIClient(BaseLLMClient):
         elif self.provider == "ollama":
             llm_kwargs["base_url"] = "http://localhost:11434/v1"
             llm_kwargs["api_key"] = "ollama"  # Ollama doesn't require auth
-        elif self.base_url:
-            llm_kwargs["base_url"] = self.base_url
+        elif self.provider == "openai":
+            llm_kwargs["base_url"] = "https://api.openai.com/v1"
 
         for key in ("timeout", "max_retries", "api_key", "callbacks"):
             if key in self.kwargs:

@@ -43,8 +43,8 @@ _GEMINI3_PRO_LEVEL_MAP = {"low": "LOW", "medium": "LOW", "high": "HIGH", "max": 
 class GoogleClient(BaseLLMClient):
     """Client for Google Gemini models."""
 
-    def __init__(self, model: str, base_url: str | None = None, **kwargs: object) -> None:
-        super().__init__(model, base_url, **kwargs)
+    def __init__(self, model: str, **kwargs: object) -> None:
+        super().__init__(model, **kwargs)
 
     def get_llm(self) -> ChatGoogleGenerativeAI:
         """Return configured ChatGoogleGenerativeAI instance."""

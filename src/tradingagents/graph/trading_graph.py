@@ -97,7 +97,6 @@ class TradingAgentsGraph(BaseModel):
         client = create_llm_client(
             provider=self.config.llm_provider,
             model=model,
-            base_url=self.config.backend_url,
             **llm_kwargs,
         )
         return client.get_llm()

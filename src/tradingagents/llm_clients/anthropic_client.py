@@ -6,8 +6,8 @@ from .base_client import BaseLLMClient
 class AnthropicClient(BaseLLMClient):
     """Client for Anthropic Claude models."""
 
-    def __init__(self, model: str, base_url: str | None = None, **kwargs: object) -> None:
-        super().__init__(model, base_url, **kwargs)
+    def __init__(self, model: str, **kwargs: object) -> None:
+        super().__init__(model, **kwargs)
 
     def get_llm(self) -> ChatAnthropic:
         """Return configured ChatAnthropic instance."""
