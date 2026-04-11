@@ -1,9 +1,9 @@
 site_name: RepoTemplate
-site_url: https://mai0313.github.io/tradingagents
+site_url: https://mai0313.github.io/TradingAgents
 site_author: Wei Lee
 
-repo_name: Mai0313/tradingagents
-repo_url: https://github.com/Mai0313/tradingagents
+repo_name: Mai0313/TradingAgents
+repo_url: https://github.com/Mai0313/TradingAgents
 edit_uri: edit/main/docs/
 
 docs_dir: docs
@@ -168,17 +168,17 @@ plugins:
 extra:
   social:
   - icon: fontawesome/brands/github-alt
-    link: https://github.com/Mai0313/tradingagents
+    link: https://github.com/Mai0313/TradingAgents
 
   alternate:
   - name: English
-    link: /
+    link: /TradingAgents/
     lang: en
   - name: 简体中文
-    link: /zh-CN/
+    link: /TradingAgents/zh-CN/
     lang: zh-CN
   - name: 繁體中文
-    link: /zh-TW/
+    link: /TradingAgents/zh-TW/
     lang: zh-TW
 
 markdown_extensions:
