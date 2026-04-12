@@ -102,9 +102,6 @@ class AgentState(BaseModel):
         title="Trade Date",
         description="The date on which the trading decision is being made",
     )
-    sender: str = Field(
-        default="", title="Sender", description="Name of the agent that last wrote to the state"
-    )
 
     # --- Analyst reports ---
     market_report: str = Field(

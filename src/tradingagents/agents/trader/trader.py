@@ -1,5 +1,4 @@
 from typing import Any
-import functools
 from collections.abc import Callable
 
 from langchain_core.language_models import BaseChatModel
@@ -12,7 +11,7 @@ from tradingagents.agents.utils.agent_states import AgentState
 def create_trader(
     llm: BaseChatModel, memory: FinancialSituationMemory
 ) -> Callable[[AgentState], dict[str, Any]]:
-    def trader_node(state: AgentState, name: str) -> dict[str, Any]:
+    def trader_node(state: AgentState) -> dict[str, Any]:
         curr_situation = (
             f"{state.market_report}\n\n"
             f"{state.sentiment_report}\n\n"
@@ -41,6 +40,6 @@ def create_trader(
 
         result = llm.invoke(messages)
 
-        return {"messages": [result], "trader_investment_plan": result.content, "sender": name}
+        return {"messages": [result], "trader_investment_plan": result.content}
 
-    return functools.partial(trader_node, name="Trader")
+    return trader_node

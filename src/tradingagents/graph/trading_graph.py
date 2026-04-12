@@ -2,7 +2,6 @@
 
 import json
 from typing import Any
-from pathlib import Path
 from functools import cached_property
 
 from pydantic import Field, BaseModel, ConfigDict, computed_field, model_validator
@@ -203,7 +202,7 @@ class TradingAgentsGraph(BaseModel):
         self.ticker = company_name
 
         init_agent_state = self.propagator.create_initial_state(company_name, trade_date)
-        args = self.propagator.get_graph_args()
+        args = self.propagator.get_graph_args(callbacks=self.callbacks or None)
 
         if self.debug:
             raw_state = None
@@ -263,7 +262,7 @@ class TradingAgentsGraph(BaseModel):
         }
 
         ticker_name = self.ticker or "unknown"
-        directory = Path(f"eval_results/{ticker_name}/TradingAgentsStrategy_logs/")
+        directory = self.config.results_dir / ticker_name / "TradingAgentsStrategy_logs"
         directory.mkdir(parents=True, exist_ok=True)
 
         log_path = directory / f"full_states_log_{trade_date}.json"

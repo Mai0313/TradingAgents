@@ -5,13 +5,17 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.language_models import BaseChatModel
 
 from tradingagents.agents.prompts import load_prompt
-from tradingagents.agents.utils.agent_utils import get_news, get_global_news
+from tradingagents.agents.utils.agent_utils import (
+    get_news,
+    get_global_news,
+    get_insider_transactions,
+)
 from tradingagents.agents.utils.agent_states import AgentState
 
 
 def create_news_analyst(llm: BaseChatModel) -> Callable[[AgentState], dict[str, Any]]:
     def news_analyst_node(state: AgentState) -> dict[str, Any]:
-        tools = [get_news, get_global_news]
+        tools = [get_news, get_global_news, get_insider_transactions]
 
         prompt = ChatPromptTemplate.from_messages([
             ("system", load_prompt("news_analyst")),

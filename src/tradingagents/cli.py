@@ -17,7 +17,7 @@ def main() -> None:
 
     ta = TradingAgentsGraph(debug=True, config=config)
     today = datetime.date.today().strftime("%Y-%m-%d")
-    _, decision = ta.propagate("PLTR", today)
+    _, decision = ta.propagate("GOOG", today)
     print(decision)  # noqa: T201
 
 

@@ -3,9 +3,8 @@ from pathlib import Path
 
 from pydantic import Field, BaseModel
 
-_PROJECT_DIR = Path(__file__).resolve().parent
 _RESULTS_DIR = Path("./results")
-_DATA_CACHE_DIR = _PROJECT_DIR / "dataflows" / "data_cache"
+_DATA_CACHE_DIR = Path(__file__).resolve().parent / "dataflows" / "data_cache"
 
 
 class LLMProvider(StrEnum):
@@ -39,11 +38,6 @@ class ReasoningEffort(StrEnum):
 class TradingAgentsConfig(BaseModel):
     """Configuration for the TradingAgents framework."""
 
-    project_dir: Path = Field(
-        default=_PROJECT_DIR,
-        title="Project Directory",
-        description="Root directory of the tradingagents package",
-    )
     results_dir: Path = Field(
         default=_RESULTS_DIR,
         title="Results Directory",
