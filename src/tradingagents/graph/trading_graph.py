@@ -2,11 +2,14 @@
 
 import json
 from typing import Any
+import logging
+from pathlib import Path
 from functools import cached_property
 
 from pydantic import Field, BaseModel, ConfigDict, computed_field, model_validator
 from langgraph.prebuilt import ToolNode
 from langgraph.graph.state import CompiledStateGraph
+from langchain_core.messages import messages_to_dict
 
 from tradingagents.llm_clients import create_llm_client
 from tradingagents.default_config import TradingAgentsConfig
@@ -30,6 +33,8 @@ from .reflection import Reflector
 from .propagation import Propagator
 from .conditional_logic import ConditionalLogic
 from .signal_processing import SignalProcessor
+
+logger = logging.getLogger(__name__)
 
 
 class TradingAgentsGraph(BaseModel):
@@ -268,6 +273,33 @@ class TradingAgentsGraph(BaseModel):
         log_path = directory / f"full_states_log_{trade_date}.json"
         with open(log_path, "w") as f:
             json.dump(self.log_states_dict, f, indent=4)
+
+        # Save complete conversation log (includes raw tool results: stock data,
+        # indicators, news, financials, insider transactions, etc.)
+        self._save_conversation_log(directory, trade_date, final_state)
+
+    def _save_conversation_log(
+        self, directory: Path, trade_date: str, final_state: AgentState
+    ) -> None:
+        """Save the full conversation history including raw tool call results."""
+        # Human-readable text log (same format as debug pretty_print output)
+        txt_path = directory / f"conversation_log_{trade_date}.txt"
+        try:
+            with open(txt_path, "w") as f:
+                for msg in final_state.messages:
+                    f.write(msg.pretty_repr() + "\n")
+            logger.info("Conversation log saved to %s", txt_path)
+        except Exception:
+            logger.warning("Failed to save conversation text log", exc_info=True)
+
+        # Structured JSON log (machine-readable, for programmatic analysis)
+        json_path = directory / f"conversation_log_{trade_date}.json"
+        try:
+            with open(json_path, "w") as f:
+                json.dump(messages_to_dict(final_state.messages), f, indent=2, ensure_ascii=False)
+            logger.info("Conversation JSON saved to %s", json_path)
+        except Exception:
+            logger.warning("Failed to save conversation JSON log", exc_info=True)
 
     def reflect_and_remember(self, returns_losses: float) -> None:
         """Reflect on decisions and update memory based on returns."""
