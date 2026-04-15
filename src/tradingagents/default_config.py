@@ -1,35 +1,21 @@
-from enum import StrEnum
+from typing import Literal
 from pathlib import Path
 
 from pydantic import Field, BaseModel, computed_field
 
+LLMProvider = Literal["openai", "anthropic", "google", "xai", "ollama", "openrouter"]
+"""Supported LLM providers for TradingAgents."""
 
-class LLMProvider(StrEnum):
-    """Supported LLM providers for TradingAgents."""
+ReasoningEffort = Literal["low", "medium", "high", "max"]
+"""Unified reasoning effort levels, mapped per-provider at the client layer.
 
-    OPENAI = "openai"
-    ANTHROPIC = "anthropic"
-    GOOGLE = "google"
-    XAI = "xai"
-    OLLAMA = "ollama"
-    OPENROUTER = "openrouter"
-
-
-class ReasoningEffort(StrEnum):
-    """Unified reasoning effort levels, mapped per-provider at the client layer.
-
-    Provider mappings:
-    - OpenAI:       low -> low,  medium -> medium, high -> high, max -> xhigh
-    - Google:       low -> low,  medium -> medium, high -> high, max -> high
-                    (Gemini 2.5 uses thinking_budget: low/medium disabled, high/max dynamic)
-                    (Gemini 3 Pro lacks medium; it falls back to low)
-    - Anthropic:    low -> low,  medium -> medium, high -> high, max -> max
-    """
-
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    MAX = "max"
+Provider mappings:
+- OpenAI:       low -> low,  medium -> medium, high -> high, max -> xhigh
+- Google:       low -> low,  medium -> medium, high -> high, max -> high
+                (Gemini 2.5 uses thinking_budget: low/medium disabled, high/max dynamic)
+                (Gemini 3 Pro lacks medium; it falls back to low)
+- Anthropic:    low -> low,  medium -> medium, high -> high, max -> max
+"""
 
 
 class TradingAgentsConfig(BaseModel):
@@ -44,7 +30,7 @@ class TradingAgentsConfig(BaseModel):
     llm_provider: LLMProvider = Field(
         ...,
         title="LLM Provider",
-        description="LLM provider to use. Must be one of the supported providers in LLMProvider enum.",
+        description="LLM provider to use. Must be one of the supported providers.",
     )
     deep_think_llm: str = Field(
         ...,
@@ -56,8 +42,8 @@ class TradingAgentsConfig(BaseModel):
         title="Quick Thinking LLM",
         description="Model name for quick thinking tasks (analysts, researchers, trader, debators)",
     )
-    reasoning_effort: ReasoningEffort | None = Field(
-        default=None,
+    reasoning_effort: ReasoningEffort = Field(
+        default="medium",
         title="Reasoning Effort",
         description=(
             "Unified reasoning effort level for reasoning-capable LLMs. "
