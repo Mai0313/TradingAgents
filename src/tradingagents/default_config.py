@@ -19,11 +19,11 @@ class ReasoningEffort(StrEnum):
     """Unified reasoning effort levels, mapped per-provider at the client layer.
 
     Provider mappings:
-    - OpenAI:    low -> low,  medium -> medium, high -> high, max -> xhigh
-    - Google:    low -> low,  medium -> medium, high -> high, max -> high
-                 (Gemini 2.5 uses thinking_budget: low/medium disabled, high/max dynamic)
-                 (Gemini 3 Pro lacks medium; it falls back to low)
-    - Anthropic: low -> low,  medium -> medium, high -> high, max -> max
+    - OpenAI:       low -> low,  medium -> medium, high -> high, max -> xhigh
+    - Google:       low -> low,  medium -> medium, high -> high, max -> high
+                    (Gemini 2.5 uses thinking_budget: low/medium disabled, high/max dynamic)
+                    (Gemini 3 Pro lacks medium; it falls back to low)
+    - Anthropic:    low -> low,  medium -> medium, high -> high, max -> max
     """
 
     LOW = "low"
