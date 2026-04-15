@@ -1,10 +1,7 @@
 from enum import StrEnum
 from pathlib import Path
 
-from pydantic import Field, BaseModel
-
-_RESULTS_DIR = Path("./results")
-_DATA_CACHE_DIR = Path(__file__).resolve().parent / "dataflows" / "data_cache"
+from pydantic import Field, BaseModel, computed_field
 
 
 class LLMProvider(StrEnum):
@@ -39,15 +36,11 @@ class TradingAgentsConfig(BaseModel):
     """Configuration for the TradingAgents framework."""
 
     results_dir: Path = Field(
-        default=_RESULTS_DIR,
+        default=Path("./results"),
         title="Results Directory",
         description="Directory for saving analysis results",
     )
-    data_cache_dir: Path = Field(
-        default=_DATA_CACHE_DIR,
-        title="Data Cache Directory",
-        description="Directory for caching downloaded data",
-    )
+
     llm_provider: LLMProvider = Field(
         ...,
         title="LLM Provider",
@@ -87,3 +80,12 @@ class TradingAgentsConfig(BaseModel):
         title="Max Recursion Limit",
         description="Maximum recursion limit for the LangGraph execution",
     )
+
+    @computed_field(
+        title="Data Cache Directory",
+        description="Directory for caching downloaded data (automatically placed under results_dir)",
+    )
+    @property
+    def data_cache_dir(self) -> Path:
+        data_cache_dir = self.results_dir / "data_cache"
+        return data_cache_dir
