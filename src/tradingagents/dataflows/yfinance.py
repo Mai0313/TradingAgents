@@ -8,7 +8,7 @@ import yfinance as yf
 from stockstats import wrap
 from dateutil.relativedelta import relativedelta
 
-from .config import get_config
+from tradingagents.config import get_config
 
 logger = logging.getLogger(__name__)
 

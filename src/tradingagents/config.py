@@ -64,3 +64,23 @@ class TradingAgentsConfig(BaseModel):
     def data_cache_dir(self) -> Path:
         data_cache_dir = self.results_dir / "data_cache"
         return data_cache_dir
+
+
+_config_container: list[TradingAgentsConfig | None] = [None]
+
+
+def set_config(config: TradingAgentsConfig) -> None:
+    """Register the active TradingAgentsConfig for cross-module access."""
+    _config_container[0] = config
+
+
+def get_config() -> TradingAgentsConfig:
+    """Return the active TradingAgentsConfig (set by TradingAgentsGraph)."""
+    cfg = _config_container[0]
+    if cfg is None:
+        raise RuntimeError(
+            "TradingAgentsConfig has not been initialized. "
+            "Construct a TradingAgentsConfig and pass it to TradingAgentsGraph "
+            "(or call set_config) before accessing the global config."
+        )
+    return cfg

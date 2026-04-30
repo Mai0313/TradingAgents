@@ -1,6 +1,6 @@
 import datetime
 
-from tradingagents.default_config import TradingAgentsConfig
+from tradingagents.config import TradingAgentsConfig
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 
 

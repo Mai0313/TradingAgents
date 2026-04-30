@@ -12,8 +12,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langchain_core.messages import messages_to_dict
 
 from tradingagents.llm import ChatModel, build_chat_model
-from tradingagents.default_config import TradingAgentsConfig
-from tradingagents.dataflows.config import set_config
+from tradingagents.config import TradingAgentsConfig, set_config
 from tradingagents.agents.utils.memory import FinancialSituationMemory
 from tradingagents.agents.utils.agent_utils import (
     get_news,
@@ -79,7 +78,7 @@ class TradingAgentsGraph(BaseModel):
 
     @model_validator(mode="after")
     def _setup(self) -> "TradingAgentsGraph":
-        """Run side effects: update global dataflows config and create dirs."""
+        """Run side effects: register the active config singleton and create dirs."""
         set_config(self.config)
         self.config.data_cache_dir.mkdir(parents=True, exist_ok=True)
         return self
