@@ -72,6 +72,7 @@ def get_income_statement(
         ticker (str): Ticker symbol of the company
         freq (str): Reporting frequency: annual/quarterly (default quarterly)
         curr_date (str): Current date you are trading at, yyyy-mm-dd
+
     Returns:
         str: A formatted report containing income statement data
     """

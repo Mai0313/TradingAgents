@@ -25,8 +25,12 @@ def get_indicators(
             string like "macd,rsi,close_50_sma".
         curr_date (str): The current trading date you are trading on, YYYY-mm-dd
         look_back_days (int): How many days to look back, default is 30
+
     Returns:
         str: A formatted report containing the technical indicators for the specified ticker symbol and indicator(s).
+
+    Raises:
+        ValueError: If no valid indicators are provided.
     """
     if isinstance(indicator, str):
         indicators = [ind.strip() for ind in indicator.split(",") if ind.strip()]

@@ -18,6 +18,7 @@ def get_news(
         ticker (str): Ticker symbol
         start_date (str): Start date in yyyy-mm-dd format
         end_date (str): End date in yyyy-mm-dd format
+
     Returns:
         str: A formatted string containing news data
     """
@@ -49,6 +50,7 @@ def get_insider_transactions(ticker: Annotated[str, "ticker symbol"]) -> str:
 
     Args:
         ticker (str): Ticker symbol of the company
+
     Returns:
         str: A report of insider transaction data
     """

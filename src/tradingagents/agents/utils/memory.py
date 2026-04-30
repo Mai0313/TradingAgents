@@ -16,8 +16,8 @@ class FinancialSituationMemory:
         """Initialize the memory system.
 
         Args:
-            name: Name identifier for this memory instance
-            config: Configuration dict (kept for API compatibility, not used for BM25)
+            name (str): Name identifier for this memory instance
+            config (dict | None): Configuration dict (kept for API compatibility, not used for BM25)
         """
         self.name = name
         self.documents: list[str] = []
@@ -28,13 +28,23 @@ class FinancialSituationMemory:
         """Tokenize text for BM25 indexing.
 
         Simple whitespace + punctuation tokenization with lowercasing.
+
+        Args:
+            text (str): The text to tokenize.
+
+        Returns:
+            list[str]: A list of tokens extracted from the text.
         """
         # Lowercase and split on non-alphanumeric characters
         tokens = re.findall(r"\b\w+\b", text.lower())
         return tokens
 
     def _rebuild_index(self) -> None:
-        """Rebuild the BM25 index after adding documents."""
+        """Rebuild the BM25 index after adding documents.
+        
+        Returns:
+            None
+        """
         if self.documents:
             tokenized_docs = [self._tokenize(doc) for doc in self.documents]
             self.bm25 = BM25Okapi(tokenized_docs)
@@ -45,7 +55,7 @@ class FinancialSituationMemory:
         """Add financial situations and their corresponding advice.
 
         Args:
-            situations_and_advice: List of tuples (situation, recommendation)
+            situations_and_advice (list[tuple[str, str]]): List of tuples (situation, recommendation)
         """
         for situation, recommendation in situations_and_advice:
             self.documents.append(situation)
@@ -58,11 +68,11 @@ class FinancialSituationMemory:
         """Find matching recommendations using BM25 similarity.
 
         Args:
-            current_situation: The current financial situation to match against
-            n_matches: Number of top matches to return
+            current_situation (str): The current financial situation to match against
+            n_matches (int): Number of top matches to return
 
         Returns:
-            List of dicts with matched_situation, recommendation, and similarity_score
+            list[dict]: List of dicts with matched_situation, recommendation, and similarity_score
         """
         if not self.documents or self.bm25 is None:
             return []
@@ -92,7 +102,11 @@ class FinancialSituationMemory:
         return results
 
     def clear(self) -> None:
-        """Clear all stored memories."""
+        """Clear all stored memories.
+        
+        Returns:
+            None
+        """
         self.documents = []
         self.recommendations = []
         self.bm25 = None

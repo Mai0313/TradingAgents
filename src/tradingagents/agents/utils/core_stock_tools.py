@@ -18,6 +18,7 @@ def get_stock_data(
             Examples: AAPL, TSM, 2330.TW, 2330, 8069.
         start_date (str): Start date in yyyy-mm-dd format
         end_date (str): End date in yyyy-mm-dd format
+
     Returns:
         str: A formatted dataframe containing the stock price data for the specified ticker symbol in the specified date range.
     """

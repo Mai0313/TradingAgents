@@ -35,8 +35,23 @@ __all__ = [
 
 
 def create_msg_delete() -> Callable[[AgentState], dict[str, Any]]:
+    """Create a function that deletes messages from the agent state.
+
+    Returns:
+        Callable[[AgentState], dict[str, Any]]: A function that takes an AgentState
+            and returns a dictionary with operations to remove existing messages
+            and add a placeholder message.
+    """
     def delete_messages(state: AgentState) -> dict[str, Any]:
-        """Clear messages and add placeholder for Anthropic compatibility."""
+        """Clear messages and add placeholder for Anthropic compatibility.
+
+        Args:
+            state (AgentState): The current state of the agent.
+
+        Returns:
+            dict[str, Any]: A dictionary containing the 'messages' key with a list
+                of RemoveMessage operations and a placeholder HumanMessage.
+        """
         removal_operations = [RemoveMessage(id=m.id) for m in state.messages]
         placeholder = HumanMessage(content="Continue")
         return {"messages": [*removal_operations, placeholder]}

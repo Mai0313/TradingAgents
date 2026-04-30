@@ -5,6 +5,11 @@ from tradingagents.graph.trading_graph import TradingAgentsGraph
 
 
 def main() -> None:
+    """Main entry point for the TradingAgents CLI.
+
+    Initializes the configuration, builds the TradingAgents graph,
+    and runs the process for a test ticker symbol.
+    """
     config = TradingAgentsConfig(
         llm_provider="google_genai",
         deep_think_llm="gemini-3.1-pro-preview",
