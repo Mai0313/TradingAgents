@@ -1,8 +1,8 @@
 # TradingAgents/graph/reflection.py
 
-from pydantic import Field, BaseModel, ConfigDict
-from langchain_core.language_models import BaseChatModel
+from pydantic import Field, BaseModel, ConfigDict, SkipValidation
 
+from tradingagents.llm import ChatModel
 from tradingagents.agents.prompts import load_prompt
 from tradingagents.agents.utils.memory import FinancialSituationMemory
 from tradingagents.agents.utils.agent_states import AgentState
@@ -15,7 +15,7 @@ class Reflector(BaseModel):
 
     # --- User-configurable fields ---
 
-    quick_thinking_llm: BaseChatModel = Field(
+    quick_thinking_llm: SkipValidation[ChatModel] = Field(
         ...,
         title="Quick Thinking LLM",
         description="LLM instance used for generating reflection analysis",

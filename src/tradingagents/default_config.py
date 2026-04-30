@@ -1,11 +1,8 @@
-from typing import Literal
 from pathlib import Path
 
 from pydantic import Field, BaseModel, computed_field
 
-LLMProvider = Literal["openai", "anthropic", "google", "xai", "ollama", "openrouter"]
-
-ReasoningEffort = Literal["low", "medium", "high", "max"]
+from tradingagents.llm import ReasoningEffort
 
 
 class TradingAgentsConfig(BaseModel):
@@ -17,27 +14,29 @@ class TradingAgentsConfig(BaseModel):
         description="Directory for saving analysis results",
     )
 
-    llm_provider: LLMProvider = Field(
-        ...,
-        title="LLM Provider",
-        description="LLM provider to use. Must be one of the supported providers.",
-    )
     deep_think_llm: str = Field(
         ...,
         title="Deep Thinking LLM",
-        description="Model name for deep thinking tasks (Research Manager, Risk Manager)",
+        description=(
+            "`<provider>:<model>` identifier for deep-thinking nodes "
+            "(Research Manager, Risk Manager). Example: "
+            "`anthropic:claude-sonnet-4-6`."
+        ),
     )
     quick_think_llm: str = Field(
         ...,
         title="Quick Thinking LLM",
-        description="Model name for quick thinking tasks (analysts, researchers, trader, debators)",
+        description=(
+            "`<provider>:<model>` identifier for quick-thinking nodes "
+            "(analysts, researchers, trader, debators)."
+        ),
     )
     reasoning_effort: ReasoningEffort = Field(
         default="medium",
         title="Reasoning Effort",
         description=(
             "Unified reasoning effort level for reasoning-capable LLMs. "
-            "Mapped per-provider at the client layer (see ReasoningEffort docstring)."
+            "Mapped per-provider inside build_chat_model."
         ),
     )
     max_debate_rounds: int = Field(

@@ -1,7 +1,8 @@
 # TradingAgents/graph/signal_processing.py
 
-from pydantic import Field, BaseModel, ConfigDict
-from langchain_core.language_models import BaseChatModel
+from pydantic import Field, BaseModel, ConfigDict, SkipValidation
+
+from tradingagents.llm import ChatModel
 
 
 class SignalProcessor(BaseModel):
@@ -11,7 +12,7 @@ class SignalProcessor(BaseModel):
 
     # --- User-configurable fields ---
 
-    quick_thinking_llm: BaseChatModel = Field(
+    quick_thinking_llm: SkipValidation[ChatModel] = Field(
         ...,
         title="Quick Thinking LLM",
         description="LLM instance used for extracting investment decisions from signals",

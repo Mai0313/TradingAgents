@@ -2,7 +2,7 @@ from typing import Any
 from collections.abc import Callable
 
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.language_models import BaseChatModel
+from tradingagents.llm import ChatModel
 
 from tradingagents.agents.prompts import load_prompt
 from tradingagents.agents.utils.agent_utils import (
@@ -13,7 +13,7 @@ from tradingagents.agents.utils.agent_utils import (
 from tradingagents.agents.utils.agent_states import AgentState
 
 
-def create_news_analyst(llm: BaseChatModel) -> Callable[[AgentState], dict[str, Any]]:
+def create_news_analyst(llm: ChatModel) -> Callable[[AgentState], dict[str, Any]]:
     def news_analyst_node(state: AgentState) -> dict[str, Any]:
         tools = [get_news, get_global_news, get_insider_transactions]
 

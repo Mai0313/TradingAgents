@@ -1,7 +1,7 @@
 from typing import Any
 from collections.abc import Callable
 
-from langchain_core.language_models import BaseChatModel
+from tradingagents.llm import ChatModel
 
 from tradingagents.agents.prompts import load_prompt
 from tradingagents.agents.utils.memory import FinancialSituationMemory
@@ -9,7 +9,7 @@ from tradingagents.agents.utils.agent_states import AgentState, InvestDebateStat
 
 
 def create_bull_researcher(
-    llm: BaseChatModel, memory: FinancialSituationMemory
+    llm: ChatModel, memory: FinancialSituationMemory
 ) -> Callable[[AgentState], dict[str, Any]]:
     def bull_node(state: AgentState) -> dict[str, Any]:
         debate = state.investment_debate_state

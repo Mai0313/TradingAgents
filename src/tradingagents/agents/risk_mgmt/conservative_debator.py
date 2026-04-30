@@ -1,13 +1,13 @@
 from typing import Any
 from collections.abc import Callable
 
-from langchain_core.language_models import BaseChatModel
+from tradingagents.llm import ChatModel
 
 from tradingagents.agents.prompts import load_prompt
 from tradingagents.agents.utils.agent_states import AgentState, RiskDebateState
 
 
-def create_conservative_debator(llm: BaseChatModel) -> Callable[[AgentState], dict[str, Any]]:
+def create_conservative_debator(llm: ChatModel) -> Callable[[AgentState], dict[str, Any]]:
     def conservative_node(state: AgentState) -> dict[str, Any]:
         risk = state.risk_debate_state
 
