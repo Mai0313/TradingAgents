@@ -13,16 +13,16 @@ visible union of what the project actually supports, instead of leaning on
 from typing import Any, Literal, cast
 
 from langchain_xai import ChatXAI
-from langchain_openai import ChatOpenAI
 from langchain_ollama import ChatOllama
+from langchain_openai import ChatOpenAI
 from langchain_litellm import ChatLiteLLM
 from langchain_anthropic import ChatAnthropic
 from langchain_openrouter import ChatOpenRouter
-from langchain_huggingface import ChatHuggingFace
 from langchain.chat_models import init_chat_model
+from langchain_huggingface import ChatHuggingFace
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-ChatModel = (
+type ChatModel = (
     ChatOpenAI
     | ChatAnthropic
     | ChatGoogleGenerativeAI
@@ -50,9 +50,7 @@ class NormalizedChatGoogleGenerativeAI(ChatGoogleGenerativeAI):
     downstream prompt concatenation expects plain strings.
     """
 
-    def invoke(
-        self, prompt_input: Any, config: Any = None, **kwargs: Any
-    ) -> Any:
+    def invoke(self, prompt_input: object, config: object = None, **kwargs: object) -> object:
         response = super().invoke(prompt_input, config, **kwargs)
         content = response.content
         if isinstance(content, list):
@@ -97,12 +95,10 @@ def build_chat_model(
     if provider == "google_genai":
         return NormalizedChatGoogleGenerativeAI(model=model, **kwargs)
 
-    return cast(ChatModel, init_chat_model(model_id, **kwargs))
+    return cast("ChatModel", init_chat_model(model_id, **kwargs))
 
 
-def _apply_reasoning(
-    provider: str, effort: ReasoningEffort, kwargs: dict[str, Any]
-) -> None:
+def _apply_reasoning(provider: str, effort: ReasoningEffort, kwargs: dict[str, Any]) -> None:
     e = effort.lower()
     if provider == "anthropic":
         budget = _ANTHROPIC_THINKING_BUDGETS[e]

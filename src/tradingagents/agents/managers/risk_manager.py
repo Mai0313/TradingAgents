@@ -2,7 +2,6 @@ from typing import Any
 from collections.abc import Callable
 
 from tradingagents.llm import ChatModel
-
 from tradingagents.agents.prompts import load_prompt
 from tradingagents.agents.utils.memory import FinancialSituationMemory
 from tradingagents.agents.utils.agent_states import AgentState, RiskDebateState

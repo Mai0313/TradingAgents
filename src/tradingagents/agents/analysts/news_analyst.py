@@ -2,8 +2,8 @@ from typing import Any
 from collections.abc import Callable
 
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from tradingagents.llm import ChatModel
 
+from tradingagents.llm import ChatModel
 from tradingagents.agents.prompts import load_prompt
 from tradingagents.agents.utils.agent_utils import (
     get_news,
