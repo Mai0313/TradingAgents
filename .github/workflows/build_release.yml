@@ -38,9 +38,11 @@ jobs:
           - runner: windows-latest
             target: x86_64-pc-windows-msvc
             friendly_id: windows-x64
-          - runner: windows-11-arm
-            target: aarch64-pc-windows-msvc
-            friendly_id: windows-arm64
+          # google-genai, langchain-google-genai, and langchain-litellm requires cryptography
+          # which has no build_wheel for Windows on ARM, so we skip it for now.
+          # - runner: windows-11-arm
+          #   target: aarch64-pc-windows-msvc
+          #   friendly_id: windows-arm64
 
     steps:
       - name: Checkout
