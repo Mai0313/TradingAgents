@@ -43,9 +43,6 @@ jobs:
             friendly_id: windows-arm64
 
     steps:
-      - name: Disable SSL Verify
-        run: git config --global http.sslVerify false
-
       - name: Checkout
         uses: actions/checkout@v6
         with:
@@ -125,9 +122,6 @@ jobs:
           - "3.12"
 
     steps:
-      - name: Disable SSL Verify
-        run: git config --global http.sslVerify false
-
       - name: Checkout
         uses: actions/checkout@v6
         with:

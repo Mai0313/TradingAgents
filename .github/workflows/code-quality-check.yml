@@ -17,9 +17,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Disable SSL Verify
-        run: git config --global http.sslVerify false
-
       - name: Checkout
         uses: actions/checkout@v6
         with:
@@ -34,5 +31,4 @@ jobs:
 
       - name: Run pre-commits
         run: |
-          uv tool install pre-commit
-          uv tool run pre-commit run -a
+          uvx pre-commit run -a

@@ -1,5 +1,5 @@
 name: 📚 Documentation
-description: Report an issue related to AI-Thermal-Simulator-pl
+description: Report an issue related to documentation
 title: "[DOC] <title>"
 labels: ["Documentation", "Needs Triage"]
 body:
