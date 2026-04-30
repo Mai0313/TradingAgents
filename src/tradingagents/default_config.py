@@ -4,18 +4,8 @@ from pathlib import Path
 from pydantic import Field, BaseModel, computed_field
 
 LLMProvider = Literal["openai", "anthropic", "google", "xai", "ollama", "openrouter"]
-"""Supported LLM providers for TradingAgents."""
 
 ReasoningEffort = Literal["low", "medium", "high", "max"]
-"""Unified reasoning effort levels, mapped per-provider at the client layer.
-
-Provider mappings:
-- OpenAI:       low -> low,  medium -> medium, high -> high, max -> xhigh
-- Google:       low -> low,  medium -> medium, high -> high, max -> high
-                (Gemini 2.5 uses thinking_budget: low/medium disabled, high/max dynamic)
-                (Gemini 3 Pro lacks medium; it falls back to low)
-- Anthropic:    low -> low,  medium -> medium, high -> high, max -> max
-"""
 
 
 class TradingAgentsConfig(BaseModel):
