@@ -91,7 +91,7 @@ config = TradingAgentsConfig(
     max_debate_rounds=1,
     max_risk_discuss_rounds=1,
     max_recur_limit=100,
-    response_language="Traditional Chinese",
+    response_language="zh-TW",
 )
 
 ta = TradingAgentsGraph(config=config)
