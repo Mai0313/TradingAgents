@@ -38,9 +38,9 @@ jobs:
           - runner: windows-latest
             target: x86_64-pc-windows-msvc
             friendly_id: windows-x64
-          - runner: windows-11-arm
-            target: aarch64-pc-windows-msvc
-            friendly_id: windows-arm64
+          # - runner: windows-11-arm
+          #   target: aarch64-pc-windows-msvc
+          #   friendly_id: windows-arm64
 
     steps:
       - name: Checkout

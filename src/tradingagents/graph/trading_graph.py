@@ -264,7 +264,7 @@ class TradingAgentsGraph(BaseModel):
 
         log_path = directory / f"full_states_log_{trade_date}.json"
         with open(log_path, "w") as f:
-            json.dump(self.log_states_dict, f, indent=4)
+            json.dump(self.log_states_dict, f, indent=2, ensure_ascii=False)
 
         # Save complete conversation log (includes raw tool results: stock data,
         # indicators, news, financials, insider transactions, etc.)
