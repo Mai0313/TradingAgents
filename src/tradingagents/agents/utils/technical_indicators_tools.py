@@ -2,7 +2,7 @@ from typing import Annotated
 
 from langchain_core.tools import tool
 
-from tradingagents.dataflows.y_finance import get_stock_stats_indicators_window
+from tradingagents.dataflows.yfinance import get_stock_stats_indicators_window
 
 
 @tool

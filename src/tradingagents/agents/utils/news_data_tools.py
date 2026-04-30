@@ -2,8 +2,8 @@ from typing import Annotated
 
 from langchain_core.tools import tool
 
-from tradingagents.dataflows.y_finance import get_insider_transactions as _get_insider_transactions
-from tradingagents.dataflows.yfinance_news import get_news_yfinance, get_global_news_yfinance
+from tradingagents.dataflows.news import get_news_yfinance, get_global_news_yfinance
+from tradingagents.dataflows.yfinance import get_insider_transactions as _get_insider_transactions
 
 
 @tool
