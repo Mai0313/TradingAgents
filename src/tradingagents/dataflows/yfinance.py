@@ -9,8 +9,18 @@ from stockstats import wrap
 from dateutil.relativedelta import relativedelta
 
 from tradingagents.config import get_config
+from tradingagents.dataflows.tickers import (
+    describe_symbol_candidates,
+    get_yfinance_symbol_candidates,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _has_meaningful_ticker_info(info: dict) -> bool:
+    """Return whether yfinance info contains an actual resolved quote."""
+    identity_fields = ("longName", "shortName", "symbol", "quoteType", "market", "exchange")
+    return any(info.get(field) for field in identity_fields)
 
 
 def get_yfin_data_online(
@@ -22,15 +32,26 @@ def get_yfin_data_online(
     datetime.strptime(start_date, "%Y-%m-%d")
     datetime.strptime(end_date, "%Y-%m-%d")
 
-    # Create ticker object
-    ticker = yf.Ticker(symbol.upper())
+    candidates = get_yfinance_symbol_candidates(symbol)
 
-    # Fetch historical data for the specified date range
-    data = ticker.history(start=start_date, end=end_date)
+    data = pd.DataFrame()
+    resolved_symbol = candidates[0]
+    for candidate in candidates:
+        try:
+            ticker = yf.Ticker(candidate)
+            candidate_data = ticker.history(start=start_date, end=end_date)
+        except Exception:
+            logger.debug("Failed to fetch history for %s", candidate, exc_info=True)
+            continue
+        if not candidate_data.empty:
+            data = candidate_data
+            resolved_symbol = candidate
+            break
 
     # Check if data is empty
     if data.empty:
-        return f"No data found for symbol '{symbol}' between {start_date} and {end_date}"
+        tried = describe_symbol_candidates(symbol, candidates)
+        return f"No data found for symbol '{symbol}' (tried: {tried}) between {start_date} and {end_date}"
 
     # Remove timezone info from index for cleaner output
     if data.index.tz is not None:
@@ -46,7 +67,7 @@ def get_yfin_data_online(
     csv_string = data.to_csv()
 
     # Add header information
-    header = f"# Stock data for {symbol.upper()} from {start_date} to {end_date}\n"
+    header = f"# Stock data for {resolved_symbol} from {start_date} to {end_date}\n"
     header += f"# Total records: {len(data)}\n"
     header += f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
 
@@ -179,22 +200,37 @@ def _get_stock_stats_bulk(
     cache_dir = Path(str(config.data_cache_dir))
     cache_dir.mkdir(parents=True, exist_ok=True)
 
-    data_file = cache_dir / f"{symbol}-YFin-data-{start_date_str}-{end_date_str}.csv"
+    candidates = get_yfinance_symbol_candidates(symbol)
+    data = pd.DataFrame()
 
-    if data_file.exists():
-        data = pd.read_csv(data_file)
-        data["Date"] = pd.to_datetime(data["Date"])
-    else:
-        data = yf.download(
-            symbol,
-            start=start_date_str,
-            end=end_date_str,
-            multi_level_index=False,
-            progress=False,
-            auto_adjust=True,
-        )
-        data = data.reset_index()
-        data.to_csv(data_file, index=False)
+    for candidate in candidates:
+        data_file = cache_dir / f"{candidate}-YFin-data-{start_date_str}-{end_date_str}.csv"
+        if data_file.exists():
+            candidate_data = pd.read_csv(data_file)
+            candidate_data["Date"] = pd.to_datetime(candidate_data["Date"])
+        else:
+            try:
+                candidate_data = yf.download(
+                    candidate,
+                    start=start_date_str,
+                    end=end_date_str,
+                    multi_level_index=False,
+                    progress=False,
+                    auto_adjust=True,
+                )
+            except Exception:
+                logger.debug("Failed to download history for %s", candidate, exc_info=True)
+                continue
+            candidate_data = candidate_data.reset_index()
+            candidate_data.to_csv(data_file, index=False)
+
+        if not candidate_data.empty:
+            data = candidate_data
+            break
+
+    if data.empty:
+        tried = describe_symbol_candidates(symbol, candidates)
+        raise ValueError(f"No market data found for symbol '{symbol}' (tried: {tried}).")
 
     df = wrap(data)
     df["Date"] = df["Date"].dt.strftime("%Y-%m-%d")
@@ -223,11 +259,25 @@ def get_fundamentals(
 ) -> str:
     """Get company fundamentals overview from yfinance."""
     try:
-        ticker_obj = yf.Ticker(ticker.upper())
-        info = ticker_obj.info
+        candidates = get_yfinance_symbol_candidates(ticker)
+        info = {}
+        resolved_ticker = candidates[0]
+
+        for candidate in candidates:
+            try:
+                ticker_obj = yf.Ticker(candidate)
+                candidate_info = ticker_obj.info
+            except Exception:
+                logger.debug("Failed to fetch fundamentals for %s", candidate, exc_info=True)
+                continue
+            if _has_meaningful_ticker_info(candidate_info):
+                info = candidate_info
+                resolved_ticker = candidate
+                break
 
         if not info:
-            return f"No fundamentals data found for symbol '{ticker}'"
+            tried = describe_symbol_candidates(ticker, candidates)
+            return f"No fundamentals data found for symbol '{ticker}' (tried: {tried})"
 
         fields = [
             ("Name", info.get("longName")),
@@ -265,7 +315,7 @@ def get_fundamentals(
             if value is not None:
                 lines.append(f"{label}: {value}")
 
-        header = f"# Company Fundamentals for {ticker.upper()}\n"
+        header = f"# Company Fundamentals for {resolved_ticker}\n"
         header += f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
 
         return header + "\n".join(lines)
@@ -281,21 +331,34 @@ def get_balance_sheet(
 ) -> str:
     """Get balance sheet data from yfinance."""
     try:
-        ticker_obj = yf.Ticker(ticker.upper())
+        candidates = get_yfinance_symbol_candidates(ticker)
+        data = pd.DataFrame()
+        resolved_ticker = candidates[0]
 
-        if freq.lower() == "quarterly":
-            data = ticker_obj.quarterly_balance_sheet
-        else:
-            data = ticker_obj.balance_sheet
+        for candidate in candidates:
+            try:
+                ticker_obj = yf.Ticker(candidate)
+                if freq.lower() == "quarterly":
+                    candidate_data = ticker_obj.quarterly_balance_sheet
+                else:
+                    candidate_data = ticker_obj.balance_sheet
+            except Exception:
+                logger.debug("Failed to fetch balance sheet for %s", candidate, exc_info=True)
+                continue
+            if not candidate_data.empty:
+                data = candidate_data
+                resolved_ticker = candidate
+                break
 
         if data.empty:
-            return f"No balance sheet data found for symbol '{ticker}'"
+            tried = describe_symbol_candidates(ticker, candidates)
+            return f"No balance sheet data found for symbol '{ticker}' (tried: {tried})"
 
         # Convert to CSV string for consistency with other functions
         csv_string = data.to_csv()
 
         # Add header information
-        header = f"# Balance Sheet data for {ticker.upper()} ({freq})\n"
+        header = f"# Balance Sheet data for {resolved_ticker} ({freq})\n"
         header += f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
 
         return header + csv_string
@@ -311,21 +374,34 @@ def get_cashflow(
 ) -> str:
     """Get cash flow data from yfinance."""
     try:
-        ticker_obj = yf.Ticker(ticker.upper())
+        candidates = get_yfinance_symbol_candidates(ticker)
+        data = pd.DataFrame()
+        resolved_ticker = candidates[0]
 
-        if freq.lower() == "quarterly":
-            data = ticker_obj.quarterly_cashflow
-        else:
-            data = ticker_obj.cashflow
+        for candidate in candidates:
+            try:
+                ticker_obj = yf.Ticker(candidate)
+                if freq.lower() == "quarterly":
+                    candidate_data = ticker_obj.quarterly_cashflow
+                else:
+                    candidate_data = ticker_obj.cashflow
+            except Exception:
+                logger.debug("Failed to fetch cash flow for %s", candidate, exc_info=True)
+                continue
+            if not candidate_data.empty:
+                data = candidate_data
+                resolved_ticker = candidate
+                break
 
         if data.empty:
-            return f"No cash flow data found for symbol '{ticker}'"
+            tried = describe_symbol_candidates(ticker, candidates)
+            return f"No cash flow data found for symbol '{ticker}' (tried: {tried})"
 
         # Convert to CSV string for consistency with other functions
         csv_string = data.to_csv()
 
         # Add header information
-        header = f"# Cash Flow data for {ticker.upper()} ({freq})\n"
+        header = f"# Cash Flow data for {resolved_ticker} ({freq})\n"
         header += f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
 
         return header + csv_string
@@ -341,21 +417,34 @@ def get_income_statement(
 ) -> str:
     """Get income statement data from yfinance."""
     try:
-        ticker_obj = yf.Ticker(ticker.upper())
+        candidates = get_yfinance_symbol_candidates(ticker)
+        data = pd.DataFrame()
+        resolved_ticker = candidates[0]
 
-        if freq.lower() == "quarterly":
-            data = ticker_obj.quarterly_income_stmt
-        else:
-            data = ticker_obj.income_stmt
+        for candidate in candidates:
+            try:
+                ticker_obj = yf.Ticker(candidate)
+                if freq.lower() == "quarterly":
+                    candidate_data = ticker_obj.quarterly_income_stmt
+                else:
+                    candidate_data = ticker_obj.income_stmt
+            except Exception:
+                logger.debug("Failed to fetch income statement for %s", candidate, exc_info=True)
+                continue
+            if not candidate_data.empty:
+                data = candidate_data
+                resolved_ticker = candidate
+                break
 
         if data.empty:
-            return f"No income statement data found for symbol '{ticker}'"
+            tried = describe_symbol_candidates(ticker, candidates)
+            return f"No income statement data found for symbol '{ticker}' (tried: {tried})"
 
         # Convert to CSV string for consistency with other functions
         csv_string = data.to_csv()
 
         # Add header information
-        header = f"# Income Statement data for {ticker.upper()} ({freq})\n"
+        header = f"# Income Statement data for {resolved_ticker} ({freq})\n"
         header += f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
 
         return header + csv_string
@@ -367,17 +456,33 @@ def get_income_statement(
 def get_insider_transactions(ticker: Annotated[str, "ticker symbol of the company"]) -> str:
     """Get insider transactions data from yfinance."""
     try:
-        ticker_obj = yf.Ticker(ticker.upper())
-        data = ticker_obj.insider_transactions
+        candidates = get_yfinance_symbol_candidates(ticker)
+        data = pd.DataFrame()
+        resolved_ticker = candidates[0]
+
+        for candidate in candidates:
+            try:
+                ticker_obj = yf.Ticker(candidate)
+                candidate_data = ticker_obj.insider_transactions
+            except Exception:
+                logger.debug(
+                    "Failed to fetch insider transactions for %s", candidate, exc_info=True
+                )
+                continue
+            if candidate_data is not None and not candidate_data.empty:
+                data = candidate_data
+                resolved_ticker = candidate
+                break
 
         if data is None or data.empty:
-            return f"No insider transactions data found for symbol '{ticker}'"
+            tried = describe_symbol_candidates(ticker, candidates)
+            return f"No insider transactions data found for symbol '{ticker}' (tried: {tried})"
 
         # Convert to CSV string for consistency with other functions
         csv_string = data.to_csv()
 
         # Add header information
-        header = f"# Insider Transactions data for {ticker.upper()}\n"
+        header = f"# Insider Transactions data for {resolved_ticker}\n"
         header += f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
 
         return header + csv_string

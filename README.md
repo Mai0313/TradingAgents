@@ -71,6 +71,7 @@ config = TradingAgentsConfig(
     max_risk_discuss_rounds=1,
     max_recur_limit=100,
     reasoning_effort="medium",
+    response_language="en",
 )
 
 ta = TradingAgentsGraph(debug=True, config=config)
@@ -79,6 +80,23 @@ print(decision)
 ```
 
 `llm_provider` is one of the `langchain.chat_models.init_chat_model` registry keys (`openai`, `anthropic`, `google_genai`, `xai`, `openrouter`, `ollama`, `huggingface`, `litellm`); `deep_think_llm` / `quick_think_llm` take the model name as accepted by that provider (`gpt-5`, `claude-sonnet-4-6`, `gemini-3-pro-preview`, `grok-4`, ...).
+
+Set `response_language` to control the language requested in all agent prompts. Tickers without exchange suffixes are resolved automatically with Yahoo Finance Search. For Taiwan stocks, pass the numeric stock code directly, such as `2330`, `2408`, or `8069`; explicit Yahoo Finance symbols such as `2330.TW`, `8069.TWO`, `AAPL`, and `TSM` are also supported.
+
+```python
+config = TradingAgentsConfig(
+    llm_provider="openai",
+    deep_think_llm="gpt-5",
+    quick_think_llm="gpt-5-mini",
+    max_debate_rounds=1,
+    max_risk_discuss_rounds=1,
+    max_recur_limit=100,
+    response_language="Traditional Chinese",
+)
+
+ta = TradingAgentsGraph(config=config)
+_, decision = ta.propagate("2330", "2024-05-10")
+```
 
 ## 📁 Project Structure
 

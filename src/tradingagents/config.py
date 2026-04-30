@@ -45,6 +45,14 @@ class TradingAgentsConfig(BaseModel):
             "Mapped per-provider inside build_chat_model."
         ),
     )
+    response_language: str = Field(
+        default="en",
+        title="Response Language",
+        description=(
+            "Language instruction appended to agent prompts, e.g. `en`, "
+            "`Traditional Chinese`, or `zh-TW`."
+        ),
+    )
     max_debate_rounds: int = Field(
         ...,
         title="Max Debate Rounds",

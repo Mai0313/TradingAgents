@@ -71,6 +71,7 @@ config = TradingAgentsConfig(
     max_risk_discuss_rounds=1,
     max_recur_limit=100,
     reasoning_effort="medium",
+    response_language="en",
 )
 
 ta = TradingAgentsGraph(debug=True, config=config)
@@ -79,6 +80,23 @@ print(decision)
 ```
 
 `llm_provider` 是 `langchain.chat_models.init_chat_model` 的 registry key（`openai`、`anthropic`、`google_genai`、`xai`、`openrouter`、`ollama`、`huggingface`、`litellm`)；`deep_think_llm` / `quick_think_llm` 則填該 provider 接受的 model name(`gpt-5`、`claude-sonnet-4-6`、`gemini-3-pro-preview`、`grok-4` 等）。
+
+`response_language` 可控制所有 agent prompt 要求的回覆語言。沒有 exchange suffix 的 ticker 會自動透過 Yahoo Finance Search 解析。台股請直接傳股票代號，例如 `2330`、`2408`、`8069`；也支援明確的 Yahoo Finance symbol，例如 `2330.TW`、`8069.TWO`、`AAPL`、`TSM`。
+
+```python
+config = TradingAgentsConfig(
+    llm_provider="openai",
+    deep_think_llm="gpt-5",
+    quick_think_llm="gpt-5-mini",
+    max_debate_rounds=1,
+    max_risk_discuss_rounds=1,
+    max_recur_limit=100,
+    response_language="Traditional Chinese",
+)
+
+ta = TradingAgentsGraph(config=config)
+_, decision = ta.propagate("2330", "2024-05-10")
+```
 
 ## 📁 專案結構
 

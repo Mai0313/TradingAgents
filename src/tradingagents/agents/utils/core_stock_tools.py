@@ -14,7 +14,8 @@ def get_stock_data(
     """Retrieve stock price data (OHLCV) for a given ticker symbol.
 
     Args:
-        symbol (str): Ticker symbol of the company, e.g. AAPL, TSM
+        symbol (str): Stock ticker, company symbol, or Taiwan stock code.
+            Examples: AAPL, TSM, 2330.TW, 2330, 8069.
         start_date (str): Start date in yyyy-mm-dd format
         end_date (str): End date in yyyy-mm-dd format
     Returns:

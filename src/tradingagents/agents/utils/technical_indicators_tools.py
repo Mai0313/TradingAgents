@@ -18,7 +18,8 @@ def get_indicators(
     """Retrieve technical indicators for a given ticker symbol.
 
     Args:
-        symbol (str): Ticker symbol of the company, e.g. AAPL, TSM
+        symbol (str): Stock ticker, company symbol, or Taiwan stock code.
+            Examples: AAPL, TSM, 2330.TW, 2330, 8069.
         indicator (str | list[str]): One or more technical indicators. May be a
             single indicator name, a Python list of names, or a comma-separated
             string like "macd,rsi,close_50_sma".

@@ -1,10 +1,18 @@
 """yfinance-based news data fetching functions."""
 
+import logging
 from datetime import datetime
 import contextlib
 
 import yfinance as yf
 from dateutil.relativedelta import relativedelta
+
+from tradingagents.dataflows.tickers import (
+    describe_symbol_candidates,
+    get_yfinance_symbol_candidates,
+)
+
+logger = logging.getLogger(__name__)
 
 
 def _extract_article_data(article: dict) -> dict:
@@ -45,6 +53,23 @@ def _extract_article_data(article: dict) -> dict:
     }
 
 
+def _get_first_ticker_news(ticker: str) -> tuple[str, list[dict], list[str]]:
+    """Fetch news from the first Yahoo Finance ticker candidate that has results."""
+    candidates = get_yfinance_symbol_candidates(ticker)
+
+    for candidate in candidates:
+        try:
+            stock = yf.Ticker(candidate)
+            candidate_news = stock.get_news(count=20)
+        except Exception:
+            logger.debug("Failed to fetch news for %s", candidate, exc_info=True)
+            continue
+        if candidate_news:
+            return candidate, candidate_news, candidates
+
+    return candidates[0], [], candidates
+
+
 def get_news_yfinance(ticker: str, start_date: str, end_date: str) -> str:
     """Retrieve news for a specific stock ticker using yfinance.
 
@@ -57,11 +82,11 @@ def get_news_yfinance(ticker: str, start_date: str, end_date: str) -> str:
         Formatted string containing news articles
     """
     try:
-        stock = yf.Ticker(ticker)
-        news = stock.get_news(count=20)
+        resolved_ticker, news, candidates = _get_first_ticker_news(ticker)
 
         if not news:
-            return f"No news found for {ticker}"
+            tried = describe_symbol_candidates(ticker, candidates)
+            return f"No news found for {ticker} (tried: {tried})"
 
         # Parse date range for filtering
         start_dt = datetime.strptime(start_date, "%Y-%m-%d")
@@ -88,9 +113,9 @@ def get_news_yfinance(ticker: str, start_date: str, end_date: str) -> str:
             filtered_count += 1
 
         if filtered_count == 0:
-            return f"No news found for {ticker} between {start_date} and {end_date}"
+            return f"No news found for {resolved_ticker} between {start_date} and {end_date}"
 
-        return f"## {ticker} News, from {start_date} to {end_date}:\n\n{news_str}"
+        return f"## {resolved_ticker} News, from {start_date} to {end_date}:\n\n{news_str}"
 
     except Exception as e:
         return f"Error fetching news for {ticker}: {e!s}"
@@ -129,11 +154,11 @@ def get_global_news_yfinance(curr_date: str, look_back_days: int = 7, limit: int
     Returns:
         Formatted string containing global news articles
     """
-    # Search queries for macro/global news
     search_queries = [
-        "stock market economy",
-        "Federal Reserve interest rates",
-        "inflation economic outlook",
+        "global stock market economy",
+        "interest rates inflation economic outlook",
+        "Asia markets trading",
+        "semiconductor supply chain market outlook",
         "global markets trading",
     ]
 
