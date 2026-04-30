@@ -56,9 +56,6 @@ class GoogleClient(BaseLLMClient):
             if "gemini-3" in model_lower:
                 if effort == "max":
                     effort = "high"
-                # Gemini 3 Pro API does not accept "medium"; clamp to "low".
-                if "pro" in model_lower and effort == "medium":
-                    effort = "low"
                 llm_kwargs["thinking_level"] = effort
             else:
                 # Gemini 2.5 only exposes thinking_budget (0=disabled, -1=dynamic)
