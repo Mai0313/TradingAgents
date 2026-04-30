@@ -28,7 +28,8 @@ class Propagator(BaseModel):
 
         Args:
             callbacks: Optional list of callback handlers for tool execution tracking.
-                       Note: LLM callbacks are handled separately via LLM constructor.
+
+        Note: LLM callbacks are handled separately via LLM constructor.
         """
         config: dict[str, Any] = {"recursion_limit": self.max_recur_limit}
         if callbacks:
