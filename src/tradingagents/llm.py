@@ -35,13 +35,6 @@ type ChatModel = (
 
 ReasoningEffort = Literal["low", "medium", "high", "max"]
 
-_ANTHROPIC_THINKING_BUDGETS: dict[str, int] = {
-    "low": 2000,
-    "medium": 8000,
-    "high": 16000,
-    "max": 32000,
-}
-
 
 class NormalizedChatGoogleGenerativeAI(ChatGoogleGenerativeAI):
     """Flatten Gemini 3 list-content responses to a plain string.
@@ -79,7 +72,7 @@ def build_chat_model(
             (openai, anthropic, google_genai, xai, huggingface, openrouter,
             ollama, litellm, ...).
         reasoning_effort: Unified reasoning level mapped per provider:
-            Anthropic -> `thinking={'type': 'enabled', 'budget_tokens': N}`,
+            Anthropic -> `effort` (native low/medium/high/max),
             OpenAI -> `reasoning_effort` (max -> xhigh),
             Google -> `thinking_level` (max -> high).
             Other providers do not expose a unified knob and ignore this.
@@ -101,9 +94,7 @@ def build_chat_model(
 def _apply_reasoning(provider: str, effort: ReasoningEffort, kwargs: dict[str, Any]) -> None:
     e = effort.lower()
     if provider == "anthropic":
-        budget = _ANTHROPIC_THINKING_BUDGETS[e]
-        kwargs["thinking"] = {"type": "enabled", "budget_tokens": budget}
-        kwargs.setdefault("max_tokens", budget + 4096)
+        kwargs["effort"] = e
     elif provider in ("openai", "azure_openai"):
         kwargs["reasoning_effort"] = "xhigh" if e == "max" else e
     elif provider == "google_genai":
