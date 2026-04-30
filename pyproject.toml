@@ -84,7 +84,6 @@ dependencies = [
     "tqdm>=4.67.3",
     "typing-extensions>=4.15.0",
     "yfinance>=1.2.0",
-    "langchain-google-vertexai>=3.2.3",
 ]
 readme = "README.md"
 requires-python = ">= 3.12"
