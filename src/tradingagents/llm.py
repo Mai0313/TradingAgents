@@ -21,6 +21,7 @@ from langchain_openrouter import ChatOpenRouter
 from langchain.chat_models import init_chat_model
 from langchain_huggingface import ChatHuggingFace
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.callbacks import BaseCallbackHandler
 
 type ChatModel = (
     ChatOpenAI
@@ -62,7 +63,7 @@ def build_chat_model(
     model_id: str,
     *,
     reasoning_effort: ReasoningEffort | None = None,
-    callbacks: list | None = None,
+    callbacks: list[BaseCallbackHandler] | None = None,
 ) -> ChatModel:
     """Construct a chat model from a `provider:model` identifier.
 
@@ -70,7 +71,8 @@ def build_chat_model(
         model_id: `<provider>:<model>` string, e.g. `anthropic:claude-sonnet-4-6`.
             Provider must match a `langchain.chat_models` registry key
             (openai, anthropic, google_genai, xai, huggingface, openrouter,
-            ollama, litellm, ...).
+            ollama, litellm, ...). Any `model_id` containing `gemini` or
+            `google` is routed through `NormalizedChatGoogleGenerativeAI`.
         reasoning_effort: Unified reasoning level mapped per provider:
             Anthropic -> `effort` (native low/medium/high/xhigh/max),
             OpenAI -> `reasoning_effort` (max -> xhigh; xhigh native),
@@ -85,7 +87,8 @@ def build_chat_model(
     if reasoning_effort:
         _apply_reasoning(provider, reasoning_effort, kwargs)
 
-    if provider == "google_genai":
+    lowered = model_id.lower()
+    if "gemini" in lowered or "google" in lowered:
         return NormalizedChatGoogleGenerativeAI(model=model, **kwargs)
 
     return cast("ChatModel", init_chat_model(model_id, **kwargs))
@@ -95,7 +98,7 @@ def _apply_reasoning(provider: str, effort: ReasoningEffort, kwargs: dict[str, A
     e = effort.lower()
     if provider == "anthropic":
         kwargs["effort"] = e
-    elif provider in ("openai", "azure_openai"):
+    elif provider == "openai":
         kwargs["reasoning_effort"] = "xhigh" if e == "max" else e
     elif provider == "google_genai":
         kwargs["thinking_level"] = "high" if e in ("xhigh", "max") else e
