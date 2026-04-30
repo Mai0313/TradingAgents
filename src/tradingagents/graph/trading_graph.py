@@ -85,9 +85,10 @@ class TradingAgentsGraph(BaseModel):
 
     # --- Derived state (lazily computed from config) ---
 
-    def _create_llm(self, model_id: str) -> ChatModel:
+    def _create_llm(self, model: str) -> ChatModel:
         return build_chat_model(
-            model_id,
+            self.config.llm_provider,
+            model,
             reasoning_effort=self.config.reasoning_effort,
             callbacks=self.callbacks or None,
         )

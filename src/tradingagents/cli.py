@@ -6,8 +6,9 @@ from tradingagents.graph.trading_graph import TradingAgentsGraph
 
 def main() -> None:
     config = TradingAgentsConfig(
-        deep_think_llm="google_genai:gemini-3.1-pro-preview",
-        quick_think_llm="google_genai:gemini-3-flash-preview",
+        llm_provider="google_genai",
+        deep_think_llm="gemini-3.1-pro-preview",
+        quick_think_llm="gemini-3-flash-preview",
         max_debate_rounds=10,
         max_risk_discuss_rounds=10,
         max_recur_limit=100,

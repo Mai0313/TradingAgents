@@ -1,9 +1,10 @@
 """Chat model construction for the TradingAgents framework.
 
 Wraps `langchain.chat_models.init_chat_model` so the project can specify
-LLMs via a single `provider:model` string (e.g. `anthropic:claude-sonnet-4-6`,
-`google_genai:gemini-3.1-pro-preview`) while still mapping a unified
-`reasoning_effort` knob onto each provider's native parameter.
+LLMs via an explicit `provider` (one of `LLMProvider`) plus a model name
+(e.g. `gpt-5.4`, `claude-sonnet-4-6`, `gemini-3.1-pro-preview`) while still
+mapping a unified `reasoning_effort` knob onto each provider's native
+parameter.
 
 The concrete provider classes are imported explicitly so `ChatModel` is a
 visible union of what the project actually supports, instead of leaning on
@@ -34,6 +35,17 @@ type ChatModel = (
     | ChatLiteLLM
 )
 
+LLMProvider = Literal[
+    "openai",
+    "anthropic",
+    "google_genai",
+    "xai",
+    "huggingface",
+    "openrouter",
+    "ollama",
+    "litellm",
+]
+
 ReasoningEffort = Literal["low", "medium", "high", "xhigh", "max"]
 
 
@@ -60,19 +72,20 @@ class NormalizedChatGoogleGenerativeAI(ChatGoogleGenerativeAI):
 
 
 def build_chat_model(
-    model_id: str,
+    provider: LLMProvider,
+    model: str,
     *,
     reasoning_effort: ReasoningEffort | None = None,
     callbacks: list[BaseCallbackHandler] | None = None,
 ) -> ChatModel:
-    """Construct a chat model from a `provider:model` identifier.
+    """Construct a chat model from an explicit provider + model name.
 
     Args:
-        model_id: `<provider>:<model>` string, e.g. `anthropic:claude-sonnet-4-6`.
-            Provider must match a `langchain.chat_models` registry key
-            (openai, anthropic, google_genai, xai, huggingface, openrouter,
-            ollama, litellm, ...). Any `model_id` containing `gemini` or
-            `google` is routed through `NormalizedChatGoogleGenerativeAI`.
+        provider: Langchain `init_chat_model` registry key (one of `LLMProvider`).
+        model: Model name as accepted by the provider (e.g. `gpt-5.4`,
+            `claude-sonnet-4-6`, `gemini-3.1-pro-preview`). Any model name
+            containing `gemini` or `google` is routed through
+            `NormalizedChatGoogleGenerativeAI` regardless of provider.
         reasoning_effort: Unified reasoning level mapped per provider:
             Anthropic -> `effort` (native low/medium/high/xhigh/max),
             OpenAI -> `reasoning_effort` (max -> xhigh; xhigh native),
@@ -80,21 +93,20 @@ def build_chat_model(
             Other providers do not expose a unified knob and ignore this.
         callbacks: Optional LangChain callback handlers attached to the model.
     """
-    provider, model = model_id.split(":", 1)
     kwargs: dict[str, Any] = {}
     if callbacks:
         kwargs["callbacks"] = callbacks
     if reasoning_effort:
         _apply_reasoning(provider, reasoning_effort, kwargs)
 
-    lowered = model_id.lower()
-    if "gemini" in lowered or "google" in lowered:
+    model_lower = model.lower()
+    if "gemini" in model_lower or "google" in model_lower:
         return NormalizedChatGoogleGenerativeAI(model=model, **kwargs)
 
-    return cast("ChatModel", init_chat_model(model_id, **kwargs))
+    return cast("ChatModel", init_chat_model(model, model_provider=provider, **kwargs))
 
 
-def _apply_reasoning(provider: str, effort: ReasoningEffort, kwargs: dict[str, Any]) -> None:
+def _apply_reasoning(provider: LLMProvider, effort: ReasoningEffort, kwargs: dict[str, Any]) -> None:
     e = effort.lower()
     if provider == "anthropic":
         kwargs["effort"] = e

@@ -2,7 +2,7 @@ from pathlib import Path
 
 from pydantic import Field, BaseModel, computed_field
 
-from tradingagents.llm import ReasoningEffort
+from tradingagents.llm import LLMProvider, ReasoningEffort
 
 
 class TradingAgentsConfig(BaseModel):
@@ -14,20 +14,27 @@ class TradingAgentsConfig(BaseModel):
         description="Directory for saving analysis results",
     )
 
+    llm_provider: LLMProvider = Field(
+        ...,
+        title="LLM Provider",
+        description=(
+            "Langchain `init_chat_model` registry key shared by both deep- and "
+            "quick-thinking models (e.g. `openai`, `anthropic`, `google_genai`)."
+        ),
+    )
     deep_think_llm: str = Field(
         ...,
         title="Deep Thinking LLM",
         description=(
-            "`<provider>:<model>` identifier for deep-thinking nodes "
-            "(Research Manager, Risk Manager). Example: "
-            "`anthropic:claude-sonnet-4-6`."
+            "Model name for deep-thinking nodes (Research Manager, Risk Manager). "
+            "Example: `claude-sonnet-4-6`, `gpt-5.4`."
         ),
     )
     quick_think_llm: str = Field(
         ...,
         title="Quick Thinking LLM",
         description=(
-            "`<provider>:<model>` identifier for quick-thinking nodes "
+            "Model name for quick-thinking nodes "
             "(analysts, researchers, trader, debators)."
         ),
     )
