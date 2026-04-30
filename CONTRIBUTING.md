@@ -70,14 +70,14 @@ src/tradingagents/
 
 Canonical examples (read these before writing similar code):
 
-| Pattern                  | File                                              | Symbol                |
-| ------------------------ | ------------------------------------------------- | --------------------- |
-| Pure config model        | `config.py`                                       | `TradingAgentsConfig` |
-| Stateful service class   | `graph/trading_graph.py`                          | `TradingAgentsGraph`  |
-| LangGraph state schema   | `agents/utils/agent_states.py`                    | `AgentState`          |
-| Provider-agnostic LLM    | `llm.py`                                          | `build_chat_model`    |
-| `@tool`-wrapped function | `agents/utils/core_stock_tools.py`                | `get_stock_data`      |
-| Agent node creator       | `agents/researchers/bull_researcher.py`           | `create_bull_*`       |
+| Pattern                  | File                                    | Symbol                |
+| ------------------------ | --------------------------------------- | --------------------- |
+| Pure config model        | `config.py`                             | `TradingAgentsConfig` |
+| Stateful service class   | `graph/trading_graph.py`                | `TradingAgentsGraph`  |
+| LangGraph state schema   | `agents/utils/agent_states.py`          | `AgentState`          |
+| Provider-agnostic LLM    | `llm.py`                                | `build_chat_model`    |
+| `@tool`-wrapped function | `agents/utils/core_stock_tools.py`      | `get_stock_data`      |
+| Agent node creator       | `agents/researchers/bull_researcher.py` | `create_bull_*`       |
 
 ## 🎨 Code Style
 
