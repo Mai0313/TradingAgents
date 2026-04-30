@@ -16,7 +16,15 @@ class Propagator(BaseModel):
     )
 
     def create_initial_state(self, company_name: str, trade_date: str) -> AgentState:
-        """Create the initial AgentState for the graph execution."""
+        """Create the initial AgentState for the graph execution.
+
+        Args:
+            company_name (str): The name of the company or ticker symbol.
+            trade_date (str): The trade date in YYYY-MM-DD format.
+
+        Returns:
+            AgentState: The initialized agent state.
+        """
         return AgentState(
             messages=[HumanMessage(content=company_name)],
             company_of_interest=company_name,
@@ -26,10 +34,13 @@ class Propagator(BaseModel):
     def get_graph_args(self, callbacks: list | None = None) -> dict[str, Any]:
         """Get arguments for the graph invocation.
 
-        Args:
-            callbacks: Optional list of callback handlers for tool execution tracking.
-
         Note: LLM callbacks are handled separately via LLM constructor.
+
+        Args:
+            callbacks (list | None, optional): Optional list of callback handlers for tool execution tracking. Defaults to None.
+
+        Returns:
+            dict[str, Any]: A dictionary containing stream mode and config arguments for graph execution.
         """
         config: dict[str, Any] = {"recursion_limit": self.max_recur_limit}
         if callbacks:

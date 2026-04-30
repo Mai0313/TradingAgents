@@ -89,7 +89,14 @@ class GraphSetup(BaseModel):
     def _build_analyst_nodes(
         self, selected_analysts: list[str]
     ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
-        """Create analyst, delete and tool nodes for selected analysts."""
+        """Create analyst, delete and tool nodes for selected analysts.
+
+        Args:
+            selected_analysts (list[str]): List of analyst types.
+
+        Returns:
+            tuple[dict[str, Any], dict[str, Any], dict[str, Any]]: A tuple containing dictionaries for analyst nodes, delete nodes, and tool nodes.
+        """
         analyst_creators = {
             "market": create_market_analyst,
             "social": create_social_media_analyst,
@@ -111,7 +118,12 @@ class GraphSetup(BaseModel):
         return analyst_nodes, delete_nodes, tool_nodes
 
     def _add_analyst_edges(self, workflow: StateGraph, selected_analysts: list[str]) -> None:
-        """Add conditional edges connecting analysts in sequence."""
+        """Add conditional edges connecting analysts in sequence.
+
+        Args:
+            workflow (StateGraph): The LangGraph workflow to modify.
+            selected_analysts (list[str]): List of analyst types.
+        """
         for i, analyst_type in enumerate(selected_analysts):
             current_analyst = f"{analyst_type.capitalize()} Analyst"
             current_tools = f"tools_{analyst_type}"
@@ -136,11 +148,17 @@ class GraphSetup(BaseModel):
         """Set up and compile the agent workflow graph.
 
         Args:
-            selected_analysts: List of analyst types to include. Options are:
+            selected_analysts (list[str] | None, optional): List of analyst types to include. Options are:
                 - "market": Market analyst
                 - "social": Social media analyst
                 - "news": News analyst
-                - "fundamentals": Fundamentals analyst
+                - "fundamentals": Fundamentals analyst. Defaults to None.
+
+        Returns:
+            CompiledStateGraph: The compiled workflow graph.
+
+        Raises:
+            ValueError: If no analysts are selected.
         """
         if selected_analysts is None:
             selected_analysts = ["market", "social", "news", "fundamentals"]

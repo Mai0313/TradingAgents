@@ -1,5 +1,3 @@
-# TradingAgents/graph/trading_graph.py
-
 import json
 from typing import Any
 import logging
@@ -78,7 +76,11 @@ class TradingAgentsGraph(BaseModel):
 
     @model_validator(mode="after")
     def _setup(self) -> "TradingAgentsGraph":
-        """Run side effects: register the active config singleton and create dirs."""
+        """Run side effects: register the active config singleton and create dirs.
+
+        Returns:
+            TradingAgentsGraph: The validated and setup instance.
+        """
         set_config(self.config)
         self.config.data_cache_dir.mkdir(parents=True, exist_ok=True)
         return self
@@ -86,6 +88,14 @@ class TradingAgentsGraph(BaseModel):
     # --- Derived state (lazily computed from config) ---
 
     def _create_llm(self, model: str) -> ChatModel:
+        """Create a ChatModel instance based on config.
+
+        Args:
+            model (str): Model identifier.
+
+        Returns:
+            ChatModel: The initialized ChatModel instance.
+        """
         return build_chat_model(
             self.config.llm_provider,
             model,
@@ -96,49 +106,81 @@ class TradingAgentsGraph(BaseModel):
     @computed_field
     @cached_property
     def deep_thinking_llm(self) -> ChatModel:
-        """Deep thinking LLM instance, derived from config."""
+        """Deep thinking LLM instance, derived from config.
+
+        Returns:
+            ChatModel: Deep thinking LLM instance.
+        """
         return self._create_llm(self.config.deep_think_llm)
 
     @computed_field
     @cached_property
     def quick_thinking_llm(self) -> ChatModel:
-        """Quick thinking LLM instance, derived from config."""
+        """Quick thinking LLM instance, derived from config.
+
+        Returns:
+            ChatModel: Quick thinking LLM instance.
+        """
         return self._create_llm(self.config.quick_think_llm)
 
     @computed_field
     @cached_property
     def bull_memory(self) -> FinancialSituationMemory:
-        """Bull researcher memory instance."""
+        """Bull researcher memory instance.
+
+        Returns:
+            FinancialSituationMemory: Memory instance for the bull researcher.
+        """
         return FinancialSituationMemory("bull_memory")
 
     @computed_field
     @cached_property
     def bear_memory(self) -> FinancialSituationMemory:
-        """Bear researcher memory instance."""
+        """Bear researcher memory instance.
+
+        Returns:
+            FinancialSituationMemory: Memory instance for the bear researcher.
+        """
         return FinancialSituationMemory("bear_memory")
 
     @computed_field
     @cached_property
     def trader_memory(self) -> FinancialSituationMemory:
-        """Trader memory instance."""
+        """Trader memory instance.
+
+        Returns:
+            FinancialSituationMemory: Memory instance for the trader.
+        """
         return FinancialSituationMemory("trader_memory")
 
     @computed_field
     @cached_property
     def invest_judge_memory(self) -> FinancialSituationMemory:
-        """Investment judge memory instance."""
+        """Investment judge memory instance.
+
+        Returns:
+            FinancialSituationMemory: Memory instance for the investment judge.
+        """
         return FinancialSituationMemory("invest_judge_memory")
 
     @computed_field
     @cached_property
     def risk_manager_memory(self) -> FinancialSituationMemory:
-        """Risk manager memory instance."""
+        """Risk manager memory instance.
+
+        Returns:
+            FinancialSituationMemory: Memory instance for the risk manager.
+        """
         return FinancialSituationMemory("risk_manager_memory")
 
     @computed_field
     @cached_property
     def tool_nodes(self) -> dict[str, ToolNode]:
-        """Tool nodes for different data sources."""
+        """Tool nodes for different data sources.
+
+        Returns:
+            dict[str, ToolNode]: A dictionary mapping data source names to ToolNodes.
+        """
         return {
             "market": ToolNode([get_stock_data, get_indicators]),
             "social": ToolNode([get_news]),
@@ -154,7 +196,11 @@ class TradingAgentsGraph(BaseModel):
     @computed_field
     @cached_property
     def graph(self) -> CompiledStateGraph:
-        """Compiled LangGraph workflow, derived from config and selected analysts."""
+        """Compiled LangGraph workflow, derived from config and selected analysts.
+
+        Returns:
+            CompiledStateGraph: The compiled state graph workflow.
+        """
         memories = MemoryComponents(
             bull=self.bull_memory,
             bear=self.bear_memory,
@@ -177,25 +223,48 @@ class TradingAgentsGraph(BaseModel):
     @computed_field
     @cached_property
     def propagator(self) -> Propagator:
-        """Graph propagator for state initialization."""
+        """Graph propagator for state initialization.
+
+        Returns:
+            Propagator: A Propagator instance.
+        """
         return Propagator(max_recur_limit=self.config.max_recur_limit)
 
     @computed_field
     @cached_property
     def reflector(self) -> Reflector:
-        """Post-trade reflector for memory updates."""
+        """Post-trade reflector for memory updates.
+
+        Returns:
+            Reflector: A Reflector instance.
+        """
         return Reflector(quick_thinking_llm=self.quick_thinking_llm)
 
     @computed_field
     @cached_property
     def signal_processor(self) -> SignalProcessor:
-        """Signal processor for extracting BUY/SELL/HOLD decisions."""
+        """Signal processor for extracting BUY/SELL/HOLD decisions.
+
+        Returns:
+            SignalProcessor: A SignalProcessor instance.
+        """
         return SignalProcessor(quick_thinking_llm=self.quick_thinking_llm)
 
     # --- Public methods ---
 
     def propagate(self, company_name: str, trade_date: str) -> tuple[AgentState, str]:
-        """Run the trading agents graph for a company on a specific date."""
+        """Run the trading agents graph for a company on a specific date.
+
+        Args:
+            company_name (str): Company name or ticker symbol.
+            trade_date (str): Trading date in YYYY-MM-DD format.
+
+        Returns:
+            tuple[AgentState, str]: The final agent state and the extracted signal decision.
+
+        Raises:
+            RuntimeError: If the graph execution produces no output.
+        """
         self.ticker = company_name
 
         init_agent_state = self.propagator.create_initial_state(company_name, trade_date)
@@ -229,7 +298,12 @@ class TradingAgentsGraph(BaseModel):
         return final_state, self.process_signal(final_state.final_trade_decision)
 
     def _log_state(self, trade_date: str, final_state: AgentState) -> None:
-        """Log the final state to a JSON file."""
+        """Log the final state to a JSON file.
+
+        Args:
+            trade_date (str): Trade date in YYYY-MM-DD format.
+            final_state (AgentState): The final agent state to log.
+        """
         invest = final_state.investment_debate_state
         risk = final_state.risk_debate_state
         self.log_states_dict[str(trade_date)] = {
@@ -273,7 +347,13 @@ class TradingAgentsGraph(BaseModel):
     def _save_conversation_log(
         self, directory: Path, trade_date: str, final_state: AgentState
     ) -> None:
-        """Save the full conversation history including raw tool call results."""
+        """Save the full conversation history including raw tool call results.
+
+        Args:
+            directory (Path): Output directory path.
+            trade_date (str): Trade date.
+            final_state (AgentState): The final agent state.
+        """
         # Human-readable text log (same format as debug pretty_print output)
         txt_path = directory / f"conversation_log_{trade_date}.txt"
         try:
@@ -294,7 +374,14 @@ class TradingAgentsGraph(BaseModel):
             logger.warning("Failed to save conversation JSON log", exc_info=True)
 
     def reflect_and_remember(self, returns_losses: float) -> None:
-        """Reflect on decisions and update memory based on returns."""
+        """Reflect on decisions and update memory based on returns.
+
+        Args:
+            returns_losses (float): Actual returns or losses from the trade.
+
+        Raises:
+            RuntimeError: If there is no current state to reflect on.
+        """
         if self.curr_state is None:
             raise RuntimeError("No state available to reflect on. Run propagate() first.")
         self.reflector.reflect_bull_researcher(self.curr_state, returns_losses, self.bull_memory)
@@ -308,5 +395,12 @@ class TradingAgentsGraph(BaseModel):
         )
 
     def process_signal(self, full_signal: str) -> str:
-        """Process a signal to extract the core decision."""
+        """Process a signal to extract the core decision.
+
+        Args:
+            full_signal (str): The raw text signal.
+
+        Returns:
+            str: The extracted decision (BUY/SELL/HOLD).
+        """
         return self.signal_processor.process_signal(full_signal)

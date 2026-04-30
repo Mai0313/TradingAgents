@@ -11,6 +11,14 @@ SEARCH_QUOTE_TYPES = {"EQUITY", "ETF", "MUTUALFUND", "INDEX"}
 
 
 def _dedupe_symbols(symbols: list[str]) -> list[str]:
+    """Remove duplicate symbols from a list while preserving order.
+
+    Args:
+        symbols (list[str]): List of ticker symbols.
+
+    Returns:
+        list[str]: Deduplicated list of ticker symbols.
+    """
     seen = set()
     result = []
     for symbol in symbols:
@@ -21,6 +29,15 @@ def _dedupe_symbols(symbols: list[str]) -> list[str]:
 
 
 def _search_yfinance_symbols(query: str, limit: int = 5) -> list[str]:
+    """Search Yahoo Finance for ticker symbols matching a query.
+
+    Args:
+        query (str): The search query.
+        limit (int, optional): Maximum number of results to return. Defaults to 5.
+
+    Returns:
+        list[str]: A list of matching ticker symbols.
+    """
     try:
         search = yf.Search(query=query, max_results=limit, news_count=0, enable_fuzzy_query=True)
     except Exception:
@@ -43,6 +60,15 @@ def get_yfinance_symbol_candidates(symbol: str) -> list[str]:
     Explicit Yahoo Finance symbols such as `AAPL`, `TSM`, or `2330.TW` are
     accepted directly. Bare symbols are resolved by Yahoo Finance Search, so
     Taiwan stock codes like `2330` and `8069` can be passed without suffixes.
+
+    Args:
+        symbol (str): The symbol to find candidates for.
+
+    Returns:
+        list[str]: A list of candidate ticker symbols.
+
+    Raises:
+        ValueError: If the ticker symbol is empty.
     """
     raw_symbol = symbol.strip()
     if not raw_symbol:
@@ -65,7 +91,15 @@ def get_yfinance_symbol_candidates(symbol: str) -> list[str]:
 
 
 def describe_symbol_candidates(symbol: str, candidates: list[str]) -> str:
-    """Format attempted Yahoo Finance symbols for user-facing tool output."""
+    """Format attempted Yahoo Finance symbols for user-facing tool output.
+
+    Args:
+        symbol (str): The original symbol queried.
+        candidates (list[str]): The list of candidates attempted.
+
+    Returns:
+        str: A comma-separated string of candidates or the single matching symbol.
+    """
     if len(candidates) == 1 and candidates[0] == symbol.upper():
         return candidates[0]
-    return ", ".join(candidates)
+    return candidates[0] if len(candidates) == 1 else ", ".join(candidates)
