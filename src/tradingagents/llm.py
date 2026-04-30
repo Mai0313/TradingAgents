@@ -36,14 +36,7 @@ type ChatModel = (
 )
 
 LLMProvider = Literal[
-    "openai",
-    "anthropic",
-    "google_genai",
-    "xai",
-    "huggingface",
-    "openrouter",
-    "ollama",
-    "litellm",
+    "openai", "anthropic", "google_genai", "xai", "huggingface", "openrouter", "ollama", "litellm"
 ]
 
 ReasoningEffort = Literal["low", "medium", "high", "xhigh", "max"]
@@ -106,7 +99,9 @@ def build_chat_model(
     return cast("ChatModel", init_chat_model(model, model_provider=provider, **kwargs))
 
 
-def _apply_reasoning(provider: LLMProvider, effort: ReasoningEffort, kwargs: dict[str, Any]) -> None:
+def _apply_reasoning(
+    provider: LLMProvider, effort: ReasoningEffort, kwargs: dict[str, Any]
+) -> None:
     e = effort.lower()
     if provider == "anthropic":
         kwargs["effort"] = e
