@@ -9,7 +9,6 @@ from stockstats import wrap
 from dateutil.relativedelta import relativedelta
 
 from .config import get_config
-from .stockstats_utils import StockstatsUtils
 
 logger = logging.getLogger(__name__)
 
@@ -143,61 +142,31 @@ def get_stock_stats_indicators_window(
     curr_date_dt = datetime.strptime(curr_date, "%Y-%m-%d")
     before = curr_date_dt - relativedelta(days=look_back_days)
 
-    # Optimized: Get stock data once and calculate indicators for all dates
-    try:
-        indicator_data = _get_stock_stats_bulk(symbol, indicator, curr_date)
+    indicator_data = _get_stock_stats_bulk(symbol, indicator)
 
-        # Generate the date range we need
-        current_dt = curr_date_dt
-        date_values = []
+    current_dt = curr_date_dt
+    ind_string = ""
+    while current_dt >= before:
+        date_str = current_dt.strftime("%Y-%m-%d")
+        value = indicator_data.get(date_str, "N/A: Not a trading day (weekend or holiday)")
+        ind_string += f"{date_str}: {value}\n"
+        current_dt = current_dt - relativedelta(days=1)
 
-        while current_dt >= before:
-            date_str = current_dt.strftime("%Y-%m-%d")
-
-            # Look up the indicator value for this date
-            if date_str in indicator_data:
-                indicator_value = indicator_data[date_str]
-            else:
-                indicator_value = "N/A: Not a trading day (weekend or holiday)"
-
-            date_values.append((date_str, indicator_value))
-            current_dt = current_dt - relativedelta(days=1)
-
-        # Build the result string
-        ind_string = ""
-        for date_str, value in date_values:
-            ind_string += f"{date_str}: {value}\n"
-
-    except Exception as e:
-        logger.error("Error getting bulk stockstats data: %s", e)
-        # Fallback to original implementation if bulk method fails
-        ind_string = ""
-        curr_date_dt = datetime.strptime(curr_date, "%Y-%m-%d")
-        while curr_date_dt >= before:
-            indicator_value = get_stockstats_indicator(
-                symbol, indicator, curr_date_dt.strftime("%Y-%m-%d")
-            )
-            ind_string += f"{curr_date_dt.strftime('%Y-%m-%d')}: {indicator_value}\n"
-            curr_date_dt = curr_date_dt - relativedelta(days=1)
-
-    result_str = (
+    return (
         f"## {indicator} values from {before.strftime('%Y-%m-%d')} to {end_date}:\n\n"
         + ind_string
         + "\n\n"
         + best_ind_params.get(indicator, "No description available.")
     )
 
-    return result_str
-
 
 def _get_stock_stats_bulk(
     symbol: Annotated[str, "ticker symbol of the company"],
     indicator: Annotated[str, "technical indicator to calculate"],
-    curr_date: Annotated[str, "current date for reference"],
-) -> dict:
-    """Optimized bulk calculation of stock stats indicators.
-    Fetches data once and calculates indicator for all available dates.
-    Returns dict mapping date strings to indicator values.
+) -> dict[str, str]:
+    """Fetch 15 years of OHLCV once and compute the indicator for every available date.
+
+    Returns a dict mapping YYYY-MM-DD strings to indicator values.
     """
     config = get_config()
 
@@ -246,29 +215,6 @@ def _get_stock_stats_bulk(
             result_dict[date_str] = str(indicator_value)
 
     return result_dict
-
-
-def get_stockstats_indicator(
-    symbol: Annotated[str, "ticker symbol of the company"],
-    indicator: Annotated[str, "technical indicator to get the analysis and report of"],
-    curr_date: Annotated[str, "The current trading date you are trading on, YYYY-mm-dd"],
-) -> str:
-
-    curr_date_dt = datetime.strptime(curr_date, "%Y-%m-%d")
-    curr_date = curr_date_dt.strftime("%Y-%m-%d")
-
-    try:
-        indicator_value = StockstatsUtils.get_stock_stats(symbol, indicator, curr_date)
-    except Exception as e:
-        logger.error(
-            "Error getting stockstats indicator data for indicator %s on %s: %s",
-            indicator,
-            curr_date,
-            e,
-        )
-        return ""
-
-    return str(indicator_value)
 
 
 def get_fundamentals(
