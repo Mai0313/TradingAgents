@@ -2,12 +2,12 @@
 
 from typing import Any
 
-from pydantic import Field, BaseModel, ConfigDict
+from pydantic import Field, BaseModel, ConfigDict, SkipValidation
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
 from langgraph.graph.state import CompiledStateGraph
-from langchain_core.language_models import BaseChatModel
 
+from tradingagents.llm import ChatModel
 from tradingagents.agents import (
     AgentState,
     create_trader,
@@ -60,12 +60,12 @@ class GraphSetup(BaseModel):
 
     # --- User-configurable fields ---
 
-    quick_thinking_llm: BaseChatModel = Field(
+    quick_thinking_llm: SkipValidation[ChatModel] = Field(
         ...,
         title="Quick Thinking LLM",
         description="LLM instance used for analyst and researcher nodes",
     )
-    deep_thinking_llm: BaseChatModel = Field(
+    deep_thinking_llm: SkipValidation[ChatModel] = Field(
         ...,
         title="Deep Thinking LLM",
         description="LLM instance used for manager and judge nodes requiring deeper reasoning",

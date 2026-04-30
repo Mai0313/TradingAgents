@@ -2,10 +2,10 @@ from typing import Annotated
 
 from langchain_core.tools import tool
 
-from tradingagents.dataflows.y_finance import get_cashflow as _get_cashflow
-from tradingagents.dataflows.y_finance import get_fundamentals as _get_fundamentals
-from tradingagents.dataflows.y_finance import get_balance_sheet as _get_balance_sheet
-from tradingagents.dataflows.y_finance import get_income_statement as _get_income_statement
+from tradingagents.dataflows.yfinance import get_cashflow as _get_cashflow
+from tradingagents.dataflows.yfinance import get_fundamentals as _get_fundamentals
+from tradingagents.dataflows.yfinance import get_balance_sheet as _get_balance_sheet
+from tradingagents.dataflows.yfinance import get_income_statement as _get_income_statement
 
 
 @tool

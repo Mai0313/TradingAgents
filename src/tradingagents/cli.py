@@ -1,12 +1,12 @@
 import datetime
 
-from tradingagents.default_config import TradingAgentsConfig
+from tradingagents.config import TradingAgentsConfig
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 
 
 def main() -> None:
     config = TradingAgentsConfig(
-        llm_provider="google",
+        llm_provider="google_genai",
         deep_think_llm="gemini-3.1-pro-preview",
         quick_think_llm="gemini-3-flash-preview",
         max_debate_rounds=10,

@@ -2,14 +2,14 @@ from typing import Any
 from collections.abc import Callable
 
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.language_models import BaseChatModel
 
+from tradingagents.llm import ChatModel
 from tradingagents.agents.prompts import load_prompt
 from tradingagents.agents.utils.agent_utils import get_indicators, get_stock_data
 from tradingagents.agents.utils.agent_states import AgentState
 
 
-def create_market_analyst(llm: BaseChatModel) -> Callable[[AgentState], dict[str, Any]]:
+def create_market_analyst(llm: ChatModel) -> Callable[[AgentState], dict[str, Any]]:
 
     def market_analyst_node(state: AgentState) -> dict[str, Any]:
         tools = [get_stock_data, get_indicators]

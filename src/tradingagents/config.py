@@ -1,11 +1,8 @@
-from typing import Literal
 from pathlib import Path
 
 from pydantic import Field, BaseModel, computed_field
 
-LLMProvider = Literal["openai", "anthropic", "google", "xai", "ollama", "openrouter"]
-
-ReasoningEffort = Literal["low", "medium", "high", "max"]
+from tradingagents.llm import LLMProvider, ReasoningEffort
 
 
 class TradingAgentsConfig(BaseModel):
@@ -20,24 +17,32 @@ class TradingAgentsConfig(BaseModel):
     llm_provider: LLMProvider = Field(
         ...,
         title="LLM Provider",
-        description="LLM provider to use. Must be one of the supported providers.",
+        description=(
+            "Langchain `init_chat_model` registry key shared by both deep- and "
+            "quick-thinking models (e.g. `openai`, `anthropic`, `google_genai`)."
+        ),
     )
     deep_think_llm: str = Field(
         ...,
         title="Deep Thinking LLM",
-        description="Model name for deep thinking tasks (Research Manager, Risk Manager)",
+        description=(
+            "Model name for deep-thinking nodes (Research Manager, Risk Manager). "
+            "Example: `claude-sonnet-4-6`, `gpt-5.4`."
+        ),
     )
     quick_think_llm: str = Field(
         ...,
         title="Quick Thinking LLM",
-        description="Model name for quick thinking tasks (analysts, researchers, trader, debators)",
+        description=(
+            "Model name for quick-thinking nodes (analysts, researchers, trader, debators)."
+        ),
     )
     reasoning_effort: ReasoningEffort = Field(
         default="medium",
         title="Reasoning Effort",
         description=(
             "Unified reasoning effort level for reasoning-capable LLMs. "
-            "Mapped per-provider at the client layer (see ReasoningEffort docstring)."
+            "Mapped per-provider inside build_chat_model."
         ),
     )
     max_debate_rounds: int = Field(
@@ -65,3 +70,23 @@ class TradingAgentsConfig(BaseModel):
     def data_cache_dir(self) -> Path:
         data_cache_dir = self.results_dir / "data_cache"
         return data_cache_dir
+
+
+_config_container: list[TradingAgentsConfig | None] = [None]
+
+
+def set_config(config: TradingAgentsConfig) -> None:
+    """Register the active TradingAgentsConfig for cross-module access."""
+    _config_container[0] = config
+
+
+def get_config() -> TradingAgentsConfig:
+    """Return the active TradingAgentsConfig (set by TradingAgentsGraph)."""
+    cfg = _config_container[0]
+    if cfg is None:
+        raise RuntimeError(
+            "TradingAgentsConfig has not been initialized. "
+            "Construct a TradingAgentsConfig and pass it to TradingAgentsGraph "
+            "(or call set_config) before accessing the global config."
+        )
+    return cfg
