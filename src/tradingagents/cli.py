@@ -13,6 +13,7 @@ def main() -> None:
         max_risk_discuss_rounds=10,
         max_recur_limit=100,
         reasoning_effort="high",
+        response_language="zh-TW",
     )
 
     ta = TradingAgentsGraph(debug=True, config=config)
