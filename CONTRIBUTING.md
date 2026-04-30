@@ -194,8 +194,10 @@ class TradingAgentsConfig(BaseModel):
         title="Data Cache Directory",
         description="Directory for caching downloaded data",
     )
-    llm_provider: str = Field(
-        default="openai", title="LLM Provider", description="LLM provider to use"
+    deep_think_llm: str = Field(
+        ...,
+        title="Deep Thinking LLM",
+        description="`<provider>:<model>` identifier for deep-thinking nodes",
     )
     retry: RetryConfig = Field(
         default_factory=RetryConfig,
@@ -270,11 +272,11 @@ class MyService(BaseModel):
 
     @computed_field
     @cached_property
-    def llm(self) -> object:
+    def llm(self) -> ChatModel:
         """LLM instance derived from config."""
-        return create_llm_client(
-            provider=self.config.llm_provider, model=self.config.quick_think_llm
-        ).get_llm()
+        return build_chat_model(
+            self.config.quick_think_llm, reasoning_effort=self.config.reasoning_effort
+        )
 
     @computed_field
     @cached_property

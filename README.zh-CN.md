@@ -22,9 +22,10 @@
 
 ## ✨ 重点特色
 
-- 基于 **LangGraph** 和 **AG2** (AutoGen) 构建，提供稳健的多 Agent 编排机制
+- 基于 **LangGraph** 构建，提供稳健的多 Agent 编排机制
 - 多 Agent 架构：分析师团队 → 研究团队 → 交易员 → 风险管理 → 投资组合管理
-- 支持多种 LLM 供应商：OpenAI、Anthropic、Google Gemini、xAI (Grok)、OpenRouter、Ollama
+- 通过 `langchain.chat_models.init_chat_model` 构造 LLM，使用 `<provider>:<model>` 字符串指定模型，支持 OpenAI、Anthropic、Google Gemini、xAI (Grok)、OpenRouter、Ollama、HuggingFace、LiteLLM
+- 统一的 `reasoning_effort` 旋钮（`low / medium / high / xhigh / max`）会 map 到各 provider 的 native 参数（Anthropic `effort`、OpenAI `reasoning_effort`、Google `thinking_level`）
 - 市场数据全由 `yfinance` 提供：OHLCV、基本面、技术指标、新闻与内部人交易
 - 基于 Pydantic 的配置系统，提供严格类型检查与验证
 - 分析结果自动保存至 `results/` 目录并按团队分组
@@ -59,20 +60,24 @@ OPENROUTER_API_KEY=...
 ### 使用方式
 
 ```python
-from tradingagents.default_config import TradingAgentsConfig
+from tradingagents.config import TradingAgentsConfig
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 
 config = TradingAgentsConfig(
-    llm_provider="openai",
-    deep_think_llm="gpt-5.2",
-    quick_think_llm="gpt-5-mini",
+    deep_think_llm="openai:gpt-5",
+    quick_think_llm="openai:gpt-5-mini",
     max_debate_rounds=1,
+    max_risk_discuss_rounds=1,
+    max_recur_limit=100,
+    reasoning_effort="medium",
 )
 
 ta = TradingAgentsGraph(debug=True, config=config)
 _, decision = ta.propagate("NVDA", "2024-05-10")
 print(decision)
 ```
+
+`deep_think_llm` 与 `quick_think_llm` 接收 `<provider>:<model>` 格式的字符串，凡是 `langchain.chat_models.init_chat_model` 支持的 provider 都可以直接用：`openai:gpt-5`、`anthropic:claude-sonnet-4-6`、`google_genai:gemini-3-pro-preview`、`xai:grok-4`、`openrouter:meta-llama/llama-3`、`ollama:llama3`、`huggingface:meta-llama/...`、`litellm:gpt-5` 等。
 
 ## 📁 项目结构
 
@@ -88,15 +93,14 @@ src/
     │   └── utils/        # 共用 Agent 工具
     ├── dataflows/        # yfinance 数据采集
     ├── graph/            # LangGraph 交易图配置
-    ├── llm_clients/      # LLM 供应商客户端（OpenAI、Anthropic、Google、xAI、OpenRouter、Ollama）
-    └── default_config.py # 默认配置
+    ├── llm.py            # Chat model 构造（init_chat_model wrapper + reasoning_effort mapping）
+    ├── config.py         # TradingAgentsConfig schema 与全局 singleton
+    └── cli.py            # 入口
 ```
 
 ## 🤖 Agent 工作流程
 
 TradingAgents 通过 LangGraph `StateGraph` 编排 **12 个 LLM agent** 加上 **2 个支持组件**，每次执行会依序跑过 4 个 phase，所有状态（各类 report、debate transcript、trade decision）都通过一个共用的 Pydantic `AgentState` 在所有节点之间传递。
-
-> 完整架构参考文档：[DESIGN.md](DESIGN.md)。
 
 ### Phase 1 — 分析师团队（数据采集）
 
@@ -159,7 +163,7 @@ Research Manager  →  Trader
 Risk Judge  →  SignalProcessor  →  END
 ```
 
-每次执行的完整 state 会写入 `eval_results/<股票代码>/TradingAgentsStrategy_logs/full_states_log_<日期>.json`。
+每次执行的完整 state 会写入 `results/<股票代码>/TradingAgentsStrategy_logs/full_states_log_<日期>.json`（路径由 `TradingAgentsConfig.results_dir` 决定，默认为 `./results`）。
 
 ## 🤝 贡献
 
