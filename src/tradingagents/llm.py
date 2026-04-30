@@ -33,7 +33,7 @@ type ChatModel = (
     | ChatLiteLLM
 )
 
-ReasoningEffort = Literal["low", "medium", "high", "max"]
+ReasoningEffort = Literal["low", "medium", "high", "xhigh", "max"]
 
 
 class NormalizedChatGoogleGenerativeAI(ChatGoogleGenerativeAI):
@@ -72,9 +72,9 @@ def build_chat_model(
             (openai, anthropic, google_genai, xai, huggingface, openrouter,
             ollama, litellm, ...).
         reasoning_effort: Unified reasoning level mapped per provider:
-            Anthropic -> `effort` (native low/medium/high/max),
-            OpenAI -> `reasoning_effort` (max -> xhigh),
-            Google -> `thinking_level` (max -> high).
+            Anthropic -> `effort` (native low/medium/high/xhigh/max),
+            OpenAI -> `reasoning_effort` (max -> xhigh; xhigh native),
+            Google -> `thinking_level` (xhigh and max both clamped to high).
             Other providers do not expose a unified knob and ignore this.
         callbacks: Optional LangChain callback handlers attached to the model.
     """
@@ -98,4 +98,4 @@ def _apply_reasoning(provider: str, effort: ReasoningEffort, kwargs: dict[str, A
     elif provider in ("openai", "azure_openai"):
         kwargs["reasoning_effort"] = "xhigh" if e == "max" else e
     elif provider == "google_genai":
-        kwargs["thinking_level"] = "high" if e == "max" else e
+        kwargs["thinking_level"] = "high" if e in ("xhigh", "max") else e
