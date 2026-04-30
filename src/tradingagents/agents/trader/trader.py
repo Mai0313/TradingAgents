@@ -10,7 +10,24 @@ from tradingagents.agents.utils.agent_states import AgentState
 def create_trader(
     llm: ChatModel, memory: FinancialSituationMemory
 ) -> Callable[[AgentState], dict[str, Any]]:
+    """Creates a trader node for the trading graph.
+
+    Args:
+        llm (ChatModel): The language model to use for generating responses.
+        memory (FinancialSituationMemory): The memory module for retrieving past financial situations.
+
+    Returns:
+        Callable[[AgentState], dict[str, Any]]: A function representing the trader node.
+    """
     def trader_node(state: AgentState) -> dict[str, Any]:
+        """Executes the trader logic to evaluate the situation and make an investment plan.
+
+        Args:
+            state (AgentState): The current state of the agent, including reports and plans.
+
+        Returns:
+            dict[str, Any]: A dictionary containing updated messages and the trader_investment_plan.
+        """
         curr_situation = (
             f"{state.market_report}\n\n"
             f"{state.sentiment_report}\n\n"

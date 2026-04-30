@@ -10,8 +10,24 @@ from tradingagents.agents.utils.agent_states import AgentState
 
 
 def create_market_analyst(llm: ChatModel) -> Callable[[AgentState], dict[str, Any]]:
+    """Creates a market analyst node for the trading graph.
+
+    Args:
+        llm (ChatModel): The language model to use for generating responses.
+
+    Returns:
+        Callable[[AgentState], dict[str, Any]]: A function representing the market analyst node.
+    """
 
     def market_analyst_node(state: AgentState) -> dict[str, Any]:
+        """Executes the market analyst logic to generate a market report.
+
+        Args:
+            state (AgentState): The current state of the agent, containing data like trade_date and company_of_interest.
+
+        Returns:
+            dict[str, Any]: A dictionary containing updated messages and the market_report.
+        """
         tools = [get_stock_data, get_indicators]
 
         prompt = ChatPromptTemplate.from_messages([

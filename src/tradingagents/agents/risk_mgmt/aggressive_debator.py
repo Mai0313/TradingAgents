@@ -7,7 +7,23 @@ from tradingagents.agents.utils.agent_states import AgentState, RiskDebateState
 
 
 def create_aggressive_debator(llm: ChatModel) -> Callable[[AgentState], dict[str, Any]]:
+    """Creates an aggressive risk debator node for the trading graph.
+
+    Args:
+        llm (ChatModel): The language model to use for generating responses.
+
+    Returns:
+        Callable[[AgentState], dict[str, Any]]: A function representing the aggressive risk debator node.
+    """
     def aggressive_node(state: AgentState) -> dict[str, Any]:
+        """Executes the aggressive debator logic to provide an aggressive risk perspective.
+
+        Args:
+            state (AgentState): The current state of the agent, including reports, plan, and risk state.
+
+        Returns:
+            dict[str, Any]: A dictionary containing the updated risk_debate_state.
+        """
         risk = state.risk_debate_state
 
         prompt = load_prompt("aggressive_debator").format(

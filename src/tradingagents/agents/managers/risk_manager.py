@@ -10,7 +10,24 @@ from tradingagents.agents.utils.agent_states import AgentState, RiskDebateState
 def create_risk_manager(
     llm: ChatModel, memory: FinancialSituationMemory
 ) -> Callable[[AgentState], dict[str, Any]]:
+    """Creates a risk manager node for the trading graph.
+
+    Args:
+        llm (ChatModel): The language model to use for generating responses.
+        memory (FinancialSituationMemory): The memory module for retrieving past financial situations.
+
+    Returns:
+        Callable[[AgentState], dict[str, Any]]: A function representing the risk manager node.
+    """
     def risk_manager_node(state: AgentState) -> dict[str, Any]:
+        """Executes the risk manager logic to evaluate risk and make a final trade decision.
+
+        Args:
+            state (AgentState): The current state of the agent, including reports, investment plan, and risk state.
+
+        Returns:
+            dict[str, Any]: A dictionary containing the updated risk_debate_state and the final_trade_decision.
+        """
         risk = state.risk_debate_state
 
         curr_situation = (

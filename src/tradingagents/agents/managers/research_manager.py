@@ -10,7 +10,24 @@ from tradingagents.agents.utils.agent_states import AgentState, InvestDebateStat
 def create_research_manager(
     llm: ChatModel, memory: FinancialSituationMemory
 ) -> Callable[[AgentState], dict[str, Any]]:
+    """Creates a research manager node for the trading graph.
+
+    Args:
+        llm (ChatModel): The language model to use for generating responses.
+        memory (FinancialSituationMemory): The memory module for retrieving past financial situations.
+
+    Returns:
+        Callable[[AgentState], dict[str, Any]]: A function representing the research manager node.
+    """
     def research_manager_node(state: AgentState) -> dict[str, Any]:
+        """Executes the research manager logic to evaluate research and formulate an investment plan.
+
+        Args:
+            state (AgentState): The current state of the agent, including various reports and debate state.
+
+        Returns:
+            dict[str, Any]: A dictionary containing the updated investment_debate_state and the investment_plan.
+        """
         debate = state.investment_debate_state
 
         curr_situation = (
