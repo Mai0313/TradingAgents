@@ -12,12 +12,12 @@ def main() -> None:
         max_debate_rounds=10,
         max_risk_discuss_rounds=10,
         max_recur_limit=100,
-        reasoning_effort="medium",
+        reasoning_effort="high",
     )
 
     ta = TradingAgentsGraph(debug=True, config=config)
     today = datetime.date.today().strftime("%Y-%m-%d")
-    _, decision = ta.propagate("GOOG", today)
+    _, decision = ta.propagate("2330", today)
     print(decision)  # noqa: T201
 
 
