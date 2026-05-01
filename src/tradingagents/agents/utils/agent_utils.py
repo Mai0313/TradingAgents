@@ -42,6 +42,7 @@ def create_msg_delete() -> Callable[[AgentState], dict[str, Any]]:
             and returns a dictionary with operations to remove existing messages
             and add a placeholder message.
     """
+
     def delete_messages(state: AgentState) -> dict[str, Any]:
         """Clear messages and add placeholder for Anthropic compatibility.
 

@@ -18,6 +18,7 @@ def create_social_media_analyst(llm: ChatModel) -> Callable[[AgentState], dict[s
     Returns:
         Callable[[AgentState], dict[str, Any]]: A function representing the social media analyst node.
     """
+
     def social_media_analyst_node(state: AgentState) -> dict[str, Any]:
         """Executes the social media analyst logic to generate a sentiment report.
 

@@ -23,6 +23,7 @@ def create_fundamentals_analyst(llm: ChatModel) -> Callable[[AgentState], dict[s
     Returns:
         Callable[[AgentState], dict[str, Any]]: A function representing the fundamentals analyst node.
     """
+
     def fundamentals_analyst_node(state: AgentState) -> dict[str, Any]:
         """Executes the fundamentals analyst logic to generate a fundamentals report.
 

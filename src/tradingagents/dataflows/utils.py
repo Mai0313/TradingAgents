@@ -43,6 +43,7 @@ def decorate_all_methods(
     Returns:
         Callable[[type], type]: A class decorator.
     """
+
     def class_decorator(cls: type) -> type:
         for attr_name, attr_value in cls.__dict__.items():
             if callable(attr_value):

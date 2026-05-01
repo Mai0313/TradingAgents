@@ -15,6 +15,7 @@ def create_aggressive_debator(llm: ChatModel) -> Callable[[AgentState], dict[str
     Returns:
         Callable[[AgentState], dict[str, Any]]: A function representing the aggressive risk debator node.
     """
+
     def aggressive_node(state: AgentState) -> dict[str, Any]:
         """Executes the aggressive debator logic to provide an aggressive risk perspective.
 

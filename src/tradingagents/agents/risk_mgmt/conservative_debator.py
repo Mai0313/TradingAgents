@@ -15,6 +15,7 @@ def create_conservative_debator(llm: ChatModel) -> Callable[[AgentState], dict[s
     Returns:
         Callable[[AgentState], dict[str, Any]]: A function representing the conservative risk debator node.
     """
+
     def conservative_node(state: AgentState) -> dict[str, Any]:
         """Executes the conservative debator logic to provide a conservative risk perspective.
 

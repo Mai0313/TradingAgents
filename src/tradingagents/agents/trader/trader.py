@@ -19,6 +19,7 @@ def create_trader(
     Returns:
         Callable[[AgentState], dict[str, Any]]: A function representing the trader node.
     """
+
     def trader_node(state: AgentState) -> dict[str, Any]:
         """Executes the trader logic to evaluate the situation and make an investment plan.
 

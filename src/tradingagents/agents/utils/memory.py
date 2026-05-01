@@ -41,7 +41,7 @@ class FinancialSituationMemory:
 
     def _rebuild_index(self) -> None:
         """Rebuild the BM25 index after adding documents.
-        
+
         Returns:
             None
         """
@@ -103,7 +103,7 @@ class FinancialSituationMemory:
 
     def clear(self) -> None:
         """Clear all stored memories.
-        
+
         Returns:
             None
         """

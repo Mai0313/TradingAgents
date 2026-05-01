@@ -19,6 +19,7 @@ def create_bull_researcher(
     Returns:
         Callable[[AgentState], dict[str, Any]]: A function representing the bull researcher node.
     """
+
     def bull_node(state: AgentState) -> dict[str, Any]:
         """Executes the bull researcher logic to formulate a bullish investment argument.
 

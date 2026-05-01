@@ -19,6 +19,7 @@ def create_risk_manager(
     Returns:
         Callable[[AgentState], dict[str, Any]]: A function representing the risk manager node.
     """
+
     def risk_manager_node(state: AgentState) -> dict[str, Any]:
         """Executes the risk manager logic to evaluate risk and make a final trade decision.
 

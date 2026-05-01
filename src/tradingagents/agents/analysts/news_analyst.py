@@ -22,6 +22,7 @@ def create_news_analyst(llm: ChatModel) -> Callable[[AgentState], dict[str, Any]
     Returns:
         Callable[[AgentState], dict[str, Any]]: A function representing the news analyst node.
     """
+
     def news_analyst_node(state: AgentState) -> dict[str, Any]:
         """Executes the news analyst logic to generate a news report.
 

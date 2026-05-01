@@ -19,6 +19,7 @@ def create_research_manager(
     Returns:
         Callable[[AgentState], dict[str, Any]]: A function representing the research manager node.
     """
+
     def research_manager_node(state: AgentState) -> dict[str, Any]:
         """Executes the research manager logic to evaluate research and formulate an investment plan.
 

@@ -19,6 +19,7 @@ def create_bear_researcher(
     Returns:
         Callable[[AgentState], dict[str, Any]]: A function representing the bear researcher node.
     """
+
     def bear_node(state: AgentState) -> dict[str, Any]:
         """Executes the bear researcher logic to formulate a bearish investment argument.
 

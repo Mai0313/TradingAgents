@@ -15,6 +15,7 @@ def create_neutral_debator(llm: ChatModel) -> Callable[[AgentState], dict[str, A
     Returns:
         Callable[[AgentState], dict[str, Any]]: A function representing the neutral risk debator node.
     """
+
     def neutral_node(state: AgentState) -> dict[str, Any]:
         """Executes the neutral debator logic to provide a neutral risk perspective.
 
