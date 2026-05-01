@@ -39,8 +39,8 @@ def get_yfin_data_online(
 
     Args:
         symbol (str): Ticker symbol of the company.
-        start_date (str): Start date in yyyy-mm-dd format.
-        end_date (str): End date in yyyy-mm-dd format.
+        start_date (str): Start date in YYYY-MM-DD format.
+        end_date (str): End date in YYYY-MM-DD format.
 
     Returns:
         str: CSV string containing stock data with header info.

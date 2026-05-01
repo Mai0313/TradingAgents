@@ -54,7 +54,8 @@ class NormalizedChatGoogleGenerativeAI(ChatGoogleGenerativeAI):
 
         Args:
             prompt_input (object): The input prompt for the chat model.
-            config (object, optional): Configuration for the invocation. Defaults to None.
+            config (object | None, optional): Configuration for the invocation.
+                Defaults to None.
             **kwargs (object): Additional keyword arguments.
 
         Returns:
@@ -89,12 +90,14 @@ def build_chat_model(
             `claude-sonnet-4-6`, `gemini-3.1-pro-preview`). Any model name
             containing `gemini` or `google` is routed through
             `NormalizedChatGoogleGenerativeAI` regardless of provider.
-        reasoning_effort (ReasoningEffort | None): Unified reasoning level mapped per provider:
+        reasoning_effort (ReasoningEffort | None, optional): Unified reasoning
+            level mapped per provider:
             Anthropic -> `effort` (native low/medium/high/xhigh/max),
             OpenAI -> `reasoning_effort` (max -> xhigh; xhigh native),
             Google -> `thinking_level` (xhigh and max both clamped to high).
             Other providers do not expose a unified knob and ignore this.
-        callbacks (list[BaseCallbackHandler] | None): Optional LangChain callback handlers attached to the model.
+        callbacks (list[BaseCallbackHandler] | None, optional): LangChain
+            callback handlers attached to the model. Defaults to None.
 
     Returns:
         ChatModel: The constructed chat model instance.
