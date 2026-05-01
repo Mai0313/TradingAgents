@@ -35,9 +35,7 @@ def _nav_indent(level: int) -> str:
     return "  " + "    " * level
 
 
-def _build_nav_section(
-    title: str, dir_path: Path, level: int, docs_root: Path
-) -> list[str]:
+def _build_nav_section(title: str, dir_path: Path, level: int, docs_root: Path) -> list[str]:
     """Render YAML lines for a nav section rooted at ``dir_path``.
 
     Subdirectories are emitted before sibling markdown files so packages
@@ -49,9 +47,7 @@ def _build_nav_section(
 
     subdirs = sorted([p for p in dir_path.iterdir() if p.is_dir()])
     files = sorted([
-        p
-        for p in dir_path.iterdir()
-        if p.is_file() and p.suffix == ".md" and p.name != "index.md"
+        p for p in dir_path.iterdir() if p.is_file() and p.suffix == ".md" and p.name != "index.md"
     ])
 
     children: list[str] = []
