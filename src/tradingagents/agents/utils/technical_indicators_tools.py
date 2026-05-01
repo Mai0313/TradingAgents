@@ -12,7 +12,7 @@ def get_indicators(
         str | list[str],
         "One or more technical indicators. Accepts a single indicator name, a list of names, or a comma-separated string.",
     ],
-    curr_date: Annotated[str, "The current trading date you are trading on, YYYY-mm-dd"],
+    curr_date: Annotated[str, "The current trading date you are trading on, YYYY-MM-DD"],
     look_back_days: Annotated[int, "how many days to look back"] = 30,
 ) -> str:
     """Retrieve technical indicators for a given ticker symbol.
@@ -23,14 +23,17 @@ def get_indicators(
         indicator (str | list[str]): One or more technical indicators. May be a
             single indicator name, a Python list of names, or a comma-separated
             string like "macd,rsi,close_50_sma".
-        curr_date (str): The current trading date you are trading on, YYYY-mm-dd
-        look_back_days (int): How many days to look back, default is 30
+        curr_date (str): The current trading date in YYYY-MM-DD format.
+        look_back_days (int, optional): Number of days to look back. Defaults
+            to 30.
 
     Returns:
-        str: A formatted report containing the technical indicators for the specified ticker symbol and indicator(s).
+        str: A formatted report for one indicator, or multiple sections when
+            several indicators are requested.
 
     Raises:
-        ValueError: If no valid indicators are provided.
+        ValueError: If no valid indicators are provided, an indicator is
+            unsupported, or no market data is available for the symbol.
     """
     if isinstance(indicator, str):
         indicators = [ind.strip() for ind in indicator.split(",") if ind.strip()]

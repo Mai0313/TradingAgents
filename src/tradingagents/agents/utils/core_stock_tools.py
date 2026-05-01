@@ -20,6 +20,7 @@ def get_stock_data(
         end_date (str): End date in yyyy-mm-dd format
 
     Returns:
-        str: A formatted dataframe containing the stock price data for the specified ticker symbol in the specified date range.
+        str: CSV-formatted OHLCV data with a short metadata header, or a
+            no-data message if no Yahoo Finance candidate has price history.
     """
     return get_yfin_data_online(symbol, start_date, end_date)

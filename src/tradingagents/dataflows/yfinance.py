@@ -44,6 +44,10 @@ def get_yfin_data_online(
 
     Returns:
         str: CSV string containing stock data with header info.
+
+    Raises:
+        ValueError: If `start_date` or `end_date` does not match YYYY-MM-DD, or
+            if the ticker symbol is empty.
     """
     datetime.strptime(start_date, "%Y-%m-%d")
     datetime.strptime(end_date, "%Y-%m-%d")
@@ -108,7 +112,9 @@ def get_stock_stats_indicators_window(
         str: Formatted string containing indicator values and a description.
 
     Raises:
-        ValueError: If the requested indicator is not supported.
+        ValueError: If the requested indicator is not supported, `curr_date`
+            does not match YYYY-MM-DD, the symbol is empty, or no market data is
+            available.
     """
     best_ind_params = {
         # Moving Averages
@@ -224,7 +230,8 @@ def _get_stock_stats_bulk(
         dict[str, str]: A dict mapping YYYY-MM-DD strings to indicator values.
 
     Raises:
-        ValueError: If no market data is found for the symbol.
+        ValueError: If the symbol is empty or no market data is found.
+        RuntimeError: If the global TradingAgentsConfig has not been initialized.
     """
     config = get_config()
 

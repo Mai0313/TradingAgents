@@ -76,6 +76,11 @@ class TradingAgentsConfig(BaseModel):
     )
     @property
     def data_cache_dir(self) -> Path:
+        """Return the data cache directory under the results directory.
+
+        Returns:
+            Path: Directory used for caching downloaded market and news data.
+        """
         data_cache_dir = self.results_dir / "data_cache"
         return data_cache_dir
 

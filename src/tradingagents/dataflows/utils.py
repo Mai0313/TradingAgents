@@ -45,6 +45,14 @@ def decorate_all_methods(
     """
 
     def class_decorator(cls: type) -> type:
+        """Apply the configured decorator to every callable class attribute.
+
+        Args:
+            cls (type): The class whose callable attributes should be decorated.
+
+        Returns:
+            type: The same class with decorated callable attributes.
+        """
         for attr_name, attr_value in cls.__dict__.items():
             if callable(attr_value):
                 setattr(cls, attr_name, decorator(attr_value))
@@ -54,13 +62,18 @@ def decorate_all_methods(
 
 
 def get_next_weekday(date_input: str | datetime) -> datetime:
-    """Get the next weekday for a given date (skips weekends).
+    """Return the input date if it is a weekday, otherwise the next Monday.
 
     Args:
-        date_input (str | datetime): The starting date, either as a datetime object or a string in YYYY-MM-DD format.
+        date_input (str | datetime): The starting date, either as a datetime
+            object or a string in YYYY-MM-DD format.
 
     Returns:
-        datetime: The next weekday as a datetime object.
+        datetime: The input date when it is Monday through Friday, or the next
+            Monday when the input falls on a weekend.
+
+    Raises:
+        ValueError: If `date_input` is a string that does not match YYYY-MM-DD.
     """
     if not isinstance(date_input, datetime):
         date_input = datetime.strptime(date_input, "%Y-%m-%d")

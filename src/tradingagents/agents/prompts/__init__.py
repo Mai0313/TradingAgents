@@ -40,5 +40,8 @@ def load_prompt(name: str) -> str:
 
     Returns:
         str: The loaded prompt template content with language instructions appended.
+
+    Raises:
+        FileNotFoundError: If the prompt template file does not exist.
     """
     return (_PROMPT_DIR / f"{name}.md").read_text() + _language_instruction()

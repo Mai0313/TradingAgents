@@ -298,7 +298,7 @@ class TradingAgentsGraph(BaseModel):
         return final_state, self.process_signal(final_state.final_trade_decision)
 
     def _log_state(self, trade_date: str, final_state: AgentState) -> None:
-        """Log the final state to a JSON file.
+        """Log final state and conversation history for a graph run.
 
         Args:
             trade_date (str): Trade date in YYYY-MM-DD format.
@@ -347,7 +347,7 @@ class TradingAgentsGraph(BaseModel):
     def _save_conversation_log(
         self, directory: Path, trade_date: str, final_state: AgentState
     ) -> None:
-        """Save the full conversation history including raw tool call results.
+        """Save text and JSON conversation logs including raw tool call results.
 
         Args:
             directory (Path): Output directory path.

@@ -95,7 +95,8 @@ class GraphSetup(BaseModel):
             selected_analysts (list[str]): List of analyst types.
 
         Returns:
-            tuple[dict[str, Any], dict[str, Any], dict[str, Any]]: A tuple containing dictionaries for analyst nodes, delete nodes, and tool nodes.
+            tuple[dict[str, Any], dict[str, Any], dict[str, Any]]: Analyst
+                nodes, message deletion nodes, and tool nodes keyed by analyst type.
         """
         analyst_creators = {
             "market": create_market_analyst,
@@ -148,11 +149,12 @@ class GraphSetup(BaseModel):
         """Set up and compile the agent workflow graph.
 
         Args:
-            selected_analysts (list[str] | None, optional): List of analyst types to include. Options are:
+            selected_analysts (list[str] | None, optional): Analyst types to
+                include. Defaults to all supported analysts when None. Options are:
                 - "market": Market analyst
                 - "social": Social media analyst
                 - "news": News analyst
-                - "fundamentals": Fundamentals analyst. Defaults to None.
+                - "fundamentals": Fundamentals analyst
 
         Returns:
             CompiledStateGraph: The compiled workflow graph.

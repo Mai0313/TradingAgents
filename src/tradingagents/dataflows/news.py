@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 def _extract_article_data(article: dict) -> dict:
-    """Extract article data from yfinance news format (handles nested 'content' structure).
+    """Extract article fields from flat or nested yfinance news data.
 
     Args:
         article (dict): The article data dictionary from yfinance.
@@ -89,12 +89,12 @@ def get_news_yfinance(ticker: str, start_date: str, end_date: str) -> str:
     """Retrieve news for a specific stock ticker using yfinance.
 
     Args:
-        ticker (str): Stock ticker symbol (e.g., "AAPL")
-        start_date (str): Start date in yyyy-mm-dd format
-        end_date (str): End date in yyyy-mm-dd format
+        ticker (str): Stock ticker symbol, such as "AAPL".
+        start_date (str): Start date in YYYY-MM-DD format.
+        end_date (str): End date in YYYY-MM-DD format.
 
     Returns:
-        str: Formatted string containing news articles
+        str: A formatted news report, a no-data message, or an error message.
     """
     try:
         resolved_ticker, news, candidates = _get_first_ticker_news(ticker)
@@ -169,12 +169,13 @@ def get_global_news_yfinance(curr_date: str, look_back_days: int = 7, limit: int
     """Retrieve global/macro economic news using yfinance Search.
 
     Args:
-        curr_date (str): Current date in yyyy-mm-dd format
-        look_back_days (int, optional): Number of days to look back. Defaults to 7.
+        curr_date (str): Current date in YYYY-MM-DD format.
+        look_back_days (int, optional): Number of days used for the report
+            window label. Defaults to 7.
         limit (int, optional): Maximum number of articles to return. Defaults to 10.
 
     Returns:
-        str: Formatted string containing global news articles
+        str: A formatted global news report, a no-data message, or an error message.
     """
     search_queries = [
         "global stock market economy",
