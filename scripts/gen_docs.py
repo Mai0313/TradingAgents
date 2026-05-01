@@ -93,8 +93,8 @@ class DocsGenerator(BaseModel):
     """DocsGenerator generates per-module markdown pages from a Python source tree and rebuilds the MkDocs nav block.
 
     Attributes:
-        source (str | None): Source directory or file path (required for ``gen_docs``).
-        output (str | None): Output directory path (required for ``gen_docs``).
+        source (str): Source directory or file path.
+        output (str): Output directory path.
         exclude (str): Comma-separated list of folders or files to exclude.
         mode (Literal["file", "class"]): Mode of documentation generation, either by file or class.
 
@@ -118,18 +118,18 @@ class DocsGenerator(BaseModel):
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    source_path: Path | None = Field(
-        default=None,
+    source_path: Path = Field(
+        ...,
         title="The Source File Path or Folder Path",
-        description="This field can be a file path or folder path, if it is a folder path, it will automatically search for python and ipynb files. Only required for the gen_docs command.",
+        description="This field can be a file path or folder path, if it is a folder path, it will automatically search for python and ipynb files.",
         examples=["./src"],
         alias="source",
         frozen=True,
     )
-    output_path: Path | None = Field(
-        default=None,
+    output_path: Path = Field(
+        ...,
         title="The Output Path",
-        description="The output path for the generated documentation. Only required for the gen_docs command.",
+        description="The output path for the generated documentation.",
         examples=["./docs/Reference"],
         alias="output",
         frozen=True,
@@ -174,10 +174,8 @@ class DocsGenerator(BaseModel):
         Returns:
             Path: The source path.
         """
-        if self.source_path is None:
-            return []
         if self.source_path.is_dir():
-            if self.output_path is not None and self.output_path.exists():
+            if self.output_path.exists():
                 shutil.rmtree(self.output_path.absolute())
             exclude_list = [ex.strip() for ex in self.exclude.split(",")]
             need_to_exclude = list({*exclude_list, ".venv", "__init__.py"})
@@ -310,8 +308,8 @@ class DocsGenerator(BaseModel):
             highlight=True,
         )
 
+    @staticmethod
     def build_nav(
-        self,
         docs_dir: str = "docs",
         config_path: str = "mkdocs.yml",
         sections: tuple[str, ...] = ("Reference", "Scripts"),
@@ -322,6 +320,10 @@ class DocsGenerator(BaseModel):
         emits a nested nav YAML structure so the sidebar shows every leaf module
         directly. It rewrites only the region delimited by the sentinel comments
         in ``config_path``; everything outside the markers is preserved verbatim.
+
+        Exposed as a ``@staticmethod`` so Fire can dispatch
+        ``gen_docs.py build_nav`` without instantiating ``DocsGenerator`` (which
+        would require ``--source`` / ``--output`` that are irrelevant here).
 
         Args:
             docs_dir: Path to the MkDocs source directory (where ``index.md`` lives).
