@@ -33,5 +33,24 @@ gen-docs:  ## Generate documentation
 	cp ./README.md ./docs/index.md
 	cp ./README.zh-CN.md ./docs/zh-CN/index.md
 	cp ./README.zh-TW.md ./docs/zh-TW/index.md
+	cp ./CONTRIBUTING.md ./docs/CONTRIBUTING.md
+	sed -i \
+		-e 's|](README\.md)|](index.md)|g' \
+		-e 's|](README\.zh-TW\.md)|](zh-TW/index.md)|g' \
+		-e 's|](README\.zh-CN\.md)|](zh-CN/index.md)|g' \
+		./docs/index.md
+	sed -i \
+		-e 's|](README\.md)|](../index.md)|g' \
+		-e 's|](README\.zh-TW\.md)|](index.md)|g' \
+		-e 's|](README\.zh-CN\.md)|](../zh-CN/index.md)|g' \
+		-e 's|](CONTRIBUTING\.md)|](../CONTRIBUTING.md)|g' \
+		./docs/zh-TW/index.md
+	sed -i \
+		-e 's|](README\.md)|](../index.md)|g' \
+		-e 's|](README\.zh-TW\.md)|](../zh-TW/index.md)|g' \
+		-e 's|](README\.zh-CN\.md)|](index.md)|g' \
+		-e 's|](CONTRIBUTING\.md)|](../CONTRIBUTING.md)|g' \
+		./docs/zh-CN/index.md
 	uv run ./scripts/gen_docs.py --source ./src --output ./docs/Reference gen_docs
 	uv run ./scripts/gen_docs.py --source ./scripts --output ./docs/Scripts gen_docs
+	uv run ./scripts/gen_docs.py build_nav
