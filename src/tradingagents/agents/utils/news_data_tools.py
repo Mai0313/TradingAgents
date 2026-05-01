@@ -15,11 +15,12 @@ def get_news(
     """Retrieve news data for a given ticker symbol.
 
     Args:
-        ticker (str): Ticker symbol
-        start_date (str): Start date in yyyy-mm-dd format
-        end_date (str): End date in yyyy-mm-dd format
+        ticker (str): Ticker symbol.
+        start_date (str): Start date in YYYY-MM-DD format.
+        end_date (str): End date in YYYY-MM-DD format.
+
     Returns:
-        str: A formatted string containing news data
+        str: A formatted news report, a no-data message, or an error message.
     """
     return get_news_yfinance(ticker, start_date, end_date)
 
@@ -33,12 +34,14 @@ def get_global_news(
     """Retrieve global news data.
 
     Args:
-        curr_date (str): Current date in yyyy-mm-dd format
-        look_back_days (int): Number of days to look back (default 7)
-        limit (int): Maximum number of articles to return (default 5)
+        curr_date (str): Current date in YYYY-MM-DD format.
+        look_back_days (int, optional): Number of days used for the report
+            window label. Defaults to 7.
+        limit (int, optional): Maximum number of articles to return. Defaults
+            to 5.
 
     Returns:
-        str: A formatted string containing global news data
+        str: A formatted global news report, a no-data message, or an error message.
     """
     return get_global_news_yfinance(curr_date, look_back_days, limit)
 
@@ -48,8 +51,10 @@ def get_insider_transactions(ticker: Annotated[str, "ticker symbol"]) -> str:
     """Retrieve insider transaction information about a company.
 
     Args:
-        ticker (str): Ticker symbol of the company
+        ticker (str): Ticker symbol of the company.
+
     Returns:
-        str: A report of insider transaction data
+        str: CSV-formatted insider transaction data, a no-data message, or an
+            error message.
     """
     return _get_insider_transactions(ticker)

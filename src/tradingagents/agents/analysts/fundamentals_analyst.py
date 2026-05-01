@@ -15,7 +15,24 @@ from tradingagents.agents.utils.agent_states import AgentState
 
 
 def create_fundamentals_analyst(llm: ChatModel) -> Callable[[AgentState], dict[str, Any]]:
+    """Creates a fundamentals analyst node for the trading graph.
+
+    Args:
+        llm (ChatModel): The language model to use for generating responses.
+
+    Returns:
+        Callable[[AgentState], dict[str, Any]]: A function representing the fundamentals analyst node.
+    """
+
     def fundamentals_analyst_node(state: AgentState) -> dict[str, Any]:
+        """Executes the fundamentals analyst logic to generate a fundamentals report.
+
+        Args:
+            state (AgentState): The current state of the agent, containing data like trade_date and company_of_interest.
+
+        Returns:
+            dict[str, Any]: A dictionary containing updated messages and the fundamentals_report.
+        """
         tools = [get_fundamentals, get_balance_sheet, get_cashflow, get_income_statement]
 
         prompt = ChatPromptTemplate.from_messages([

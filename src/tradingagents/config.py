@@ -76,6 +76,11 @@ class TradingAgentsConfig(BaseModel):
     )
     @property
     def data_cache_dir(self) -> Path:
+        """Return the data cache directory under the results directory.
+
+        Returns:
+            Path: Directory used for caching downloaded market and news data.
+        """
         data_cache_dir = self.results_dir / "data_cache"
         return data_cache_dir
 
@@ -84,12 +89,23 @@ _config_container: list[TradingAgentsConfig | None] = [None]
 
 
 def set_config(config: TradingAgentsConfig) -> None:
-    """Register the active TradingAgentsConfig for cross-module access."""
+    """Register the active TradingAgentsConfig for cross-module access.
+
+    Args:
+        config (TradingAgentsConfig): The configuration object to set as active.
+    """
     _config_container[0] = config
 
 
 def get_config() -> TradingAgentsConfig:
-    """Return the active TradingAgentsConfig (set by TradingAgentsGraph)."""
+    """Return the active TradingAgentsConfig (set by TradingAgentsGraph).
+
+    Returns:
+        TradingAgentsConfig: The active configuration object.
+
+    Raises:
+        RuntimeError: If the TradingAgentsConfig has not been initialized yet.
+    """
     cfg = _config_container[0]
     if cfg is None:
         raise RuntimeError(

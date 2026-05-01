@@ -16,8 +16,9 @@ class FinancialSituationMemory:
         """Initialize the memory system.
 
         Args:
-            name: Name identifier for this memory instance
-            config: Configuration dict (kept for API compatibility, not used for BM25)
+            name (str): Name identifier for this memory instance.
+            config (dict | None, optional): Configuration dict kept for API
+                compatibility. BM25 memory does not use it. Defaults to None.
         """
         self.name = name
         self.documents: list[str] = []
@@ -27,7 +28,13 @@ class FinancialSituationMemory:
     def _tokenize(self, text: str) -> list[str]:
         """Tokenize text for BM25 indexing.
 
-        Simple whitespace + punctuation tokenization with lowercasing.
+        Uses lowercased word tokens extracted with a regular expression.
+
+        Args:
+            text (str): The text to tokenize.
+
+        Returns:
+            list[str]: A list of tokens extracted from the text.
         """
         # Lowercase and split on non-alphanumeric characters
         tokens = re.findall(r"\b\w+\b", text.lower())
@@ -45,7 +52,8 @@ class FinancialSituationMemory:
         """Add financial situations and their corresponding advice.
 
         Args:
-            situations_and_advice: List of tuples (situation, recommendation)
+            situations_and_advice (list[tuple[str, str]]): Situation and
+                recommendation pairs to store.
         """
         for situation, recommendation in situations_and_advice:
             self.documents.append(situation)
@@ -58,11 +66,13 @@ class FinancialSituationMemory:
         """Find matching recommendations using BM25 similarity.
 
         Args:
-            current_situation: The current financial situation to match against
-            n_matches: Number of top matches to return
+            current_situation (str): The current financial situation to match against.
+            n_matches (int, optional): Number of top matches to return.
+                Defaults to 1.
 
         Returns:
-            List of dicts with matched_situation, recommendation, and similarity_score
+            list[dict]: Dictionaries containing `matched_situation`,
+                `recommendation`, and normalized `similarity_score`.
         """
         if not self.documents or self.bm25 is None:
             return []

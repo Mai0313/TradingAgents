@@ -18,7 +18,14 @@ logger = logging.getLogger(__name__)
 
 
 def _has_meaningful_ticker_info(info: dict) -> bool:
-    """Return whether yfinance info contains an actual resolved quote."""
+    """Return whether yfinance info contains an actual resolved quote.
+
+    Args:
+        info (dict): The yfinance ticker info dictionary.
+
+    Returns:
+        bool: True if meaningful info is present, False otherwise.
+    """
     identity_fields = ("longName", "shortName", "symbol", "quoteType", "market", "exchange")
     return any(info.get(field) for field in identity_fields)
 
@@ -28,7 +35,20 @@ def get_yfin_data_online(
     start_date: Annotated[str, "Start date in yyyy-mm-dd format"],
     end_date: Annotated[str, "End date in yyyy-mm-dd format"],
 ) -> str:
-    """Fetch OHLCV stock data online via yfinance and return as CSV string."""
+    """Fetch OHLCV stock data online via yfinance and return as CSV string.
+
+    Args:
+        symbol (str): Ticker symbol of the company.
+        start_date (str): Start date in YYYY-MM-DD format.
+        end_date (str): End date in YYYY-MM-DD format.
+
+    Returns:
+        str: CSV string containing stock data with header info.
+
+    Raises:
+        ValueError: If `start_date` or `end_date` does not match YYYY-MM-DD, or
+            if the ticker symbol is empty.
+    """
     datetime.strptime(start_date, "%Y-%m-%d")
     datetime.strptime(end_date, "%Y-%m-%d")
 
@@ -80,7 +100,22 @@ def get_stock_stats_indicators_window(
     curr_date: Annotated[str, "The current trading date you are trading on, YYYY-mm-dd"],
     look_back_days: Annotated[int, "how many days to look back"],
 ) -> str:
+    """Calculate and format a specific technical indicator over a window of days.
 
+    Args:
+        symbol (str): Ticker symbol of the company.
+        indicator (str): Technical indicator to calculate.
+        curr_date (str): Current trading date in YYYY-MM-DD format.
+        look_back_days (int): Number of days to look back.
+
+    Returns:
+        str: Formatted string containing indicator values and a description.
+
+    Raises:
+        ValueError: If the requested indicator is not supported, `curr_date`
+            does not match YYYY-MM-DD, the symbol is empty, or no market data is
+            available.
+    """
     best_ind_params = {
         # Moving Averages
         "close_50_sma": (
@@ -187,7 +222,16 @@ def _get_stock_stats_bulk(
 ) -> dict[str, str]:
     """Fetch 15 years of OHLCV once and compute the indicator for every available date.
 
-    Returns a dict mapping YYYY-MM-DD strings to indicator values.
+    Args:
+        symbol (str): Ticker symbol of the company.
+        indicator (str): Technical indicator to calculate.
+
+    Returns:
+        dict[str, str]: A dict mapping YYYY-MM-DD strings to indicator values.
+
+    Raises:
+        ValueError: If the symbol is empty or no market data is found.
+        RuntimeError: If the global TradingAgentsConfig has not been initialized.
     """
     config = get_config()
 
@@ -257,7 +301,15 @@ def get_fundamentals(
     ticker: Annotated[str, "ticker symbol of the company"],
     curr_date: Annotated[str | None, "current date (not used for yfinance)"] = None,
 ) -> str:
-    """Get company fundamentals overview from yfinance."""
+    """Get company fundamentals overview from yfinance.
+
+    Args:
+        ticker (str): Ticker symbol of the company.
+        curr_date (str | None, optional): Current date (not used for yfinance). Defaults to None.
+
+    Returns:
+        str: Formatted string containing fundamentals overview.
+    """
     try:
         candidates = get_yfinance_symbol_candidates(ticker)
         info = {}
@@ -329,7 +381,16 @@ def get_balance_sheet(
     freq: Annotated[str, "frequency of data: 'annual' or 'quarterly'"] = "quarterly",
     curr_date: Annotated[str | None, "current date (not used for yfinance)"] = None,
 ) -> str:
-    """Get balance sheet data from yfinance."""
+    """Get balance sheet data from yfinance.
+
+    Args:
+        ticker (str): Ticker symbol of the company.
+        freq (str, optional): Frequency of data ('annual' or 'quarterly'). Defaults to "quarterly".
+        curr_date (str | None, optional): Current date (not used for yfinance). Defaults to None.
+
+    Returns:
+        str: CSV string containing balance sheet data.
+    """
     try:
         candidates = get_yfinance_symbol_candidates(ticker)
         data = pd.DataFrame()
@@ -372,7 +433,16 @@ def get_cashflow(
     freq: Annotated[str, "frequency of data: 'annual' or 'quarterly'"] = "quarterly",
     curr_date: Annotated[str | None, "current date (not used for yfinance)"] = None,
 ) -> str:
-    """Get cash flow data from yfinance."""
+    """Get cash flow data from yfinance.
+
+    Args:
+        ticker (str): Ticker symbol of the company.
+        freq (str, optional): Frequency of data ('annual' or 'quarterly'). Defaults to "quarterly".
+        curr_date (str | None, optional): Current date (not used for yfinance). Defaults to None.
+
+    Returns:
+        str: CSV string containing cash flow data.
+    """
     try:
         candidates = get_yfinance_symbol_candidates(ticker)
         data = pd.DataFrame()
@@ -415,7 +485,16 @@ def get_income_statement(
     freq: Annotated[str, "frequency of data: 'annual' or 'quarterly'"] = "quarterly",
     curr_date: Annotated[str | None, "current date (not used for yfinance)"] = None,
 ) -> str:
-    """Get income statement data from yfinance."""
+    """Get income statement data from yfinance.
+
+    Args:
+        ticker (str): Ticker symbol of the company.
+        freq (str, optional): Frequency of data ('annual' or 'quarterly'). Defaults to "quarterly".
+        curr_date (str | None, optional): Current date (not used for yfinance). Defaults to None.
+
+    Returns:
+        str: CSV string containing income statement data.
+    """
     try:
         candidates = get_yfinance_symbol_candidates(ticker)
         data = pd.DataFrame()
@@ -454,7 +533,14 @@ def get_income_statement(
 
 
 def get_insider_transactions(ticker: Annotated[str, "ticker symbol of the company"]) -> str:
-    """Get insider transactions data from yfinance."""
+    """Get insider transactions data from yfinance.
+
+    Args:
+        ticker (str): Ticker symbol of the company.
+
+    Returns:
+        str: CSV string containing insider transactions data.
+    """
     try:
         candidates = get_yfinance_symbol_candidates(ticker)
         data = pd.DataFrame()

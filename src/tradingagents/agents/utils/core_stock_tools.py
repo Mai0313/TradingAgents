@@ -16,9 +16,11 @@ def get_stock_data(
     Args:
         symbol (str): Stock ticker, company symbol, or Taiwan stock code.
             Examples: AAPL, TSM, 2330.TW, 2330, 8069.
-        start_date (str): Start date in yyyy-mm-dd format
-        end_date (str): End date in yyyy-mm-dd format
+        start_date (str): Start date in YYYY-MM-DD format.
+        end_date (str): End date in YYYY-MM-DD format.
+
     Returns:
-        str: A formatted dataframe containing the stock price data for the specified ticker symbol in the specified date range.
+        str: CSV-formatted OHLCV data with a short metadata header, or a
+            no-data message if no Yahoo Finance candidate has price history.
     """
     return get_yfin_data_online(symbol, start_date, end_date)

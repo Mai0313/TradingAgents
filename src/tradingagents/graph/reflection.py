@@ -24,7 +24,14 @@ class Reflector(BaseModel):
     # --- Private helpers ---
 
     def _extract_current_situation(self, current_state: AgentState) -> str:
-        """Extract the current market situation from the state."""
+        """Extract the current market situation from the state.
+
+        Args:
+            current_state (AgentState): The current state of the agent graph.
+
+        Returns:
+            str: A combined string of all relevant market reports.
+        """
         return (
             f"{current_state.market_report}\n\n"
             f"{current_state.sentiment_report}\n\n"
@@ -35,7 +42,17 @@ class Reflector(BaseModel):
     def _reflect_on_component(
         self, component_type: str, report: str, situation: str, returns_losses: float
     ) -> str:
-        """Generate reflection for a component."""
+        """Generate reflection for a component.
+
+        Args:
+            component_type (str): The name/type of the component (e.g., BULL, BEAR).
+            report (str): The report or history to reflect on.
+            situation (str): The extracted market situation.
+            returns_losses (float): The actual returns or losses observed.
+
+        Returns:
+            str: The reflection analysis result from the LLM.
+        """
         messages = [
             ("system", load_prompt("reflector")),
             (
@@ -55,7 +72,13 @@ class Reflector(BaseModel):
         returns_losses: float,
         bull_memory: FinancialSituationMemory,
     ) -> None:
-        """Reflect on bull researcher's analysis and update memory."""
+        """Reflect on bull researcher's analysis and update memory.
+
+        Args:
+            current_state (AgentState): The current state of the agent graph.
+            returns_losses (float): The actual returns or losses observed.
+            bull_memory (FinancialSituationMemory): The memory component to update.
+        """
         situation = self._extract_current_situation(current_state)
         result = self._reflect_on_component(
             "BULL", current_state.investment_debate_state.bull_history, situation, returns_losses
@@ -68,7 +91,13 @@ class Reflector(BaseModel):
         returns_losses: float,
         bear_memory: FinancialSituationMemory,
     ) -> None:
-        """Reflect on bear researcher's analysis and update memory."""
+        """Reflect on bear researcher's analysis and update memory.
+
+        Args:
+            current_state (AgentState): The current state of the agent graph.
+            returns_losses (float): The actual returns or losses observed.
+            bear_memory (FinancialSituationMemory): The memory component to update.
+        """
         situation = self._extract_current_situation(current_state)
         result = self._reflect_on_component(
             "BEAR", current_state.investment_debate_state.bear_history, situation, returns_losses
@@ -81,7 +110,13 @@ class Reflector(BaseModel):
         returns_losses: float,
         trader_memory: FinancialSituationMemory,
     ) -> None:
-        """Reflect on trader's decision and update memory."""
+        """Reflect on trader's decision and update memory.
+
+        Args:
+            current_state (AgentState): The current state of the agent graph.
+            returns_losses (float): The actual returns or losses observed.
+            trader_memory (FinancialSituationMemory): The memory component to update.
+        """
         situation = self._extract_current_situation(current_state)
         result = self._reflect_on_component(
             "TRADER", current_state.trader_investment_plan, situation, returns_losses
@@ -94,7 +129,13 @@ class Reflector(BaseModel):
         returns_losses: float,
         invest_judge_memory: FinancialSituationMemory,
     ) -> None:
-        """Reflect on investment judge's decision and update memory."""
+        """Reflect on investment judge's decision and update memory.
+
+        Args:
+            current_state (AgentState): The current state of the agent graph.
+            returns_losses (float): The actual returns or losses observed.
+            invest_judge_memory (FinancialSituationMemory): The memory component to update.
+        """
         situation = self._extract_current_situation(current_state)
         result = self._reflect_on_component(
             "INVEST JUDGE",
@@ -110,7 +151,13 @@ class Reflector(BaseModel):
         returns_losses: float,
         risk_manager_memory: FinancialSituationMemory,
     ) -> None:
-        """Reflect on risk manager's decision and update memory."""
+        """Reflect on risk manager's decision and update memory.
+
+        Args:
+            current_state (AgentState): The current state of the agent graph.
+            returns_losses (float): The actual returns or losses observed.
+            risk_manager_memory (FinancialSituationMemory): The memory component to update.
+        """
         situation = self._extract_current_situation(current_state)
         result = self._reflect_on_component(
             "RISK JUDGE", current_state.risk_debate_state.judge_decision, situation, returns_losses

@@ -10,7 +10,25 @@ from tradingagents.agents.utils.agent_states import AgentState, InvestDebateStat
 def create_bear_researcher(
     llm: ChatModel, memory: FinancialSituationMemory
 ) -> Callable[[AgentState], dict[str, Any]]:
+    """Creates a bear researcher node for the trading graph.
+
+    Args:
+        llm (ChatModel): The language model to use for generating responses.
+        memory (FinancialSituationMemory): The memory module for retrieving past financial situations.
+
+    Returns:
+        Callable[[AgentState], dict[str, Any]]: A function representing the bear researcher node.
+    """
+
     def bear_node(state: AgentState) -> dict[str, Any]:
+        """Executes the bear researcher logic to formulate a bearish investment argument.
+
+        Args:
+            state (AgentState): The current state of the agent, including reports and the debate state.
+
+        Returns:
+            dict[str, Any]: A dictionary containing the updated investment_debate_state.
+        """
         debate = state.investment_debate_state
 
         curr_situation = (

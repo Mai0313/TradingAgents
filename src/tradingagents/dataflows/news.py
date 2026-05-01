@@ -16,7 +16,14 @@ logger = logging.getLogger(__name__)
 
 
 def _extract_article_data(article: dict) -> dict:
-    """Extract article data from yfinance news format (handles nested 'content' structure)."""
+    """Extract article fields from flat or nested yfinance news data.
+
+    Args:
+        article (dict): The article data dictionary from yfinance.
+
+    Returns:
+        dict: Extracted article data containing title, summary, publisher, link, and pub_date.
+    """
     # Handle nested content structure
     if "content" in article:
         content = article["content"]
@@ -54,7 +61,15 @@ def _extract_article_data(article: dict) -> dict:
 
 
 def _get_first_ticker_news(ticker: str) -> tuple[str, list[dict], list[str]]:
-    """Fetch news from the first Yahoo Finance ticker candidate that has results."""
+    """Fetch news from the first Yahoo Finance ticker candidate that has results.
+
+    Args:
+        ticker (str): The ticker symbol to search for.
+
+    Returns:
+        tuple[str, list[dict], list[str]]: A tuple containing the resolved ticker symbol,
+            the list of news articles, and the list of tried candidate symbols.
+    """
     candidates = get_yfinance_symbol_candidates(ticker)
 
     for candidate in candidates:
@@ -74,12 +89,12 @@ def get_news_yfinance(ticker: str, start_date: str, end_date: str) -> str:
     """Retrieve news for a specific stock ticker using yfinance.
 
     Args:
-        ticker: Stock ticker symbol (e.g., "AAPL")
-        start_date: Start date in yyyy-mm-dd format
-        end_date: End date in yyyy-mm-dd format
+        ticker (str): Stock ticker symbol, such as "AAPL".
+        start_date (str): Start date in YYYY-MM-DD format.
+        end_date (str): End date in YYYY-MM-DD format.
 
     Returns:
-        Formatted string containing news articles
+        str: A formatted news report, a no-data message, or an error message.
     """
     try:
         resolved_ticker, news, candidates = _get_first_ticker_news(ticker)
@@ -122,7 +137,14 @@ def get_news_yfinance(ticker: str, start_date: str, end_date: str) -> str:
 
 
 def _format_article_to_str(article: dict) -> str:
-    """Format a news article dict into a display string."""
+    """Format a news article dict into a display string.
+
+    Args:
+        article (dict): The article data dictionary.
+
+    Returns:
+        str: A formatted string representation of the article.
+    """
     if "content" in article:
         data = _extract_article_data(article)
         title = data["title"]
@@ -147,12 +169,13 @@ def get_global_news_yfinance(curr_date: str, look_back_days: int = 7, limit: int
     """Retrieve global/macro economic news using yfinance Search.
 
     Args:
-        curr_date: Current date in yyyy-mm-dd format
-        look_back_days: Number of days to look back
-        limit: Maximum number of articles to return
+        curr_date (str): Current date in YYYY-MM-DD format.
+        look_back_days (int, optional): Number of days used for the report
+            window label. Defaults to 7.
+        limit (int, optional): Maximum number of articles to return. Defaults to 10.
 
     Returns:
-        Formatted string containing global news articles
+        str: A formatted global news report, a no-data message, or an error message.
     """
     search_queries = [
         "global stock market economy",

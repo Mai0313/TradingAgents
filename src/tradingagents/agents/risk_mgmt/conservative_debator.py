@@ -7,7 +7,24 @@ from tradingagents.agents.utils.agent_states import AgentState, RiskDebateState
 
 
 def create_conservative_debator(llm: ChatModel) -> Callable[[AgentState], dict[str, Any]]:
+    """Creates a conservative risk debator node for the trading graph.
+
+    Args:
+        llm (ChatModel): The language model to use for generating responses.
+
+    Returns:
+        Callable[[AgentState], dict[str, Any]]: A function representing the conservative risk debator node.
+    """
+
     def conservative_node(state: AgentState) -> dict[str, Any]:
+        """Executes the conservative debator logic to provide a conservative risk perspective.
+
+        Args:
+            state (AgentState): The current state of the agent, including reports, plan, and risk state.
+
+        Returns:
+            dict[str, Any]: A dictionary containing the updated risk_debate_state.
+        """
         risk = state.risk_debate_state
 
         prompt = load_prompt("conservative_debator").format(

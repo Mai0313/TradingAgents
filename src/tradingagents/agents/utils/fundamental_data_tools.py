@@ -16,10 +16,11 @@ def get_fundamentals(
     """Retrieve comprehensive fundamental data for a given ticker symbol.
 
     Args:
-        ticker (str): Ticker symbol of the company
-        curr_date (str): Current date you are trading at, yyyy-mm-dd
+        ticker (str): Ticker symbol of the company.
+        curr_date (str): Current trading date in YYYY-MM-DD format.
+
     Returns:
-        str: A formatted report containing comprehensive fundamental data
+        str: A formatted report containing comprehensive fundamental data.
     """
     return _get_fundamentals(ticker, curr_date)
 
@@ -33,11 +34,14 @@ def get_balance_sheet(
     """Retrieve balance sheet data for a given ticker symbol.
 
     Args:
-        ticker (str): Ticker symbol of the company
-        freq (str): Reporting frequency: annual/quarterly (default quarterly)
-        curr_date (str): Current date you are trading at, yyyy-mm-dd
+        ticker (str): Ticker symbol of the company.
+        freq (str, optional): Reporting frequency, either annual or quarterly.
+            Defaults to "quarterly".
+        curr_date (str | None, optional): Current trading date in YYYY-MM-DD
+            format. Defaults to None.
+
     Returns:
-        str: A formatted report containing balance sheet data
+        str: A formatted report containing balance sheet data.
     """
     return _get_balance_sheet(ticker, freq, curr_date)
 
@@ -51,11 +55,14 @@ def get_cashflow(
     """Retrieve cash flow statement data for a given ticker symbol.
 
     Args:
-        ticker (str): Ticker symbol of the company
-        freq (str): Reporting frequency: annual/quarterly (default quarterly)
-        curr_date (str): Current date you are trading at, yyyy-mm-dd
+        ticker (str): Ticker symbol of the company.
+        freq (str, optional): Reporting frequency, either annual or quarterly.
+            Defaults to "quarterly".
+        curr_date (str | None, optional): Current trading date in YYYY-MM-DD
+            format. Defaults to None.
+
     Returns:
-        str: A formatted report containing cash flow statement data
+        str: A formatted report containing cash flow statement data.
     """
     return _get_cashflow(ticker, freq, curr_date)
 
@@ -69,10 +76,13 @@ def get_income_statement(
     """Retrieve income statement data for a given ticker symbol.
 
     Args:
-        ticker (str): Ticker symbol of the company
-        freq (str): Reporting frequency: annual/quarterly (default quarterly)
-        curr_date (str): Current date you are trading at, yyyy-mm-dd
+        ticker (str): Ticker symbol of the company.
+        freq (str, optional): Reporting frequency, either annual or quarterly.
+            Defaults to "quarterly".
+        curr_date (str | None, optional): Current trading date in YYYY-MM-DD
+            format. Defaults to None.
+
     Returns:
-        str: A formatted report containing income statement data
+        str: A formatted report containing income statement data.
     """
     return _get_income_statement(ticker, freq, curr_date)

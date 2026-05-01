@@ -50,6 +50,17 @@ class NormalizedChatGoogleGenerativeAI(ChatGoogleGenerativeAI):
     """
 
     def invoke(self, prompt_input: object, config: object = None, **kwargs: object) -> object:
+        """Invoke the chat model and normalize the response content.
+
+        Args:
+            prompt_input (object): The input prompt for the chat model.
+            config (object | None, optional): Configuration for the invocation.
+                Defaults to None.
+            **kwargs (object): Additional keyword arguments.
+
+        Returns:
+            object: The chat response object with normalized string content.
+        """
         response = super().invoke(prompt_input, config, **kwargs)
         content = response.content
         if isinstance(content, list):
@@ -74,17 +85,22 @@ def build_chat_model(
     """Construct a chat model from an explicit provider + model name.
 
     Args:
-        provider: Langchain `init_chat_model` registry key (one of `LLMProvider`).
-        model: Model name as accepted by the provider (e.g. `gpt-5.4`,
+        provider (LLMProvider): Langchain `init_chat_model` registry key (one of `LLMProvider`).
+        model (str): Model name as accepted by the provider (e.g. `gpt-5.4`,
             `claude-sonnet-4-6`, `gemini-3.1-pro-preview`). Any model name
             containing `gemini` or `google` is routed through
             `NormalizedChatGoogleGenerativeAI` regardless of provider.
-        reasoning_effort: Unified reasoning level mapped per provider:
+        reasoning_effort (ReasoningEffort | None, optional): Unified reasoning
+            level mapped per provider:
             Anthropic -> `effort` (native low/medium/high/xhigh/max),
             OpenAI -> `reasoning_effort` (max -> xhigh; xhigh native),
             Google -> `thinking_level` (xhigh and max both clamped to high).
             Other providers do not expose a unified knob and ignore this.
-        callbacks: Optional LangChain callback handlers attached to the model.
+        callbacks (list[BaseCallbackHandler] | None, optional): LangChain
+            callback handlers attached to the model. Defaults to None.
+
+    Returns:
+        ChatModel: The constructed chat model instance.
     """
     kwargs: dict[str, Any] = {}
     if callbacks:
@@ -102,6 +118,13 @@ def build_chat_model(
 def _apply_reasoning(
     provider: LLMProvider, effort: ReasoningEffort, kwargs: dict[str, Any]
 ) -> None:
+    """Apply the corresponding reasoning effort configuration for a given provider.
+
+    Args:
+        provider (LLMProvider): The LLM provider key.
+        effort (ReasoningEffort): The unified reasoning effort level.
+        kwargs (dict[str, Any]): The configuration dictionary to be updated in-place.
+    """
     e = effort.lower()
     if provider == "anthropic":
         kwargs["effort"] = e
