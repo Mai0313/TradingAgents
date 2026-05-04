@@ -89,13 +89,15 @@ config = TradingAgentsConfig(
     max_risk_discuss_rounds=1,
     max_recur_limit=100,
     reasoning_effort="medium",
-    response_language="en",
+    response_language="en-US",
 )
 
 ta = TradingAgentsGraph(debug=True, config=config)
 _, decision = ta.propagate("NVDA", "2024-05-10")
 print(decision)
 ```
+
+`response_language` is a BCP 47 tag from the `ResponseLanguage` `Literal` (`zh-TW`, `zh-CN`, `en-US`, `ja-JP`, `ko-KR`, `de-DE`); pick the closest one to the language you want the agents to reason in.
 
 `TradingAgentsGraph.propagate` also accepts an optional `on_message` callback (`Callable[[AnyMessage], None]`) that fires once per streamed LangGraph message — useful for plugging in your own renderer; the bundled CLI / TUI use this hook to drive the Rich panels.
 

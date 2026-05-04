@@ -89,13 +89,15 @@ config = TradingAgentsConfig(
     max_risk_discuss_rounds=1,
     max_recur_limit=100,
     reasoning_effort="medium",
-    response_language="en",
+    response_language="en-US",
 )
 
 ta = TradingAgentsGraph(debug=True, config=config)
 _, decision = ta.propagate("NVDA", "2024-05-10")
 print(decision)
 ```
+
+`response_language` 是來自 `ResponseLanguage` `Literal` 的 BCP 47 tag（`zh-TW`、`zh-CN`、`en-US`、`ja-JP`、`ko-KR`、`de-DE`），挑最接近你希望 agent 用的語言即可。
 
 `TradingAgentsGraph.propagate` 也接受一個可選的 `on_message` callback（`Callable[[AnyMessage], None]`），每收到一則 streamed LangGraph 訊息就會呼叫一次 — 想接自己的 renderer 時很好用，內建的 CLI / TUI 也是用這個 hook 來餵 Rich panel。
 

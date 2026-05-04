@@ -12,7 +12,7 @@ import datetime
 from rich.console import Console
 
 from tradingagents.llm import LLMProvider, ReasoningEffort  # noqa: TC001
-from tradingagents.config import TradingAgentsConfig
+from tradingagents.config import ResponseLanguage, TradingAgentsConfig
 from tradingagents.interface.display import MessageRenderer, print_run_header, print_final_decision
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 
@@ -26,7 +26,7 @@ def run_cli(  # noqa: PLR0913
     deep_think_llm: str = "gemini-3.1-pro-preview",
     quick_think_llm: str = "gemini-3-flash-preview",
     reasoning_effort: ReasoningEffort = "high",
-    response_language: str = "zh-TW",
+    response_language: ResponseLanguage = "zh-TW",
     max_debate_rounds: int = 10,
     max_risk_discuss_rounds: int = 10,
     max_recur_limit: int = 100,
@@ -50,8 +50,9 @@ def run_cli(  # noqa: PLR0913
             gemini-3-flash-preview.
         reasoning_effort (ReasoningEffort, optional): Unified reasoning
             level mapped per provider. Defaults to high.
-        response_language (str, optional): Language instruction appended
-            to agent prompts. Defaults to zh-TW.
+        response_language (ResponseLanguage, optional): BCP 47 language
+            tag (zh-TW, zh-CN, en-US, ja-JP, ko-KR, de-DE) appended to
+            agent prompts. Defaults to zh-TW.
         max_debate_rounds (int, optional): Maximum Bull/Bear investment
             debate rounds. Defaults to 10.
         max_risk_discuss_rounds (int, optional): Maximum risk management

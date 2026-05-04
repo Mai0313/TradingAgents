@@ -9,12 +9,13 @@ def _response_language() -> str:
     """Get the preferred response language from the configuration.
 
     Returns:
-        str: The response language, defaults to "en" if configuration is unavailable.
+        str: The response language BCP 47 tag, defaults to "en-US" if
+        configuration is unavailable.
     """
     try:
         return get_config().response_language
     except RuntimeError:
-        return "en"
+        return "en-US"
 
 
 def _language_instruction() -> str:
@@ -23,7 +24,7 @@ def _language_instruction() -> str:
     Returns:
         str: The language instruction string to be appended to prompts.
     """
-    language = _response_language().strip() or "en"
+    language = _response_language().strip() or "en-US"
     language = language.replace("{", "{{").replace("}", "}}")
     return f"\n\nPlease respond in {language}."
 
