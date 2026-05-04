@@ -7,7 +7,7 @@ from functools import cached_property
 from pydantic import Field, BaseModel, ConfigDict, computed_field, model_validator
 from langgraph.prebuilt import ToolNode
 from langgraph.graph.state import CompiledStateGraph
-from langchain_core.messages import messages_to_dict
+from langchain_core.messages import AnyMessage, HumanMessage, messages_to_dict
 
 from tradingagents.llm import ChatModel, build_chat_model
 from tradingagents.config import TradingAgentsConfig, set_config
@@ -270,21 +270,29 @@ class TradingAgentsGraph(BaseModel):
         init_agent_state = self.propagator.create_initial_state(company_name, trade_date)
         args = self.propagator.get_graph_args(callbacks=self.callbacks or None)
 
-        if self.debug:
-            raw_state = None
-            last_printed_id = None
-            for chunk in self.graph.stream(init_agent_state, **args):
-                messages = (
-                    chunk.get("messages")
-                    if isinstance(chunk, dict)
-                    else getattr(chunk, "messages", None)
-                )
-                if messages and messages[-1].id != last_printed_id:
+        # Stream in "values" mode (set by Propagator.get_graph_args) so each chunk
+        # is the full state snapshot after a node runs. The graph clears
+        # state.messages between analysts via Msg Clear nodes, so the only way
+        # to capture every round of LLM dialogue is to collect messages as they
+        # appear in stream chunks (deduped by id).
+        raw_state = None
+        last_printed_id = None
+        collected: dict[str, AnyMessage] = {}
+        for chunk in self.graph.stream(init_agent_state, **args):
+            messages = (
+                chunk.get("messages")
+                if isinstance(chunk, dict)
+                else getattr(chunk, "messages", None)
+            )
+            if messages:
+                for msg in messages:
+                    mid = getattr(msg, "id", None)
+                    if mid and mid not in collected:
+                        collected[mid] = msg
+                if self.debug and messages[-1].id != last_printed_id:
                     messages[-1].pretty_print()
                     last_printed_id = messages[-1].id
-                raw_state = chunk
-        else:
-            raw_state = self.graph.invoke(init_agent_state, **args)
+            raw_state = chunk
 
         if raw_state is None:
             raise RuntimeError("Graph produced no output")
@@ -294,15 +302,20 @@ class TradingAgentsGraph(BaseModel):
         )
 
         self.curr_state = final_state
-        self._log_state(trade_date, final_state)
+        self._log_state(trade_date, final_state, list(collected.values()))
         return final_state, self.process_signal(final_state.final_trade_decision)
 
-    def _log_state(self, trade_date: str, final_state: AgentState) -> None:
+    def _log_state(
+        self, trade_date: str, final_state: AgentState, all_messages: list[AnyMessage]
+    ) -> None:
         """Log final state and conversation history for a graph run.
 
         Args:
             trade_date (str): Trade date in YYYY-MM-DD format.
             final_state (AgentState): The final agent state to log.
+            all_messages (list[AnyMessage]): Every message observed across the
+                graph run, in arrival order. Required because per-analyst Msg
+                Clear nodes wipe ``final_state.messages`` between rounds.
         """
         invest = final_state.investment_debate_state
         risk = final_state.risk_debate_state
@@ -342,23 +355,33 @@ class TradingAgentsGraph(BaseModel):
 
         # Save complete conversation log (includes raw tool results: stock data,
         # indicators, news, financials, insider transactions, etc.)
-        self._save_conversation_log(directory, trade_date, final_state)
+        self._save_conversation_log(directory, trade_date, all_messages)
 
     def _save_conversation_log(
-        self, directory: Path, trade_date: str, final_state: AgentState
+        self, directory: Path, trade_date: str, messages: list[AnyMessage]
     ) -> None:
         """Save text and JSON conversation logs including raw tool call results.
 
         Args:
             directory (Path): Output directory path.
             trade_date (str): Trade date.
-            final_state (AgentState): The final agent state.
+            messages (list[AnyMessage]): Full conversation collected across the
+                graph run.
         """
+        # Drop the "Continue" placeholders injected by Msg Clear nodes — they
+        # are graph plumbing for Anthropic's message-ordering rules, not real
+        # conversation turns.
+        filtered = [
+            msg
+            for msg in messages
+            if not (isinstance(msg, HumanMessage) and msg.content == "Continue")
+        ]
+
         # Human-readable text log (same format as debug pretty_print output)
         txt_path = directory / f"conversation_log_{trade_date}.txt"
         try:
             with open(txt_path, "w") as f:
-                for msg in final_state.messages:
+                for msg in filtered:
                     f.write(msg.pretty_repr() + "\n")
             logger.info("Conversation log saved to %s", txt_path)
         except Exception:
@@ -368,7 +391,7 @@ class TradingAgentsGraph(BaseModel):
         json_path = directory / f"conversation_log_{trade_date}.json"
         try:
             with open(json_path, "w") as f:
-                json.dump(messages_to_dict(final_state.messages), f, indent=2, ensure_ascii=False)
+                json.dump(messages_to_dict(filtered), f, indent=2, ensure_ascii=False)
             logger.info("Conversation JSON saved to %s", json_path)
         except Exception:
             logger.warning("Failed to save conversation JSON log", exc_info=True)
