@@ -1,7 +1,11 @@
 import datetime
 
+from rich.console import Console
+
 from tradingagents.config import TradingAgentsConfig
 from tradingagents.graph.trading_graph import TradingAgentsGraph
+
+console = Console()
 
 
 def main() -> None:
@@ -24,7 +28,7 @@ def main() -> None:
     ta = TradingAgentsGraph(debug=True, config=config)
     today = datetime.date.today().strftime("%Y-%m-%d")
     _, decision = ta.propagate("GOOG", today)
-    print(decision)  # noqa: T201
+    console.print(decision)
 
 
 if __name__ == "__main__":

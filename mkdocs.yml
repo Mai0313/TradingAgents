@@ -53,7 +53,12 @@ nav:
               - setup: Reference/tradingagents/graph/setup.md
               - signal_processing: Reference/tradingagents/graph/signal_processing.md
               - trading_graph: Reference/tradingagents/graph/trading_graph.md
-          - cli: Reference/tradingagents/cli.md
+          - interface:
+              - cli: Reference/tradingagents/interface/cli.md
+              - display: Reference/tradingagents/interface/display.md
+              - help: Reference/tradingagents/interface/help.md
+              - tui: Reference/tradingagents/interface/tui.md
+          - __main__: Reference/tradingagents/__main__.md
           - config: Reference/tradingagents/config.md
           - llm: Reference/tradingagents/llm.md
   - Scripts:

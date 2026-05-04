@@ -24,6 +24,8 @@ uv sync --group docs    # Install docs-only deps
 Optional tasks via `poe` (defined in `[tool.poe.tasks]`):
 
 ```bash
+uv run poe cli          # alias for `tradingagents cli`
+uv run poe tui          # alias for `tradingagents tui`
 uv run poe docs         # generate + serve docs
 uv run poe gen          # generate + deploy docs (gh-deploy)
 ```
@@ -63,10 +65,18 @@ src/tradingagents/
 ├── agents/      # @tool definitions, agent node creators, prompts/*.md, state schemas
 ├── dataflows/   # yfinance-backed data fetchers (plain module-level functions)
 ├── graph/       # LangGraph wiring: setup, propagation, reflection, signal_processing, conditional_logic
+├── interface/   # User-facing runners
+│   ├── cli.py     # fire-driven flag runner (run_cli)
+│   ├── tui.py     # questionary-driven interactive runner (run_tui)
+│   ├── display.py # rich-based LangChain message renderer
+│   └── help.py    # rich-based help renderer (replaces fire's pager UI)
 ├── llm.py       # build_chat_model wrapping init_chat_model + per-provider reasoning_effort mapping
 ├── config.py    # TradingAgentsConfig schema + global singleton (set_config / get_config)
-└── cli.py       # Entry point
+├── __init__.py  # Top-level public API re-exports (intentionally lightweight)
+└── __main__.py  # Single dispatcher: backs both `tradingagents` console script and `python -m tradingagents`
 ```
+
+The console script (defined under `[project.scripts]` in `pyproject.toml`) and `python -m tradingagents` both resolve to `tradingagents.__main__:main`. That function intercepts `--help`, `-h`, and the literal `help` token and renders `interface/help.py` directly, then hands the remaining args to `fire.Fire({"cli": run_cli, "tui": run_tui})`. There is no separate `app.py` layer.
 
 Canonical examples (read these before writing similar code):
 

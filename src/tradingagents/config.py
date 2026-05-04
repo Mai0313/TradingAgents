@@ -1,8 +1,18 @@
+from typing import Literal
 from pathlib import Path
 
 from pydantic import Field, BaseModel, computed_field
 
 from tradingagents.llm import LLMProvider, ReasoningEffort
+
+ResponseLanguage = Literal[
+    "zh-TW",  # Traditional Chinese
+    "zh-CN",  # Simplified Chinese
+    "en-US",  # English (United States)
+    "ja-JP",  # Japanese
+    "ko-KR",  # Korean
+    "de-DE",  # German
+]
 
 
 class TradingAgentsConfig(BaseModel):
@@ -34,7 +44,7 @@ class TradingAgentsConfig(BaseModel):
         ...,
         title="Quick Thinking LLM",
         description=(
-            "Model name for quick-thinking nodes (analysts, researchers, trader, debators)."
+            "Model name for quick-thinking nodes (analysts, researchers, trader, debaters)."
         ),
     )
     reasoning_effort: ReasoningEffort = Field(
@@ -45,12 +55,13 @@ class TradingAgentsConfig(BaseModel):
             "Mapped per-provider inside build_chat_model."
         ),
     )
-    response_language: str = Field(
-        default="en",
+    response_language: ResponseLanguage = Field(
+        default="en-US",
         title="Response Language",
         description=(
-            "Language instruction appended to agent prompts, e.g. `en`, "
-            "`Traditional Chinese`, or `zh-TW`."
+            "BCP 47 language tag (ISO 639-1 + ISO 3166-1 alpha-2) appended "
+            "to agent prompts. Supported values: zh-TW, zh-CN, en-US, "
+            "ja-JP, ko-KR, de-DE."
         ),
     )
     max_debate_rounds: int = Field(

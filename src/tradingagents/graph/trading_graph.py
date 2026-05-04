@@ -3,6 +3,7 @@ from typing import Any
 import logging
 from pathlib import Path
 from functools import cached_property
+from collections.abc import Callable
 
 from pydantic import Field, BaseModel, ConfigDict, computed_field, model_validator
 from langgraph.prebuilt import ToolNode
@@ -252,12 +253,23 @@ class TradingAgentsGraph(BaseModel):
 
     # --- Public methods ---
 
-    def propagate(self, company_name: str, trade_date: str) -> tuple[AgentState, str]:
+    def propagate(
+        self,
+        company_name: str,
+        trade_date: str,
+        on_message: Callable[[AnyMessage], None] | None = None,
+    ) -> tuple[AgentState, str]:
         """Run the trading agents graph for a company on a specific date.
 
         Args:
             company_name (str): Company name or ticker symbol.
             trade_date (str): Trading date in YYYY-MM-DD format.
+            on_message (Callable[[AnyMessage], None] | None, optional):
+                Callback invoked once per newly-produced message during the
+                stream. When provided, takes precedence over the default
+                debug print path so callers (CLI, TUI) can route output
+                through Rich panels instead of message.pretty_print().
+                Defaults to None.
 
         Returns:
             tuple[AgentState, str]: The final agent state and the extracted signal decision.
@@ -276,7 +288,7 @@ class TradingAgentsGraph(BaseModel):
         # to capture every round of LLM dialogue is to collect messages as they
         # appear in stream chunks (deduped by id).
         raw_state = None
-        last_printed_id = None
+        last_emitted_id = None
         collected: dict[str, AnyMessage] = {}
         for chunk in self.graph.stream(init_agent_state, **args):
             messages = (
@@ -289,9 +301,13 @@ class TradingAgentsGraph(BaseModel):
                     mid = getattr(msg, "id", None)
                     if mid and mid not in collected:
                         collected[mid] = msg
-                if self.debug and messages[-1].id != last_printed_id:
-                    messages[-1].pretty_print()
-                    last_printed_id = messages[-1].id
+                latest = messages[-1]
+                if latest.id != last_emitted_id:
+                    if on_message is not None:
+                        on_message(latest)
+                    elif self.debug:
+                        latest.pretty_print()
+                    last_emitted_id = latest.id
             raw_state = chunk
 
         if raw_state is None:

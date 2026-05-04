@@ -69,6 +69,7 @@ authors = [
 dependencies = [
     "backtrader>=1.9.78.123",
     "chainlit>=2.11.1",
+    "fire>=0.7.1",
     "langchain-litellm>=0.6.4",
     "langchain-ollama>=1.1.0",
     "langchain-openrouter>=0.2.1",
@@ -79,6 +80,7 @@ dependencies = [
     "parsel>=1.11.0",
     "pydantic>=2.13.3",
     "pytz>=2026.1.post1",
+    "questionary>=2.1.1",
     "rank-bm25>=0.2.2",
     "redis>=7.4.0",
     "requests>=2.33.1",
@@ -98,8 +100,7 @@ Homepage = "https://mai0313.github.io/tradingagents"
 Repository = "https://github.com/Mai0313/tradingagents"
 
 [project.scripts]
-cli = "tradingagents.cli:main"
-tradingagents = "tradingagents.cli:main"
+tradingagents = "tradingagents.__main__:main"
 
 [dependency-groups]
 dev = [
@@ -119,12 +120,10 @@ test = [
 ]
 docs = [
     "anyio",
-    "fire",
     "griffe-typingdoc",
     "markdown-exec[ansi]",
     "mkdocs-autorefs",
     "mkdocstrings[python]",
-    "rich",
     "ruff",
     "tabulate",
     "zensical",
@@ -181,9 +180,8 @@ exclude = [
 ]
 
 [tool.poe.tasks]
-cli = "python ./src/tradingagents/cli.py"
-api = "python ./src/tradingagents/cli.py"
-main = "python ./src/tradingagents/cli.py"
+cli = "tradingagents cli"
+tui = "tradingagents tui"
 
 # Documentation
 docs_gen = "make gen-docs"
