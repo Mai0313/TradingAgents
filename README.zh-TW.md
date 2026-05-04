@@ -59,6 +59,24 @@ OPENROUTER_API_KEY=...
 
 ### 使用方式
 
+#### Command line / 互動模式
+
+套件提供 `tradingagents` console script，內含兩個 subcommand：
+
+```bash
+uv run tradingagents tui                     # 互動式 questionary 流程
+uv run tradingagents cli                     # 全部使用預設值執行
+uv run tradingagents cli --ticker AAPL \
+    --deep_think_llm gpt-5 \
+    --quick_think_llm gpt-5-mini             # 透過 flag 覆寫
+uv run tradingagents --help                  # rich 渲染的 top-level help
+uv run tradingagents cli --help              # rich 渲染的 per-command flag 列表
+```
+
+`tradingagents tui` 會用一連串 questionary prompt 帶你走完所有參數（ticker、日期、provider、models、辯論輪數、analyst 選擇等）；`tradingagents cli` 是同一條流程，但完全用 command-line flag 驅動，方便寫進 shell script 或 CI。兩條路徑跑 graph 時都會把 LangGraph 的 agent 訊息透過 Rich panel 串流出來（prose 用 Markdown 渲染、tool 輸出做 JSON pretty-print、payload 過長會自動截斷）。`python -m tradingagents <subcommand>` 也走同一條 dispatcher。
+
+#### 程式呼叫
+
 ```python
 from tradingagents.config import TradingAgentsConfig
 from tradingagents.graph.trading_graph import TradingAgentsGraph
@@ -78,6 +96,8 @@ ta = TradingAgentsGraph(debug=True, config=config)
 _, decision = ta.propagate("NVDA", "2024-05-10")
 print(decision)
 ```
+
+`TradingAgentsGraph.propagate` 也接受一個可選的 `on_message` callback（`Callable[[AnyMessage], None]`），每收到一則 streamed LangGraph 訊息就會呼叫一次 — 想接自己的 renderer 時很好用，內建的 CLI / TUI 也是用這個 hook 來餵 Rich panel。
 
 `llm_provider` 是 `langchain.chat_models.init_chat_model` 的 registry key（`openai`、`anthropic`、`google_genai`、`xai`、`openrouter`、`ollama`、`huggingface`、`litellm`)；`deep_think_llm` / `quick_think_llm` 則填該 provider 接受的 model name(`gpt-5`、`claude-sonnet-4-6`、`gemini-3-pro-preview`、`grok-4` 等）。
 
@@ -112,9 +132,15 @@ src/
     │   └── utils/        # 共用 Agent 工具
     ├── dataflows/        # yfinance 數據擷取
     ├── graph/            # LangGraph 交易圖設定
+    ├── interface/        # CLI / TUI 實作
+    │   ├── cli.py        # fire 驅動的 flag runner（run_cli）
+    │   ├── tui.py        # questionary 驅動的互動式 runner（run_tui）
+    │   ├── display.py    # rich 版本的 LangChain message renderer
+    │   └── help.py       # 取代 fire pager 的 rich help
     ├── llm.py            # Chat model 構造（init_chat_model wrapper + reasoning_effort mapping）
     ├── config.py         # TradingAgentsConfig schema 與全域 singleton
-    └── cli.py            # 入口
+    ├── __init__.py       # Top-level public API（TradingAgentsConfig、TradingAgentsGraph）
+    └── __main__.py       # Console script 入口（fire dispatcher 加 rich help）
 ```
 
 ## 🤖 Agent 工作流程

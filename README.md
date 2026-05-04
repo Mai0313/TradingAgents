@@ -59,6 +59,24 @@ OPENROUTER_API_KEY=...
 
 ### Usage
 
+#### Command line / interactive
+
+The package ships a `tradingagents` console script with two subcommands:
+
+```bash
+uv run tradingagents tui                     # interactive questionary prompts
+uv run tradingagents cli                     # run with all defaults
+uv run tradingagents cli --ticker AAPL \
+    --deep_think_llm gpt-5 \
+    --quick_think_llm gpt-5-mini             # override flags
+uv run tradingagents --help                  # rich-rendered top-level help
+uv run tradingagents cli --help              # rich-rendered per-command flags
+```
+
+`tradingagents tui` walks you through every parameter (ticker, date, provider, models, debate rounds, analyst selection, ...) via interactive prompts; `tradingagents cli` is the same flow but driven entirely by command-line flags so it composes with shell scripts and CI. Both routes stream LangGraph agent messages through Rich panels (Markdown for prose, JSON-pretty for tool output, truncated when payloads exceed a screenful). `python -m tradingagents <subcommand>` works as well.
+
+#### Programmatic
+
 ```python
 from tradingagents.config import TradingAgentsConfig
 from tradingagents.graph.trading_graph import TradingAgentsGraph
@@ -78,6 +96,8 @@ ta = TradingAgentsGraph(debug=True, config=config)
 _, decision = ta.propagate("NVDA", "2024-05-10")
 print(decision)
 ```
+
+`TradingAgentsGraph.propagate` also accepts an optional `on_message` callback (`Callable[[AnyMessage], None]`) that fires once per streamed LangGraph message — useful for plugging in your own renderer; the bundled CLI / TUI use this hook to drive the Rich panels.
 
 `llm_provider` is one of the `langchain.chat_models.init_chat_model` registry keys (`openai`, `anthropic`, `google_genai`, `xai`, `openrouter`, `ollama`, `huggingface`, `litellm`); `deep_think_llm` / `quick_think_llm` take the model name as accepted by that provider (`gpt-5`, `claude-sonnet-4-6`, `gemini-3-pro-preview`, `grok-4`, ...).
 
@@ -112,9 +132,15 @@ src/
     │   └── utils/        # Shared agent utilities
     ├── dataflows/        # Data ingestion via yfinance
     ├── graph/            # LangGraph trading graph setup
+    ├── interface/        # CLI / TUI implementations
+    │   ├── cli.py        # fire-driven flag runner (run_cli)
+    │   ├── tui.py        # questionary-driven interactive runner (run_tui)
+    │   ├── display.py    # rich-based LangChain message renderer
+    │   └── help.py       # rich-based replacement for fire's pager help
     ├── llm.py            # Chat model construction (init_chat_model wrapper + reasoning_effort mapping)
     ├── config.py         # TradingAgentsConfig schema + global singleton
-    └── cli.py            # Entry point
+    ├── __init__.py       # Top-level public API (TradingAgentsConfig, TradingAgentsGraph)
+    └── __main__.py       # Console script entry point (fire dispatcher with rich help)
 ```
 
 ## 🤖 Agent Workflow
