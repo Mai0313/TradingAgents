@@ -11,6 +11,7 @@ from langchain_core.messages import messages_to_dict
 
 from tradingagents.llm import ChatModel, build_chat_model
 from tradingagents.config import TradingAgentsConfig, set_config
+from tradingagents.interface.display import pretty_print_message
 from tradingagents.agents.utils.memory import FinancialSituationMemory
 from tradingagents.agents.utils.agent_utils import (
     get_news,
@@ -280,7 +281,7 @@ class TradingAgentsGraph(BaseModel):
                     else getattr(chunk, "messages", None)
                 )
                 if messages and messages[-1].id != last_printed_id:
-                    messages[-1].pretty_print()
+                    pretty_print_message(messages[-1])
                     last_printed_id = messages[-1].id
                 raw_state = chunk
         else:

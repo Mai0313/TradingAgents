@@ -98,6 +98,33 @@ ta = TradingAgentsGraph(config=config)
 _, decision = ta.propagate("2330", "2024-05-10")
 ```
 
+### CLI 与 TUI
+
+`tradingagents` console script（通过 `pip install` / `uv sync` 安装）提供两个 `fire` 子命令，两者共享相同的 Rich 美化输出（每个 LangChain message 一个 colour-coded panel、最后一个 BUY/SELL/HOLD decision 卡片）。
+
+```bash
+# 交互式 TUI（questionary 逐一询问每个字段）
+uv run tradingagents tui
+
+# 直接以默认值跑一次
+uv run tradingagents cli
+
+# 通过 flag 覆写任意字段
+uv run tradingagents cli \
+    --ticker=NVDA \
+    --trade-date=2024-05-10 \
+    --llm-provider=openai \
+    --deep-think-llm=gpt-5 \
+    --quick-think-llm=gpt-5-mini \
+    --reasoning-effort=medium \
+    --response-language=zh-CN
+
+# 列出所有可用 flag
+uv run tradingagents cli --help
+```
+
+进入 TUI 后，每个 prompt 旁边都会显示当前 default。直接按 Enter 表示采用 default；输入或勾选任何内容则会完全覆写 default。
+
 ## 📁 项目结构
 
 ```
@@ -112,9 +139,12 @@ src/
     │   └── utils/        # 共用 Agent 工具
     ├── dataflows/        # yfinance 数据采集
     ├── graph/            # LangGraph 交易图配置
+    ├── interface/        # 用户界面入口（未来可加入 webui / api）
+    │   ├── cli.py        # fire-based CLI（`tradingagents cli ...`）
+    │   ├── tui.py        # questionary-based 交互式 TUI
+    │   └── display.py    # 共享的 Rich console 与 LangChain message 渲染器
     ├── llm.py            # Chat model 构造（init_chat_model wrapper + reasoning_effort mapping）
-    ├── config.py         # TradingAgentsConfig schema 与全局 singleton
-    └── cli.py            # 入口
+    └── config.py         # TradingAgentsConfig schema 与全局 singleton
 ```
 
 ## 🤖 Agent 工作流程

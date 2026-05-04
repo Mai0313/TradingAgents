@@ -60,13 +60,15 @@ All workflows under `.github/workflows/`:
 
 ```
 src/tradingagents/
-├── agents/      # @tool definitions, agent node creators, prompts/*.md, state schemas
-├── dataflows/   # yfinance-backed data fetchers (plain module-level functions)
-├── graph/       # LangGraph wiring: setup, propagation, reflection, signal_processing, conditional_logic
-├── llm.py       # build_chat_model wrapping init_chat_model + per-provider reasoning_effort mapping
-├── config.py    # TradingAgentsConfig schema + global singleton (set_config / get_config)
-└── cli.py       # Entry point
+├── agents/        # @tool definitions, agent node creators, prompts/*.md, state schemas
+├── dataflows/     # yfinance-backed data fetchers (plain module-level functions)
+├── graph/         # LangGraph wiring: setup, propagation, reflection, signal_processing, conditional_logic
+├── interface/     # User-facing entry points (fire CLI, questionary TUI, Rich display utils; future webui / api)
+├── llm.py         # build_chat_model wrapping init_chat_model + per-provider reasoning_effort mapping
+└── config.py      # TradingAgentsConfig schema + global singleton (set_config / get_config)
 ```
+
+The console script `tradingagents` is bound to `tradingagents.interface.cli:main`. Anything that surfaces output to a human (CLI flags, TUI prompts, Rich panels) lives under `interface/`; anything that talks to LLMs / data sources / LangGraph stays out.
 
 Canonical examples (read these before writing similar code):
 

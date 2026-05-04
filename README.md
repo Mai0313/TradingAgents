@@ -98,6 +98,33 @@ ta = TradingAgentsGraph(config=config)
 _, decision = ta.propagate("2330", "2024-05-10")
 ```
 
+### CLI & TUI
+
+The `tradingagents` console script (installed via `pip install` / `uv sync`) exposes two `fire`-driven subcommands. Both share the same Rich-formatted output, including a colour-coded panel per LangChain message and a final BUY/SELL/HOLD decision card.
+
+```bash
+# Interactive TUI (questionary-driven, asks for every field)
+uv run tradingagents tui
+
+# Non-interactive CLI with defaults
+uv run tradingagents cli
+
+# Override any subset of fields
+uv run tradingagents cli \
+    --ticker=NVDA \
+    --trade-date=2024-05-10 \
+    --llm-provider=openai \
+    --deep-think-llm=gpt-5 \
+    --quick-think-llm=gpt-5-mini \
+    --reasoning-effort=medium \
+    --response-language=en
+
+# Discover every supported flag
+uv run tradingagents cli --help
+```
+
+In the TUI, every prompt shows its default value next to the prompt; pressing Enter on a blank input keeps the default, and anything you type or tick fully overrides it.
+
 ## 📁 Project Structure
 
 ```
@@ -112,9 +139,12 @@ src/
     │   └── utils/        # Shared agent utilities
     ├── dataflows/        # Data ingestion via yfinance
     ├── graph/            # LangGraph trading graph setup
+    ├── interface/        # User-facing entry points (room for future webui / api)
+    │   ├── cli.py        # fire-based CLI (`tradingagents cli ...`)
+    │   ├── tui.py        # questionary-based interactive TUI
+    │   └── display.py    # Shared Rich console + LangChain message renderer
     ├── llm.py            # Chat model construction (init_chat_model wrapper + reasoning_effort mapping)
-    ├── config.py         # TradingAgentsConfig schema + global singleton
-    └── cli.py            # Entry point
+    └── config.py         # TradingAgentsConfig schema + global singleton
 ```
 
 ## 🤖 Agent Workflow
