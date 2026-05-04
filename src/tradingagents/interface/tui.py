@@ -2,15 +2,16 @@
 
 Wraps :func:`tradingagents.interface.cli.run_cli` with a series of
 questionary prompts so a user can drive a run end-to-end without
-remembering any flags. All defaults match :func:`run_cli`'s defaults so
-just pressing enter reproduces the legacy python -m tradingagents.cli
-behaviour.
+remembering any flags. Defaults are surfaced inline in each prompt
+("[default: X]") rather than pre-filled into the input field, so just
+pressing enter on every prompt reproduces the legacy
+python -m tradingagents.cli behaviour.
 """
 
 from __future__ import annotations
 
 import sys
-from typing import Any
+from typing import Any, get_args
 import datetime
 
 from rich.text import Text
@@ -20,6 +21,8 @@ import questionary
 from questionary import Choice
 from rich.console import Console
 
+from tradingagents.llm import LLMProvider, ReasoningEffort
+from tradingagents.config import ResponseLanguage
 from tradingagents.interface.cli import DEFAULT_ANALYSTS, run_cli
 
 
@@ -33,29 +36,6 @@ class _AbortError(Exception):
     """
 
 
-_LLM_PROVIDERS: tuple[str, ...] = (
-    "openai",
-    "anthropic",
-    "google_genai",
-    "xai",
-    "huggingface",
-    "openrouter",
-    "ollama",
-    "litellm",
-)
-_REASONING_EFFORTS: tuple[str, ...] = ("low", "medium", "high", "xhigh", "max")
-_RESPONSE_LANGUAGES: tuple[str, ...] = (
-    "zh-TW",
-    "zh-CN",
-    "en",
-    "Traditional Chinese",
-    "Simplified Chinese",
-    "English",
-    "Japanese",
-    "Korean",
-)
-
-
 def run_tui() -> str | None:
     """Drive a TradingAgents run via interactive questionary prompts.
 
@@ -66,7 +46,11 @@ def run_tui() -> str | None:
     console = Console()
     console.print(
         Panel(
-            Text("Interactive setup. Press Ctrl+C to abort at any time.", style="bold"),
+            Text(
+                "Interactive setup. Press enter to accept the default shown in [brackets]. "
+                "Ctrl+C aborts at any time.",
+                style="bold",
+            ),
             title="[bold cyan]TradingAgents - TUI[/]",
             title_align="left",
             border_style="cyan",
@@ -96,6 +80,11 @@ def run_tui() -> str | None:
 def _collect_answers() -> dict[str, Any]:
     """Collect every run_cli parameter via questionary prompts.
 
+    Text-style prompts are left blank; the default value is displayed
+    inline ("[default: X]") and falls back via _text_or / _ask_int so
+    pressing enter accepts the default without it being pre-typed into
+    the input.
+
     Returns:
         dict[str, Any]: Keyword arguments suitable for :func:`run_cli`.
 
@@ -104,30 +93,18 @@ def _collect_answers() -> dict[str, Any]:
     """
     today = datetime.date.today().strftime("%Y-%m-%d")
 
-    ticker = _ask(questionary.text("Ticker symbol", default="GOOG")).strip() or "GOOG"
-    date = _ask(
-        questionary.text("Trade date (YYYY-MM-DD)", default=today, validate=_validate_date)
+    ticker = _text_or("Ticker symbol", default="GOOG")
+    date = _text_or("Trade date YYYY-MM-DD", default=today, validate=_validate_date)
+    llm_provider = _select("LLM provider", LLMProvider, default="google_genai")
+    deep_think_llm = _text_or(
+        "Deep-thinking LLM (Research Manager / Risk Manager)", default="gemini-3.1-pro-preview"
     )
-    llm_provider = _ask(
-        questionary.select("LLM provider", choices=list(_LLM_PROVIDERS), default="google_genai")
+    quick_think_llm = _text_or(
+        "Quick-thinking LLM (analysts / researchers / trader)", default="gemini-3-flash-preview"
     )
-    deep_think_llm = _ask(
-        questionary.text(
-            "Deep-thinking LLM (Research Manager / Risk Manager)", default="gemini-3.1-pro-preview"
-        )
-    )
-    quick_think_llm = _ask(
-        questionary.text(
-            "Quick-thinking LLM (analysts / researchers / trader)",
-            default="gemini-3-flash-preview",
-        )
-    )
-    reasoning_effort = _ask(
-        questionary.select("Reasoning effort", choices=list(_REASONING_EFFORTS), default="high")
-    )
-    response_language = _ask(
-        questionary.select("Response language", choices=list(_RESPONSE_LANGUAGES), default="zh-TW")
-    )
+    reasoning_effort = _select("Reasoning effort", ReasoningEffort, default="high")
+    response_language = _select("Response language", ResponseLanguage, default="zh-TW")
+
     selected_analysts = _ask(
         questionary.checkbox(
             "Select analysts to include",
@@ -175,23 +152,58 @@ def _ask(question: questionary.Question) -> Any:  # noqa: ANN401
     return answer
 
 
-def _ask_int(message: str, *, default: int, minimum: int = 0) -> int:
-    """Prompt for an integer value with validation.
+def _text_or(message: str, *, default: str, validate: Any = None) -> str:  # noqa: ANN401
+    """Prompt for a text input without pre-filling, falling back to default.
+
+    The input field is left blank; the default value is appended to the
+    message as "[default: X]" so the user knows what enter accepts.
+    Empty input (whitespace-only) becomes ``default``.
 
     Args:
-        message (str): The questionary prompt label.
-        default (int): The default value pre-filled into the prompt.
+        message (str): The label shown to the user (without the
+            "[default: ...]" suffix; this helper appends it).
+        default (str): Value returned when the user presses enter on an
+            empty input.
+        validate (Any, optional): A questionary validator that must
+            accept empty strings (the default callbacks here do).
+            Defaults to None.
+
+    Returns:
+        str: The trimmed user input, or ``default`` if the input was
+        empty.
+
+    Raises:
+        _AbortError: If the user cancels the prompt.
+    """
+    raw = _ask(
+        questionary.text(f"{message} [default: {default}]", validate=validate)
+        if validate is not None
+        else questionary.text(f"{message} [default: {default}]")
+    )
+    return raw.strip() or default
+
+
+def _ask_int(message: str, *, default: int, minimum: int = 0) -> int:
+    """Prompt for an integer with a blank input and an inline default.
+
+    Args:
+        message (str): The questionary prompt label (the helper appends
+            "[default: N]").
+        default (int): The value returned when the user presses enter on
+            an empty input.
         minimum (int, optional): Minimum allowed value (inclusive).
             Defaults to 0.
 
     Returns:
-        int: The parsed integer.
+        int: The parsed integer, or ``default`` if the input was empty.
 
     Raises:
         _AbortError: If the user cancels the prompt.
     """
 
     def _validate(value: str) -> bool | str:
+        if not value.strip():
+            return True
         try:
             parsed = int(value)
         except ValueError:
@@ -200,12 +212,35 @@ def _ask_int(message: str, *, default: int, minimum: int = 0) -> int:
             return f"Must be >= {minimum}."
         return True
 
-    raw = _ask(questionary.text(message, default=str(default), validate=_validate))
-    return int(raw)
+    raw = _ask(questionary.text(f"{message} [default: {default}]", validate=_validate))
+    return int(raw) if raw.strip() else default
+
+
+def _select(message: str, literal_alias: Any, *, default: str) -> str:  # noqa: ANN401
+    """Prompt for a value from a Literal type's allowed members.
+
+    Args:
+        message (str): The questionary prompt label.
+        literal_alias (Any): A typing.Literal alias whose
+            :func:`typing.get_args` members are used as the choices.
+        default (str): The pre-highlighted choice.
+
+    Returns:
+        str: The selected option.
+
+    Raises:
+        _AbortError: If the user cancels the prompt.
+    """
+    return _ask(
+        questionary.select(message, choices=list(get_args(literal_alias)), default=default)
+    )
 
 
 def _validate_date(value: str) -> bool | str:
-    """Validate that the input parses as YYYY-MM-DD.
+    """Validate that the input parses as YYYY-MM-DD (empty is allowed).
+
+    Empty input is treated as "use the default" by the caller, so the
+    validator must accept it without complaining.
 
     Args:
         value (str): The user-entered date string.
@@ -214,6 +249,8 @@ def _validate_date(value: str) -> bool | str:
         bool | str: True on success, otherwise an error message string
         consumed by questionary.
     """
+    if not value.strip():
+        return True
     try:
         datetime.date.fromisoformat(value)
     except ValueError:
