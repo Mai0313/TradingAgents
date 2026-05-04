@@ -17,7 +17,6 @@ from rich.markdown import Markdown
 from langchain_core.messages import BaseMessage
 
 console: Console = Console()
-"""Project-wide Rich console; reuse this instead of constructing new ones."""
 
 _ROLE_STYLES: dict[str, tuple[str, str]] = {
     "human": ("Human", "cyan"),
