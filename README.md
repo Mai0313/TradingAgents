@@ -173,7 +173,7 @@ Supported technical indicators (selected by the Market Analyst, up to 8 per run)
 
 ### Phase 4 — Risk Control Debate
 
-Three debators rotate in a fixed order — **Aggressive → Conservative → Neutral → Aggressive → …** — for `max_risk_discuss_rounds` rounds (default: 1 round per stance). Termination: `count >= 3 * max_risk_discuss_rounds` routes to the **Risk Judge** (deep-thinking LLM via `create_risk_manager`), which revises the trader's plan and writes the `final_trade_decision`. A lightweight `SignalProcessor` LLM then extracts the canonical `BUY` / `SELL` / `HOLD` token from that natural-language decision.
+Three debaters rotate in a fixed order — **Aggressive → Conservative → Neutral → Aggressive → …** — for `max_risk_discuss_rounds` rounds (default: 1 round per stance). Termination: `count >= 3 * max_risk_discuss_rounds` routes to the **Risk Judge** (deep-thinking LLM via `create_risk_manager`), which revises the trader's plan and writes the `final_trade_decision`. A lightweight `SignalProcessor` LLM then extracts the canonical `BUY` / `SELL` / `HOLD` token from that natural-language decision.
 
 ### Supporting components
 

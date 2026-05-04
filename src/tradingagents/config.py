@@ -44,7 +44,7 @@ class TradingAgentsConfig(BaseModel):
         ...,
         title="Quick Thinking LLM",
         description=(
-            "Model name for quick-thinking nodes (analysts, researchers, trader, debators)."
+            "Model name for quick-thinking nodes (analysts, researchers, trader, debaters)."
         ),
     )
     reasoning_effort: ReasoningEffort = Field(

@@ -46,7 +46,7 @@ def run_cli(  # noqa: PLR0913
             (Research Manager, Risk Manager). Defaults to
             gemini-3.1-pro-preview.
         quick_think_llm (str, optional): Model name for quick-thinking
-            nodes (analysts, researchers, trader, debators). Defaults to
+            nodes (analysts, researchers, trader, debaters). Defaults to
             gemini-3-flash-preview.
         reasoning_effort (ReasoningEffort, optional): Unified reasoning
             level mapped per provider. Defaults to high.
