@@ -210,7 +210,7 @@ Research Manager  →  Trader
 Risk Judge  →  SignalProcessor  →  END
 ```
 
-每次執行的完整 state 會寫入 `results/<股票代碼>/TradingAgentsStrategy_logs/full_states_log_<日期>.json`（路徑由 `TradingAgentsConfig.results_dir` 決定，預設為 `./results`）。
+每次執行的 log 會寫入 `results/<股票代碼>/`：`full_states_log_<股票代碼>_<日期>.json`、`conversation_log_<股票代碼>_<日期>.txt`、`conversation_log_<股票代碼>_<日期>.json`（base path 由 `TradingAgentsConfig.results_dir` 決定，預設為 `./results`）。
 
 ## 🤝 貢獻
 

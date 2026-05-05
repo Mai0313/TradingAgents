@@ -210,7 +210,7 @@ Research Manager  →  Trader
 Risk Judge  →  SignalProcessor  →  END
 ```
 
-Per-run logs are written to `results/<TICKER>/TradingAgentsStrategy_logs/full_states_log_<DATE>.json` (the path resolves from `TradingAgentsConfig.results_dir`, which defaults to `./results`).
+Per-run logs are written under `results/<TICKER>/`: `full_states_log_<TICKER>_<DATE>.json`, `conversation_log_<TICKER>_<DATE>.txt`, and `conversation_log_<TICKER>_<DATE>.json` (the base path resolves from `TradingAgentsConfig.results_dir`, which defaults to `./results`).
 
 ## 🤝 Contributing
 

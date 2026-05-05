@@ -362,27 +362,32 @@ class TradingAgentsGraph(BaseModel):
         }
 
         ticker_name = self.ticker or "unknown"
-        directory = self.config.results_dir / ticker_name / "TradingAgentsStrategy_logs"
+        directory = self.config.results_dir / ticker_name
         directory.mkdir(parents=True, exist_ok=True)
 
-        log_path = directory / f"full_states_log_{trade_date}.json"
+        log_path = directory / f"full_states_log_{ticker_name}_{trade_date}.json"
         with open(log_path, "w") as f:
             json.dump(self.log_states_dict, f, indent=2, ensure_ascii=False)
 
         # Save complete conversation log (includes raw tool results: stock data,
         # indicators, news, financials, insider transactions, etc.)
-        self._save_conversation_log(directory, trade_date, all_messages)
+        self._save_conversation_log(
+            directory=directory,
+            ticker_name=ticker_name,
+            trade_date=trade_date,
+            messages=all_messages,
+        )
 
     def _save_conversation_log(
-        self, directory: Path, trade_date: str, messages: list[AnyMessage]
+        self, directory: Path, ticker_name: str, trade_date: str, messages: list[AnyMessage]
     ) -> None:
         """Save text and JSON conversation logs including raw tool call results.
 
         Args:
             directory (Path): Output directory path.
+            ticker_name (str): Ticker symbol for naming the log files.
             trade_date (str): Trade date.
-            messages (list[AnyMessage]): Full conversation collected across the
-                graph run.
+            messages (list[AnyMessage]): Full conversation collected across the graph run.
         """
         # Drop the "Continue" placeholders injected by Msg Clear nodes — they
         # are graph plumbing for Anthropic's message-ordering rules, not real
@@ -394,7 +399,7 @@ class TradingAgentsGraph(BaseModel):
         ]
 
         # Human-readable text log (same format as debug pretty_print output)
-        txt_path = directory / f"conversation_log_{trade_date}.txt"
+        txt_path = directory / f"conversation_log_{ticker_name}_{trade_date}.txt"
         try:
             with open(txt_path, "w") as f:
                 for msg in filtered:
@@ -404,7 +409,7 @@ class TradingAgentsGraph(BaseModel):
             logger.warning("Failed to save conversation text log", exc_info=True)
 
         # Structured JSON log (machine-readable, for programmatic analysis)
-        json_path = directory / f"conversation_log_{trade_date}.json"
+        json_path = directory / f"conversation_log_{ticker_name}_{trade_date}.json"
         try:
             with open(json_path, "w") as f:
                 json.dump(messages_to_dict(filtered), f, indent=2, ensure_ascii=False)
