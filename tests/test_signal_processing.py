@@ -1,6 +1,6 @@
 import pytest
 
-from tradingagents.graph.signal_processing import extract_trade_signal
+from tradingagents.graph.signal_processing import SignalProcessor, extract_trade_signal
 
 
 def test_extract_trade_signal_prefers_final_marker() -> None:
@@ -23,3 +23,9 @@ def test_extract_trade_signal_rejects_ambiguous_unmarked_text() -> None:
 def test_extract_trade_signal_rejects_missing_decision() -> None:
     with pytest.raises(ValueError, match="No BUY/SELL/HOLD"):
         extract_trade_signal("No canonical trade decision was written.")
+
+
+def test_signal_processor_does_not_require_llm() -> None:
+    processor = SignalProcessor()
+
+    assert processor.process_signal("FINAL TRANSACTION PROPOSAL: **HOLD**") == "HOLD"

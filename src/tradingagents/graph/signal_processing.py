@@ -45,16 +45,16 @@ def extract_trade_signal(full_signal: object) -> TradeSignal:
 
 
 class SignalProcessor(BaseModel):
-    """Processes trading signals to extract actionable decisions."""
+    """Processes trading signals deterministically to extract actionable decisions."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     # --- User-configurable fields ---
 
-    quick_thinking_llm: SkipValidation[ChatModel] = Field(
-        ...,
+    quick_thinking_llm: SkipValidation[ChatModel | None] = Field(
+        default=None,
         title="Quick Thinking LLM",
-        description="LLM instance used for extracting investment decisions from signals",
+        description="Deprecated compatibility field; signal extraction is deterministic",
     )
 
     # --- Public methods ---

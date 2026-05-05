@@ -257,7 +257,7 @@ class TradingAgentsGraph(BaseModel):
         Returns:
             SignalProcessor: A SignalProcessor instance.
         """
-        return SignalProcessor(quick_thinking_llm=self.quick_thinking_llm)
+        return SignalProcessor()
 
     # --- Public methods ---
 

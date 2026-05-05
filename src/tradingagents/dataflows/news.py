@@ -124,6 +124,15 @@ def get_news_yfinance(ticker: str, start_date: str, end_date: str) -> str:
     Returns:
         str: A formatted news report, a no-data message, or an error message.
     """
+    try:
+        return _get_news_yfinance(ticker, start_date, end_date)
+    except Exception as exc:
+        logger.debug("Failed to fetch news for %s", ticker, exc_info=True)
+        return f"Error fetching news for {ticker}: {exc!s}"
+
+
+def _get_news_yfinance(ticker: str, start_date: str, end_date: str) -> str:
+    """Retrieve news for a ticker, raising errors for the public wrapper."""
     resolved_ticker, news, candidates = _get_first_ticker_news(ticker)
 
     if not news:
@@ -201,9 +210,17 @@ def _collect_global_news(
     all_news: list[dict] = []
     seen_titles: set[str] = set()
     skipped_undated = 0
+    last_error: Exception | None = None
+    fetched_any_query = False
 
     for query in search_queries:
-        search = yf.Search(query=query, news_count=limit, enable_fuzzy_query=True)
+        try:
+            search = yf.Search(query=query, news_count=limit, enable_fuzzy_query=True)
+        except Exception as exc:
+            logger.debug("Failed to fetch global news for query %s", query, exc_info=True)
+            last_error = exc
+            continue
+        fetched_any_query = True
         for article in search.news or []:
             data = _extract_article_data(article)
             title = data.get("title", "")
@@ -221,6 +238,11 @@ def _collect_global_news(
         if len(all_news) >= limit:
             break
 
+    if not fetched_any_query and last_error is not None:
+        raise RuntimeError(
+            f"Failed to fetch global news from Yahoo Finance: {last_error!s}"
+        ) from last_error
+
     return all_news, skipped_undated
 
 
@@ -236,6 +258,15 @@ def get_global_news_yfinance(curr_date: str, look_back_days: int = 7, limit: int
     Returns:
         str: A formatted global news report, a no-data message, or an error message.
     """
+    try:
+        return _get_global_news_yfinance(curr_date, look_back_days, limit)
+    except Exception as exc:
+        logger.debug("Failed to fetch global news", exc_info=True)
+        return f"Error fetching global news: {exc!s}"
+
+
+def _get_global_news_yfinance(curr_date: str, look_back_days: int = 7, limit: int = 10) -> str:
+    """Retrieve global news, raising errors for the public wrapper."""
     search_queries = [
         "global stock market economy",
         "interest rates inflation economic outlook",

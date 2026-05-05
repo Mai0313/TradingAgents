@@ -185,7 +185,8 @@ def get_yfin_data_online(
         ValueError: If `start_date` or `end_date` does not match YYYY-MM-DD, or
             if the ticker symbol is empty.
     """
-    _validate_date_range(start_date, end_date)
+    _, end_dt = _validate_date_range(start_date, end_date)
+    download_end_date = (end_dt + timedelta(days=1)).strftime("%Y-%m-%d")
 
     candidates = get_yfinance_symbol_candidates(symbol)
 
@@ -196,7 +197,9 @@ def get_yfin_data_online(
     for candidate in candidates:
         try:
             ticker = yf.Ticker(candidate)
-            candidate_data = ticker.history(start=start_date, end=end_date, auto_adjust=False)
+            candidate_data = ticker.history(
+                start=start_date, end=download_end_date, auto_adjust=False
+            )
         except Exception as exc:
             logger.debug("Failed to fetch history for %s", candidate, exc_info=True)
             last_error = exc
@@ -394,13 +397,21 @@ def _get_stock_stats_bulk(
 
     candidates = get_yfinance_symbol_candidates(symbol)
     data = pd.DataFrame()
+    last_error: Exception | None = None
+    fetched_any_candidate = False
 
     for candidate in candidates:
         data_file = cache_dir / f"{candidate}-YFin-data-{start_date_str}-{end_date_str}.csv"
         use_cache = data_file.exists() and curr_date_dt.date() < datetime.now().date()
-        candidate_data = _load_history_candidate(
-            candidate, data_file, start_date_str, end_date_str, use_cache=use_cache
-        )
+        try:
+            candidate_data = _load_history_candidate(
+                candidate, data_file, start_date_str, end_date_str, use_cache=use_cache
+            )
+        except Exception as exc:
+            logger.debug("Failed to load market data for %s", candidate, exc_info=True)
+            last_error = exc
+            continue
+        fetched_any_candidate = True
 
         if not candidate_data.empty:
             data = candidate_data
@@ -408,6 +419,10 @@ def _get_stock_stats_bulk(
 
     if data.empty:
         tried = describe_symbol_candidates(symbol, candidates)
+        if not fetched_any_candidate and last_error is not None:
+            raise RuntimeError(
+                f"Failed to fetch market data for symbol '{symbol}' (tried: {tried})"
+            ) from last_error
         raise ValueError(f"No market data found for symbol '{symbol}' (tried: {tried}).")
 
     df = wrap(data)
@@ -553,6 +568,8 @@ def get_balance_sheet(
     candidates = get_yfinance_symbol_candidates(ticker)
     data = pd.DataFrame()
     resolved_ticker = candidates[0]
+    last_error: Exception | None = None
+    fetched_any_candidate = False
 
     for candidate in candidates:
         try:
@@ -563,7 +580,12 @@ def get_balance_sheet(
                 else ticker_obj.balance_sheet
             )
         except Exception as exc:
-            raise RuntimeError(f"Failed to fetch balance sheet for {candidate}") from exc
+            logger.debug("Failed to fetch balance sheet for %s", candidate, exc_info=True)
+            last_error = exc
+            continue
+        fetched_any_candidate = True
+        if candidate_data is None or candidate_data.empty:
+            continue
         candidate_data = _filter_statement_as_of(candidate_data, curr_date, freq)
         if not candidate_data.empty:
             data = candidate_data
@@ -572,6 +594,10 @@ def get_balance_sheet(
 
     if data.empty:
         tried = describe_symbol_candidates(ticker, candidates)
+        if not fetched_any_candidate and last_error is not None:
+            raise RuntimeError(
+                f"Failed to fetch balance sheet for symbol '{ticker}' (tried: {tried})"
+            ) from last_error
         return (
             f"No balance sheet data found for symbol '{ticker}' (tried: {tried}) "
             f"as of {curr_date or 'latest'}"
@@ -606,6 +632,8 @@ def get_cashflow(
     candidates = get_yfinance_symbol_candidates(ticker)
     data = pd.DataFrame()
     resolved_ticker = candidates[0]
+    last_error: Exception | None = None
+    fetched_any_candidate = False
 
     for candidate in candidates:
         try:
@@ -614,7 +642,12 @@ def get_cashflow(
                 ticker_obj.quarterly_cashflow if freq == "quarterly" else ticker_obj.cashflow
             )
         except Exception as exc:
-            raise RuntimeError(f"Failed to fetch cash flow for {candidate}") from exc
+            logger.debug("Failed to fetch cash flow for %s", candidate, exc_info=True)
+            last_error = exc
+            continue
+        fetched_any_candidate = True
+        if candidate_data is None or candidate_data.empty:
+            continue
         candidate_data = _filter_statement_as_of(candidate_data, curr_date, freq)
         if not candidate_data.empty:
             data = candidate_data
@@ -623,6 +656,10 @@ def get_cashflow(
 
     if data.empty:
         tried = describe_symbol_candidates(ticker, candidates)
+        if not fetched_any_candidate and last_error is not None:
+            raise RuntimeError(
+                f"Failed to fetch cash flow for symbol '{ticker}' (tried: {tried})"
+            ) from last_error
         return (
             f"No cash flow data found for symbol '{ticker}' (tried: {tried}) "
             f"as of {curr_date or 'latest'}"
@@ -657,6 +694,8 @@ def get_income_statement(
     candidates = get_yfinance_symbol_candidates(ticker)
     data = pd.DataFrame()
     resolved_ticker = candidates[0]
+    last_error: Exception | None = None
+    fetched_any_candidate = False
 
     for candidate in candidates:
         try:
@@ -665,7 +704,12 @@ def get_income_statement(
                 ticker_obj.quarterly_income_stmt if freq == "quarterly" else ticker_obj.income_stmt
             )
         except Exception as exc:
-            raise RuntimeError(f"Failed to fetch income statement for {candidate}") from exc
+            logger.debug("Failed to fetch income statement for %s", candidate, exc_info=True)
+            last_error = exc
+            continue
+        fetched_any_candidate = True
+        if candidate_data is None or candidate_data.empty:
+            continue
         candidate_data = _filter_statement_as_of(candidate_data, curr_date, freq)
         if not candidate_data.empty:
             data = candidate_data
@@ -674,6 +718,10 @@ def get_income_statement(
 
     if data.empty:
         tried = describe_symbol_candidates(ticker, candidates)
+        if not fetched_any_candidate and last_error is not None:
+            raise RuntimeError(
+                f"Failed to fetch income statement for symbol '{ticker}' (tried: {tried})"
+            ) from last_error
         return (
             f"No income statement data found for symbol '{ticker}' (tried: {tried}) "
             f"as of {curr_date or 'latest'}"
@@ -706,13 +754,18 @@ def get_insider_transactions(
     candidates = get_yfinance_symbol_candidates(ticker)
     data = pd.DataFrame()
     resolved_ticker = candidates[0]
+    last_error: Exception | None = None
+    fetched_any_candidate = False
 
     for candidate in candidates:
         try:
             ticker_obj = yf.Ticker(candidate)
             candidate_data = ticker_obj.insider_transactions
         except Exception as exc:
-            raise RuntimeError(f"Failed to fetch insider transactions for {candidate}") from exc
+            logger.debug("Failed to fetch insider transactions for %s", candidate, exc_info=True)
+            last_error = exc
+            continue
+        fetched_any_candidate = True
         if candidate_data is None or candidate_data.empty:
             continue
         if as_of is not None:
@@ -729,6 +782,10 @@ def get_insider_transactions(
 
     if data.empty:
         tried = describe_symbol_candidates(ticker, candidates)
+        if not fetched_any_candidate and last_error is not None:
+            raise RuntimeError(
+                f"Failed to fetch insider transactions for symbol '{ticker}' (tried: {tried})"
+            ) from last_error
         return (
             f"No insider transactions data found for symbol '{ticker}' (tried: {tried}) "
             f"as of {curr_date or 'latest'}"
