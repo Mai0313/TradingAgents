@@ -64,7 +64,7 @@ jobs:
 
       - name: Packaging to Executable file
         run: |
-          uv run pyinstaller -F src/tradingagents/cli.py --onefile -n tradingagents
+          uv run pyinstaller -F src/tradingagents/__main__.py --onefile -n tradingagents --collect-data tradingagents
 
       - name: Stage Artifact
         shell: bash

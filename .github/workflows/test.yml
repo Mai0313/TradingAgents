@@ -16,7 +16,9 @@ on:
     paths-ignore:
       - "**/*.md"
 
-permissions: write-all
+permissions:
+  contents: read
+  pull-requests: write
 
 jobs:
   run_tests:
@@ -36,9 +38,6 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - name: Disable SSL Verify
-        run: git config --global http.sslVerify false
-
       - name: Checkout
         uses: actions/checkout@v6
         with:

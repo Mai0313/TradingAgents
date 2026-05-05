@@ -12,6 +12,20 @@ Take into account your past mistakes on similar situations. Use these insights t
 Here are your past reflections on mistakes:
 "{past_memory_str}"
 
+Before judging the debate, cross-check it against the source analyst reports below. Do not rely on a debate claim unless it is supported by these reports or explicitly label it as an unsupported assumption.
+
+Market research report:
+{market_research_report}
+
+Social media sentiment report:
+{sentiment_report}
+
+Latest world affairs news:
+{news_report}
+
+Company fundamentals report:
+{fundamentals_report}
+
 Here is the debate:
 Debate History:
 {history}

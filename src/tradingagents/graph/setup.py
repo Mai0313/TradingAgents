@@ -28,6 +28,8 @@ from tradingagents.agents.utils.memory import FinancialSituationMemory
 
 from .conditional_logic import ConditionalLogic
 
+SUPPORTED_ANALYSTS = ("market", "social", "news", "fundamentals")
+
 
 class MemoryComponents(BaseModel):
     """Groups all memory components for the trading agents."""
@@ -85,6 +87,25 @@ class GraphSetup(BaseModel):
     )
 
     # --- Private helpers ---
+
+    @staticmethod
+    def validate_selected_analysts(selected_analysts: list[str]) -> list[str]:
+        """Validate analyst names and normalize duplicate selections."""
+        normalized = []
+        for analyst in selected_analysts:
+            value = analyst.strip().lower()
+            if value and value not in normalized:
+                normalized.append(value)
+
+        unknown = [analyst for analyst in normalized if analyst not in SUPPORTED_ANALYSTS]
+        if unknown:
+            raise ValueError(
+                "Unknown analyst(s): "
+                f"{', '.join(unknown)}. Supported analysts: {', '.join(SUPPORTED_ANALYSTS)}."
+            )
+        if not normalized:
+            raise ValueError("Trading Agents Graph Setup Error: no analysts selected!")
+        return normalized
 
     def _build_analyst_nodes(
         self, selected_analysts: list[str]
@@ -163,9 +184,8 @@ class GraphSetup(BaseModel):
             ValueError: If no analysts are selected.
         """
         if selected_analysts is None:
-            selected_analysts = ["market", "social", "news", "fundamentals"]
-        if len(selected_analysts) == 0:
-            raise ValueError("Trading Agents Graph Setup Error: no analysts selected!")
+            selected_analysts = list(SUPPORTED_ANALYSTS)
+        selected_analysts = self.validate_selected_analysts(selected_analysts)
 
         analyst_nodes, delete_nodes, tool_nodes = self._build_analyst_nodes(selected_analysts)
 

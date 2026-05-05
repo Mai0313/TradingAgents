@@ -11,6 +11,7 @@ Deliverables:
 
 - A clear and actionable recommendation: Buy, Sell, or Hold.
 - Detailed reasoning anchored in the debate and past reflections.
+- End with exactly one canonical line: `FINAL TRANSACTION PROPOSAL: **BUY**`, `FINAL TRANSACTION PROPOSAL: **SELL**`, or `FINAL TRANSACTION PROPOSAL: **HOLD**`. Keep BUY, SELL, or HOLD in English even when the rest of the answer uses another language.
 
 ---
 

@@ -47,14 +47,19 @@ def get_global_news(
 
 
 @tool
-def get_insider_transactions(ticker: Annotated[str, "ticker symbol"]) -> str:
+def get_insider_transactions(
+    ticker: Annotated[str, "ticker symbol"],
+    curr_date: Annotated[str | None, "current date in yyyy-mm-dd format"] = None,
+) -> str:
     """Retrieve insider transaction information about a company.
 
     Args:
         ticker (str): Ticker symbol of the company.
+        curr_date (str | None, optional): Current trading date used as a
+            point-in-time boundary. Defaults to None.
 
     Returns:
         str: CSV-formatted insider transaction data, a no-data message, or an
             error message.
     """
-    return _get_insider_transactions(ticker)
+    return _get_insider_transactions(ticker, curr_date)

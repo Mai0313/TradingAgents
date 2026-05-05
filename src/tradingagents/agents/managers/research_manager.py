@@ -41,7 +41,12 @@ def create_research_manager(
         past_memory_str = "".join(rec["recommendation"] + "\n\n" for rec in past_memories)
 
         prompt = load_prompt("research_manager").format(
-            past_memory_str=past_memory_str, history=debate.history
+            market_research_report=state.market_report,
+            sentiment_report=state.sentiment_report,
+            news_report=state.news_report,
+            fundamentals_report=state.fundamentals_report,
+            past_memory_str=past_memory_str,
+            history=debate.history,
         )
         response = llm.invoke(prompt)
 
