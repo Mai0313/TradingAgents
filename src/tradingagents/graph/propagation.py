@@ -1,6 +1,7 @@
 # TradingAgents/graph/propagation.py
 
 from typing import Any
+from datetime import date
 
 from pydantic import Field, BaseModel
 from langchain_core.messages import HumanMessage
@@ -25,10 +26,18 @@ class Propagator(BaseModel):
         Returns:
             AgentState: The initialized agent state.
         """
+        try:
+            parsed_date = date.fromisoformat(str(trade_date))
+        except ValueError as exc:
+            raise ValueError(f"trade_date must be in YYYY-MM-DD format: {trade_date!r}") from exc
+        today = date.today()
+        if parsed_date > today:
+            raise ValueError(f"trade_date cannot be in the future: {parsed_date} > {today}")
+
         return AgentState(
             messages=[HumanMessage(content=company_name)],
             company_of_interest=company_name,
-            trade_date=str(trade_date),
+            trade_date=parsed_date.strftime("%Y-%m-%d"),
         )
 
     def get_graph_args(self, callbacks: list | None = None) -> dict[str, Any]:

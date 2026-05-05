@@ -15,6 +15,26 @@ from tradingagents.dataflows.tickers import (
 logger = logging.getLogger(__name__)
 
 
+def _parse_yyyy_mm_dd(value: str, field_name: str) -> datetime:
+    """Parse a YYYY-MM-DD date string with a clear error."""
+    try:
+        return datetime.strptime(value, "%Y-%m-%d")
+    except ValueError as exc:
+        raise ValueError(f"{field_name} must be in YYYY-MM-DD format: {value!r}") from exc
+
+
+def _parse_pub_date(value: object) -> datetime | None:
+    """Parse known yfinance publish date shapes into a datetime."""
+    if value in (None, ""):
+        return None
+    if isinstance(value, (int, float)):
+        return datetime.fromtimestamp(value)
+    if isinstance(value, str):
+        with contextlib.suppress(ValueError, AttributeError):
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return None
+
+
 def _extract_article_data(article: dict) -> dict:
     """Extract article fields from flat or nested yfinance news data.
 
@@ -37,11 +57,7 @@ def _extract_article_data(article: dict) -> dict:
         link = url_obj.get("url", "")
 
         # Get publish date
-        pub_date_str = content.get("pubDate", "")
-        pub_date = None
-        if pub_date_str:
-            with contextlib.suppress(ValueError, AttributeError):
-                pub_date = datetime.fromisoformat(pub_date_str.replace("Z", "+00:00"))
+        pub_date = _parse_pub_date(content.get("pubDate") or content.get("providerPublishTime"))
 
         return {
             "title": title,
@@ -56,7 +72,11 @@ def _extract_article_data(article: dict) -> dict:
         "summary": article.get("summary", ""),
         "publisher": article.get("publisher", "Unknown"),
         "link": article.get("link", ""),
-        "pub_date": None,
+        "pub_date": _parse_pub_date(
+            article.get("pubDate")
+            or article.get("providerPublishTime")
+            or article.get("publishTime")
+        ),
     }
 
 
@@ -71,16 +91,24 @@ def _get_first_ticker_news(ticker: str) -> tuple[str, list[dict], list[str]]:
             the list of news articles, and the list of tried candidate symbols.
     """
     candidates = get_yfinance_symbol_candidates(ticker)
+    last_error: Exception | None = None
+    fetched_any_candidate = False
 
     for candidate in candidates:
         try:
             stock = yf.Ticker(candidate)
-            candidate_news = stock.get_news(count=20)
-        except Exception:
+            candidate_news = stock.get_news(count=50)
+        except Exception as exc:
             logger.debug("Failed to fetch news for %s", candidate, exc_info=True)
+            last_error = exc
             continue
+        fetched_any_candidate = True
         if candidate_news:
             return candidate, candidate_news, candidates
+
+    if not fetched_any_candidate and last_error is not None:
+        tried = describe_symbol_candidates(ticker, candidates)
+        raise RuntimeError(f"Failed to fetch news for {ticker} (tried: {tried})") from last_error
 
     return candidates[0], [], candidates
 
@@ -96,44 +124,48 @@ def get_news_yfinance(ticker: str, start_date: str, end_date: str) -> str:
     Returns:
         str: A formatted news report, a no-data message, or an error message.
     """
-    try:
-        resolved_ticker, news, candidates = _get_first_ticker_news(ticker)
+    resolved_ticker, news, candidates = _get_first_ticker_news(ticker)
 
-        if not news:
-            tried = describe_symbol_candidates(ticker, candidates)
-            return f"No news found for {ticker} (tried: {tried})"
+    if not news:
+        tried = describe_symbol_candidates(ticker, candidates)
+        return f"No news found for {ticker} (tried: {tried})"
 
-        # Parse date range for filtering
-        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
-        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+    start_dt = _parse_yyyy_mm_dd(start_date, "start_date")
+    end_dt = _parse_yyyy_mm_dd(end_date, "end_date")
+    if start_dt > end_dt:
+        raise ValueError(f"start_date must be on or before end_date: {start_date} > {end_date}")
 
-        news_str = ""
-        filtered_count = 0
+    news_str = ""
+    filtered_count = 0
+    skipped_undated = 0
 
-        for article in news:
-            data = _extract_article_data(article)
+    for article in news:
+        data = _extract_article_data(article)
 
-            # Filter by date if publish time is available
-            if data["pub_date"]:
-                pub_date_naive = data["pub_date"].replace(tzinfo=None)
-                if not (start_dt <= pub_date_naive <= end_dt + relativedelta(days=1)):
-                    continue
+        pub_date = data["pub_date"]
+        if pub_date is None:
+            skipped_undated += 1
+            continue
+        pub_date_naive = pub_date.replace(tzinfo=None)
+        if not (start_dt <= pub_date_naive <= end_dt + relativedelta(days=1)):
+            continue
 
-            news_str += f"### {data['title']} (source: {data['publisher']})\n"
-            if data["summary"]:
-                news_str += f"{data['summary']}\n"
-            if data["link"]:
-                news_str += f"Link: {data['link']}\n"
-            news_str += "\n"
-            filtered_count += 1
+        news_str += f"### {data['title']} (source: {data['publisher']})\n"
+        news_str += f"Published: {pub_date_naive.strftime('%Y-%m-%d %H:%M:%S')}\n"
+        if data["summary"]:
+            news_str += f"{data['summary']}\n"
+        if data["link"]:
+            news_str += f"Link: {data['link']}\n"
+        news_str += "\n"
+        filtered_count += 1
 
-        if filtered_count == 0:
-            return f"No news found for {resolved_ticker} between {start_date} and {end_date}"
+    if filtered_count == 0:
+        return (
+            f"No dated news found for {resolved_ticker} between {start_date} and {end_date}. "
+            f"Skipped {skipped_undated} undated articles to avoid lookahead bias."
+        )
 
-        return f"## {resolved_ticker} News, from {start_date} to {end_date}:\n\n{news_str}"
-
-    except Exception as e:
-        return f"Error fetching news for {ticker}: {e!s}"
+    return f"## {resolved_ticker} News, from {start_date} to {end_date}:\n\n{news_str}"
 
 
 def _format_article_to_str(article: dict) -> str:
@@ -145,24 +177,51 @@ def _format_article_to_str(article: dict) -> str:
     Returns:
         str: A formatted string representation of the article.
     """
-    if "content" in article:
-        data = _extract_article_data(article)
-        title = data["title"]
-        publisher = data["publisher"]
-        link = data["link"]
-        summary = data["summary"]
-    else:
-        title = article.get("title", "No title")
-        publisher = article.get("publisher", "Unknown")
-        link = article.get("link", "")
-        summary = ""
+    data = _extract_article_data(article)
+    title = data["title"]
+    publisher = data["publisher"]
+    link = data["link"]
+    summary = data["summary"]
+    pub_date = data["pub_date"]
 
     result = f"### {title} (source: {publisher})\n"
+    if pub_date:
+        result += f"Published: {pub_date.replace(tzinfo=None).strftime('%Y-%m-%d %H:%M:%S')}\n"
     if summary:
         result += f"{summary}\n"
     if link:
         result += f"Link: {link}\n"
     return result + "\n"
+
+
+def _collect_global_news(
+    search_queries: list[str], start_dt: datetime, end_dt: datetime, limit: int
+) -> tuple[list[dict], int]:
+    """Collect dated global news within a date window."""
+    all_news: list[dict] = []
+    seen_titles: set[str] = set()
+    skipped_undated = 0
+
+    for query in search_queries:
+        search = yf.Search(query=query, news_count=limit, enable_fuzzy_query=True)
+        for article in search.news or []:
+            data = _extract_article_data(article)
+            title = data.get("title", "")
+            pub_date = data.get("pub_date")
+            if pub_date is None:
+                skipped_undated += 1
+                continue
+            pub_date_naive = pub_date.replace(tzinfo=None)
+            if not (start_dt <= pub_date_naive <= end_dt + relativedelta(days=1)):
+                continue
+            if title and title not in seen_titles:
+                seen_titles.add(title)
+                all_news.append(article)
+
+        if len(all_news) >= limit:
+            break
+
+    return all_news, skipped_undated
 
 
 def get_global_news_yfinance(curr_date: str, look_back_days: int = 7, limit: int = 10) -> str:
@@ -185,38 +244,23 @@ def get_global_news_yfinance(curr_date: str, look_back_days: int = 7, limit: int
         "global markets trading",
     ]
 
-    all_news: list[dict] = []
-    seen_titles: set[str] = set()
+    if look_back_days < 0:
+        raise ValueError("look_back_days must be >= 0.")
+    if limit <= 0:
+        raise ValueError("limit must be > 0.")
 
-    try:
-        for query in search_queries:
-            search = yf.Search(query=query, news_count=limit, enable_fuzzy_query=True)
+    curr_dt = _parse_yyyy_mm_dd(curr_date, "curr_date")
+    start_dt = curr_dt - relativedelta(days=look_back_days)
+    start_date = start_dt.strftime("%Y-%m-%d")
 
-            if search.news:
-                for article in search.news:
-                    # Handle both flat and nested structures
-                    data = _extract_article_data(article) if "content" in article else article
-                    title = data.get("title", "")
+    all_news, skipped_undated = _collect_global_news(search_queries, start_dt, curr_dt, limit)
 
-                    # Deduplicate by title
-                    if title and title not in seen_titles:
-                        seen_titles.add(title)
-                        all_news.append(article)
+    if not all_news:
+        return (
+            f"No dated global news found between {start_date} and {curr_date}. "
+            f"Skipped {skipped_undated} undated articles to avoid lookahead bias."
+        )
 
-            if len(all_news) >= limit:
-                break
+    news_str = "".join(_format_article_to_str(article) for article in all_news[:limit])
 
-        if not all_news:
-            return f"No global news found for {curr_date}"
-
-        # Calculate date range
-        curr_dt = datetime.strptime(curr_date, "%Y-%m-%d")
-        start_dt = curr_dt - relativedelta(days=look_back_days)
-        start_date = start_dt.strftime("%Y-%m-%d")
-
-        news_str = "".join(_format_article_to_str(article) for article in all_news[:limit])
-
-        return f"## Global Market News, from {start_date} to {curr_date}:\n\n{news_str}"
-
-    except Exception as e:
-        return f"Error fetching global news: {e!s}"
+    return f"## Global Market News, from {start_date} to {curr_date}:\n\n{news_str}"

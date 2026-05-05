@@ -24,6 +24,8 @@ from langchain_huggingface import ChatHuggingFace
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.callbacks import BaseCallbackHandler
 
+from tradingagents.env import load_dotenv_if_present
+
 type ChatModel = (
     ChatOpenAI
     | ChatAnthropic
@@ -102,6 +104,8 @@ def build_chat_model(
     Returns:
         ChatModel: The constructed chat model instance.
     """
+    load_dotenv_if_present()
+
     kwargs: dict[str, Any] = {}
     if callbacks:
         kwargs["callbacks"] = callbacks

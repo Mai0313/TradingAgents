@@ -80,9 +80,15 @@ def get_yfinance_symbol_candidates(symbol: str) -> list[str]:
 
     yahoo_symbol = raw_symbol.upper()
     if "." in yahoo_symbol:
-        return [yahoo_symbol]
+        candidates = [yahoo_symbol]
+        if not yahoo_symbol.endswith(TAIWAN_SUFFIXES):
+            candidates.append(yahoo_symbol.replace(".", "-"))
+        return _dedupe_symbols(candidates)
 
-    candidates = [*_search_yfinance_symbols(raw_symbol)]
+    candidates = []
+    if yahoo_symbol.replace("-", "").isalpha():
+        candidates.append(yahoo_symbol)
+    candidates.extend(_search_yfinance_symbols(raw_symbol))
     if yahoo_symbol.isdigit():
         candidates.extend(f"{yahoo_symbol}{suffix}" for suffix in TAIWAN_SUFFIXES)
     candidates.append(yahoo_symbol)

@@ -252,9 +252,12 @@ def _validate_date(value: str) -> bool | str:
     if not value.strip():
         return True
     try:
-        datetime.date.fromisoformat(value)
+        parsed = datetime.date.fromisoformat(value)
     except ValueError:
         return "Use YYYY-MM-DD format."
+    today = datetime.date.today()
+    if parsed > today:
+        return f"Date cannot be in the future ({today})."
     return True
 
 

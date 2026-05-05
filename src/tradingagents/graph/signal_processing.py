@@ -1,8 +1,47 @@
 # TradingAgents/graph/signal_processing.py
 
+import re
+from typing import Literal, cast
+
 from pydantic import Field, BaseModel, ConfigDict, SkipValidation
 
 from tradingagents.llm import ChatModel
+
+TradeSignal = Literal["BUY", "SELL", "HOLD"]
+_DECISION_PATTERN = re.compile(r"\b(BUY|SELL|HOLD)\b", re.IGNORECASE)
+_FINAL_PATTERN = re.compile(
+    r"FINAL\s+TRANSACTION\s+PROPOSAL\s*:\s*(?:\*\*)?\s*(BUY|SELL|HOLD)\s*(?:\*\*)?", re.IGNORECASE
+)
+
+
+def extract_trade_signal(full_signal: object) -> TradeSignal:
+    """Extract a canonical BUY/SELL/HOLD decision without another LLM call.
+
+    The risk manager should ideally emit the explicit
+    ``FINAL TRANSACTION PROPOSAL`` marker. If that marker is absent, fall back
+    to all decision tokens in the text and accept only unambiguous output.
+    """
+    if isinstance(full_signal, list):
+        text = "\n".join(
+            item.get("text", "") if isinstance(item, dict) else str(item) for item in full_signal
+        )
+    else:
+        text = str(full_signal or "")
+
+    final_matches = [match.upper() for match in _FINAL_PATTERN.findall(text)]
+    if final_matches:
+        distinct = set(final_matches)
+        if len(distinct) == 1:
+            return cast("TradeSignal", final_matches[-1])
+        raise ValueError(f"Conflicting final transaction proposals found: {sorted(distinct)}")
+
+    decisions = [match.upper() for match in _DECISION_PATTERN.findall(text)]
+    distinct = set(decisions)
+    if len(distinct) == 1:
+        return cast("TradeSignal", decisions[-1])
+    if not distinct:
+        raise ValueError("No BUY/SELL/HOLD decision found in final trade decision.")
+    raise ValueError(f"Ambiguous trade decision contains multiple signals: {sorted(distinct)}")
 
 
 class SignalProcessor(BaseModel):
@@ -29,12 +68,4 @@ class SignalProcessor(BaseModel):
         Returns:
             str: Extracted decision (SELL, BUY, or HOLD).
         """
-        messages = [
-            (
-                "system",
-                "You are an efficient assistant designed to analyze paragraphs or financial reports provided by a group of analysts. Your task is to extract the investment decision: SELL, BUY, or HOLD. Provide only the extracted decision (SELL, BUY, or HOLD) as your output, without adding any additional text or information.",
-            ),
-            ("human", full_signal),
-        ]
-
-        return self.quick_thinking_llm.invoke(messages).content
+        return extract_trade_signal(full_signal)

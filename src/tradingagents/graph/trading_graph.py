@@ -1,3 +1,4 @@
+import re
 import json
 from typing import Any
 import logging
@@ -33,6 +34,13 @@ from .conditional_logic import ConditionalLogic
 from .signal_processing import SignalProcessor
 
 logger = logging.getLogger(__name__)
+_SAFE_PATH_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
+
+
+def _safe_path_component(value: str) -> str:
+    """Return a filesystem-safe name for per-ticker result paths."""
+    safe = _SAFE_PATH_CHARS.sub("_", value.strip()).strip("._")
+    return safe or "unknown"
 
 
 class TradingAgentsGraph(BaseModel):
@@ -361,7 +369,7 @@ class TradingAgentsGraph(BaseModel):
             "final_trade_decision": final_state.final_trade_decision,
         }
 
-        ticker_name = self.ticker or "unknown"
+        ticker_name = _safe_path_component(self.ticker or "unknown")
         directory = self.config.results_dir / ticker_name
         directory.mkdir(parents=True, exist_ok=True)
 

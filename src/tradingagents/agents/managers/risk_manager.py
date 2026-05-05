@@ -41,7 +41,7 @@ def create_risk_manager(
         past_memory_str = "".join(rec["recommendation"] + "\n\n" for rec in past_memories)
 
         prompt = load_prompt("risk_manager").format(
-            trader_plan=state.investment_plan,
+            trader_plan=state.trader_investment_plan,
             past_memory_str=past_memory_str,
             history=risk.history,
         )

@@ -13,10 +13,46 @@ from rich.console import Console
 
 from tradingagents.llm import LLMProvider, ReasoningEffort  # noqa: TC001
 from tradingagents.config import ResponseLanguage, TradingAgentsConfig
+from tradingagents.graph.setup import SUPPORTED_ANALYSTS
 from tradingagents.interface.display import MessageRenderer, print_run_header, print_final_decision
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 
-DEFAULT_ANALYSTS: tuple[str, ...] = ("market", "social", "news", "fundamentals")
+DEFAULT_ANALYSTS: tuple[str, ...] = SUPPORTED_ANALYSTS
+
+
+def _normalize_trade_date(date_value: str | None) -> str:
+    """Return a validated trade date string."""
+    if date_value is None:
+        return datetime.date.today().strftime("%Y-%m-%d")
+    try:
+        parsed = datetime.date.fromisoformat(date_value)
+    except ValueError as exc:
+        raise ValueError(f"date must be in YYYY-MM-DD format: {date_value!r}") from exc
+    today = datetime.date.today()
+    if parsed > today:
+        raise ValueError(f"date cannot be in the future: {date_value} > {today}")
+    return parsed.strftime("%Y-%m-%d")
+
+
+def _normalize_selected_analysts(
+    selected_analysts: list[str] | tuple[str, ...] | None,
+) -> list[str]:
+    """Validate selected analyst names early for CLI/API callers."""
+    analysts = list(selected_analysts) if selected_analysts else list(DEFAULT_ANALYSTS)
+    normalized = []
+    for analyst in analysts:
+        value = str(analyst).strip().lower()
+        if value and value not in normalized:
+            normalized.append(value)
+    unknown = [analyst for analyst in normalized if analyst not in SUPPORTED_ANALYSTS]
+    if unknown:
+        raise ValueError(
+            "Unknown analyst(s): "
+            f"{', '.join(unknown)}. Supported analysts: {', '.join(SUPPORTED_ANALYSTS)}."
+        )
+    if not normalized:
+        raise ValueError("At least one analyst must be selected.")
+    return normalized
 
 
 def run_cli(  # noqa: PLR0913
@@ -70,9 +106,8 @@ def run_cli(  # noqa: PLR0913
     Returns:
         str: The final BUY / SELL / HOLD decision text.
     """
-    if date is None:
-        date = datetime.date.today().strftime("%Y-%m-%d")
-    analysts = list(selected_analysts) if selected_analysts else list(DEFAULT_ANALYSTS)
+    date = _normalize_trade_date(date)
+    analysts = _normalize_selected_analysts(selected_analysts)
 
     config = TradingAgentsConfig(
         llm_provider=llm_provider,
