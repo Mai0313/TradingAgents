@@ -123,7 +123,7 @@ def run_cli(  # noqa: PLR0913
     console = Console()
     print_run_header(console, ticker=ticker, trade_date=date, config=config)
 
-    renderer = MessageRenderer(console=console)
+    renderer = MessageRenderer.for_console(console=console)
 
     ta = TradingAgentsGraph(debug=debug, config=config, selected_analysts=analysts)
     _, decision = ta.propagate(ticker, date, on_message=renderer)

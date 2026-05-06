@@ -1,8 +1,8 @@
 """TradingAgents: Multi-Agents LLM Financial Trading Framework.
 
 Top-level public API. Kept intentionally small: importing this package
-should not pull in the CLI / TUI dependency tree (fire, questionary,
-rich). Those live under :mod:`tradingagents.interface`.
+should not pull in the CLI / TUI dependency tree (fire, rich, textual).
+Those live under :mod:`tradingagents.interface`.
 """
 
 from tradingagents.config import TradingAgentsConfig, get_config, set_config

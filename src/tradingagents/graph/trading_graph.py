@@ -266,6 +266,7 @@ class TradingAgentsGraph(BaseModel):
         company_name: str,
         trade_date: str,
         on_message: Callable[[AnyMessage], None] | None = None,
+        on_state: Callable[[AgentState], None] | None = None,
     ) -> tuple[AgentState, str]:
         """Run the trading agents graph for a company on a specific date.
 
@@ -278,6 +279,11 @@ class TradingAgentsGraph(BaseModel):
                 debug print path so callers (CLI, TUI) can route output
                 through Rich panels instead of message.pretty_print().
                 Defaults to None.
+            on_state (Callable[[AgentState], None] | None, optional):
+                Callback invoked once per stream chunk with the full
+                AgentState snapshot. Used by the Textual TUI to update the
+                phase progress sidebar from analyst-report / debate
+                fields; the CLI does not need this. Defaults to None.
 
         Returns:
             tuple[AgentState, str]: The final agent state and the extracted signal decision.
@@ -299,23 +305,11 @@ class TradingAgentsGraph(BaseModel):
         last_emitted_id = None
         collected: dict[str, AnyMessage] = {}
         for chunk in self.graph.stream(init_agent_state, **args):
-            messages = (
-                chunk.get("messages")
-                if isinstance(chunk, dict)
-                else getattr(chunk, "messages", None)
+            last_emitted_id = self._dispatch_messages(
+                chunk, collected, last_emitted_id, on_message
             )
-            if messages:
-                for msg in messages:
-                    mid = getattr(msg, "id", None)
-                    if mid and mid not in collected:
-                        collected[mid] = msg
-                latest = messages[-1]
-                if latest.id != last_emitted_id:
-                    if on_message is not None:
-                        on_message(latest)
-                    elif self.debug:
-                        latest.pretty_print()
-                    last_emitted_id = latest.id
+            if on_state is not None:
+                self._dispatch_state(chunk, on_state)
             raw_state = chunk
 
         if raw_state is None:
@@ -328,6 +322,73 @@ class TradingAgentsGraph(BaseModel):
         self.curr_state = final_state
         self._log_state(trade_date, final_state, list(collected.values()))
         return final_state, self.process_signal(final_state.final_trade_decision)
+
+    def _dispatch_messages(
+        self,
+        chunk: Any,  # noqa: ANN401  # langgraph stream chunk is dict|AgentState|None
+        collected: dict[str, AnyMessage],
+        last_emitted_id: str | None,
+        on_message: Callable[[AnyMessage], None] | None,
+    ) -> str | None:
+        """Forward newly-arrived messages from one stream chunk.
+
+        Mutates ``collected`` so the eventual ``_log_state`` call sees
+        every message that ever flew past, even those wiped by Msg
+        Clear nodes between analyst phases.
+
+        Args:
+            chunk (Any): One snapshot from ``graph.stream`` -- either a
+                dict (the common case) or an AgentState-like object.
+            collected (dict[str, AnyMessage]): Per-run accumulator
+                mapping message ID to message; updated in-place.
+            last_emitted_id (str | None): The ID of the last message
+                already forwarded to ``on_message`` / pretty_print.
+            on_message (Callable[[AnyMessage], None] | None): External
+                renderer callback. When None, falls back to
+                ``message.pretty_print`` if ``self.debug`` is set.
+
+        Returns:
+            str | None: The new ``last_emitted_id`` after this chunk.
+        """
+        messages = (
+            chunk.get("messages") if isinstance(chunk, dict) else getattr(chunk, "messages", None)
+        )
+        if not messages:
+            return last_emitted_id
+        for msg in messages:
+            mid = getattr(msg, "id", None)
+            if mid and mid not in collected:
+                collected[mid] = msg
+        latest = messages[-1]
+        if latest.id == last_emitted_id:
+            return last_emitted_id
+        if on_message is not None:
+            on_message(latest)
+        elif self.debug:
+            latest.pretty_print()
+        return latest.id
+
+    def _dispatch_state(
+        self,
+        chunk: Any,  # noqa: ANN401  # langgraph stream chunk is dict|AgentState
+        on_state: Callable[[AgentState], None],
+    ) -> None:
+        """Validate ``chunk`` as :class:`AgentState` and invoke ``on_state``.
+
+        The TUI's phase sidebar is a best-effort observer, so any
+        validation or callback failure is logged at debug level and
+        swallowed -- a broken hook must never abort a paid LLM run.
+
+        Args:
+            chunk (Any): One stream-chunk snapshot.
+            on_state (Callable[[AgentState], None]): Caller-provided
+                state observer.
+        """
+        try:
+            snapshot = AgentState.model_validate(chunk) if isinstance(chunk, dict) else chunk
+            on_state(snapshot)
+        except Exception:
+            logger.debug("on_state hook failed", exc_info=True)
 
     def _log_state(
         self, trade_date: str, final_state: AgentState, all_messages: list[AnyMessage]
