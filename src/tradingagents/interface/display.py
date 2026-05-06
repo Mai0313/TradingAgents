@@ -6,13 +6,21 @@ Rich panels: colour-coded by message type, Markdown-rendered for agent
 prose, JSON-pretty-printed for structured tool output, and truncated
 when the underlying content would otherwise spam the terminal (raw
 stock data tool responses can be thousands of lines).
+
+The renderer is target-agnostic: ``MessageRenderer.emit`` receives a
+Rich renderable (Panel, Markdown, Text, ...). The CLI passes
+``Console.print`` so panels go to stdout; the TUI passes a thread-safe
+``RichLog.write`` wrapper so the same panels are appended to a
+reflow-aware scrollable widget instead.
 """
 
 from __future__ import annotations
 
 import json
 from typing import TYPE_CHECKING, Any
+from collections.abc import Callable  # noqa: TC003  # runtime-required by Pydantic field type
 
+from pydantic import Field, BaseModel, ConfigDict
 from rich.json import JSON
 from rich.text import Text
 from rich.panel import Panel
@@ -30,23 +38,46 @@ if TYPE_CHECKING:
 _MAX_TOOL_LINES = 40
 
 
-class MessageRenderer:
-    """Render LangChain messages as Rich panels on a shared console.
+class MessageRenderer(BaseModel):
+    """Render LangChain messages as Rich panels via a pluggable emit target.
 
     A single instance is reused across a run so the HumanMessage
     "Continue" placeholders (graph plumbing for Anthropic's
     message-ordering rules) can be filtered out, matching the behaviour
     of TradingAgentsGraph._save_conversation_log.
+
+    Attributes:
+        emit (Callable[[RenderableType], None]): Receives each rendered
+            Rich renderable. CLI passes ``Console.print``; TUI passes a
+            thread-safe ``RichLog.write`` wrapper that defers writes to
+            the Textual main thread via ``App.call_from_thread``.
     """
 
-    def __init__(self, console: Console | None = None) -> None:
-        """Initialize the renderer.
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    emit: Callable[[RenderableType], None] = Field(
+        ...,
+        title="Emit Callback",
+        description=(
+            "Sink for each rendered Rich renderable. CLI uses Console.print; "
+            "TUI uses a RichLog.write wrapper that hops to the main thread."
+        ),
+    )
+
+    @classmethod
+    def for_console(cls, console: Console | None = None) -> MessageRenderer:
+        """Build a renderer that prints each panel via Rich Console.
 
         Args:
-            console (Console | None, optional): Rich console to draw on.
-                Defaults to a new console bound to stdout.
+            console (Console | None, optional): The Rich console to write
+                to. Defaults to a new console bound to stdout.
+
+        Returns:
+            MessageRenderer: A renderer whose ``emit`` is bound to the
+            console's print method.
         """
-        self.console = console or Console()
+        target = console or Console()
+        return cls(emit=target.print)
 
     def __call__(self, message: AnyMessage) -> None:
         """Alias for :meth:`render` so the renderer can be passed as a callback.
@@ -65,7 +96,6 @@ class MessageRenderer:
         """
         if isinstance(message, HumanMessage):
             if isinstance(message.content, str) and message.content.strip() == "Continue":
-                # Skip the graph-internal placeholder injected by Msg Clear nodes.
                 return
             self._render_human(message)
         elif isinstance(message, AIMessage):
@@ -113,7 +143,7 @@ class MessageRenderer:
         if agent_name:
             title = f"AI - {agent_name}"
 
-        self.console.print(
+        self.emit(
             Panel(
                 Group(*renderables),
                 title=f"[bold cyan]{title}[/]",
@@ -129,7 +159,7 @@ class MessageRenderer:
             message (HumanMessage): The human-authored message.
         """
         body = self._content_to_renderable(message.content) or Text("(no content)", style="dim")
-        self.console.print(
+        self.emit(
             Panel(body, title="[bold green]Human[/]", title_align="left", border_style="green")
         )
 
@@ -143,7 +173,7 @@ class MessageRenderer:
         """
         name = getattr(message, "name", None) or "tool"
         body = self._tool_content_to_renderable(message.content)
-        self.console.print(
+        self.emit(
             Panel(
                 body,
                 title=f"[bold yellow]Tool - {name}[/]",
@@ -159,7 +189,7 @@ class MessageRenderer:
             message (SystemMessage): The system message.
         """
         body = self._content_to_renderable(message.content) or Text("(no content)", style="dim")
-        self.console.print(
+        self.emit(
             Panel(body, title="[bold]System[/]", title_align="left", border_style="bright_black")
         )
 
@@ -174,9 +204,7 @@ class MessageRenderer:
         body = self._content_to_renderable(getattr(message, "content", "")) or Text(
             "(no content)", style="dim"
         )
-        self.console.print(
-            Panel(body, title=f"[bold]{kind}[/]", title_align="left", border_style="white")
-        )
+        self.emit(Panel(body, title=f"[bold]{kind}[/]", title_align="left", border_style="white"))
 
     @staticmethod
     def _content_to_renderable(content: Any) -> RenderableType | None:  # noqa: ANN401
@@ -244,17 +272,20 @@ class MessageRenderer:
         return Text(stripped)
 
 
-def print_run_header(
-    console: Console, *, ticker: str, trade_date: str, config: TradingAgentsConfig
-) -> None:
-    """Print a Rich summary panel describing the upcoming run.
+def make_run_header_panel(*, ticker: str, trade_date: str, config: TradingAgentsConfig) -> Panel:
+    """Build a Rich panel summarising the upcoming run.
+
+    Shared by the CLI (printed once at startup) and the TUI (mounted as
+    the persistent header content).
 
     Args:
-        console (Console): The Rich console to print on.
         ticker (str): The stock ticker / company being analysed.
         trade_date (str): Trade date in YYYY-MM-DD format.
         config (TradingAgentsConfig): The active configuration; selected
             fields are surfaced in a two-column table.
+
+    Returns:
+        Panel: The composed Rich panel.
     """
     table = Table.grid(padding=(0, 2))
     table.add_column(style="bold cyan", justify="right")
@@ -270,29 +301,51 @@ def print_run_header(
     table.add_row("Max Risk Discuss Rounds", str(config.max_risk_discuss_rounds))
     table.add_row("Max Recursion Limit", str(config.max_recur_limit))
     table.add_row("Results Dir", str(config.results_dir))
-    console.print(
-        Panel(
-            table,
-            title="[bold]TradingAgents - Run Configuration[/]",
-            title_align="left",
-            border_style="bright_blue",
-        )
+    return Panel(
+        table,
+        title="[bold]TradingAgents - Run Configuration[/]",
+        title_align="left",
+        border_style="bright_blue",
     )
 
 
+def make_final_decision_panel(decision: str) -> Panel:
+    """Build the highlighted BUY / SELL / HOLD final decision panel.
+
+    Args:
+        decision (str): The decision text returned by process_signal.
+
+    Returns:
+        Panel: The composed Rich panel.
+    """
+    text = decision.strip() or "(empty)"
+    return Panel(
+        Text(text, style="bold"),
+        title="[bold magenta]Final Trade Decision[/]",
+        title_align="left",
+        border_style="magenta",
+    )
+
+
+def print_run_header(
+    console: Console, *, ticker: str, trade_date: str, config: TradingAgentsConfig
+) -> None:
+    """Print the run header panel to a Rich console.
+
+    Args:
+        console (Console): The Rich console to print on.
+        ticker (str): The stock ticker / company being analysed.
+        trade_date (str): Trade date in YYYY-MM-DD format.
+        config (TradingAgentsConfig): The active configuration.
+    """
+    console.print(make_run_header_panel(ticker=ticker, trade_date=trade_date, config=config))
+
+
 def print_final_decision(console: Console, decision: str) -> None:
-    """Print the final BUY / SELL / HOLD decision in a highlighted panel.
+    """Print the final BUY / SELL / HOLD decision panel to a Rich console.
 
     Args:
         console (Console): The Rich console to print on.
         decision (str): The decision text returned by process_signal.
     """
-    text = decision.strip() or "(empty)"
-    console.print(
-        Panel(
-            Text(text, style="bold"),
-            title="[bold magenta]Final Trade Decision[/]",
-            title_align="left",
-            border_style="magenta",
-        )
-    )
+    console.print(make_final_decision_panel(decision))
