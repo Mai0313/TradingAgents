@@ -273,6 +273,13 @@ def _get_global_news_yfinance(curr_date: str, look_back_days: int = 7, limit: in
         "Asia markets trading",
         "semiconductor supply chain market outlook",
         "global markets trading",
+        "Taiwan stock market TAIEX",
+        "Taiwan economy export outlook",
+        "Asia semiconductor industry",
+        "China Hong Kong stock market",
+        "Japan Korea stock market",
+        "台股 加權指數",
+        "亞洲股市 經濟",
     ]
 
     if look_back_days < 0:
