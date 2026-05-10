@@ -111,6 +111,23 @@ def _statement_as_of_note(curr_date: str | None, freq: str) -> str:
     )
 
 
+def _get_financial_currency(ticker_obj: "yf.Ticker") -> str:
+    """Best-effort fetch of the ticker's reported financial currency.
+
+    Yahoo reports financials in the issuer's native currency (TWD for TWSE,
+    JPY for Tokyo, EUR for XETRA, etc.). Without a currency tag, an LLM
+    silently treats every number as USD.
+    """
+    try:
+        return ticker_obj.info.get("financialCurrency") or "UNKNOWN"
+    except Exception:
+        logger.debug("Failed to fetch financial currency", exc_info=True)
+        return "UNKNOWN"
+
+
+_CACHE_FRESH_HOURS = 12
+
+
 def _read_cached_history(data_file: Path) -> pd.DataFrame:
     """Read a cached yfinance history CSV."""
     candidate_data = pd.read_csv(data_file)
@@ -119,7 +136,12 @@ def _read_cached_history(data_file: Path) -> pd.DataFrame:
 
 
 def _download_history(candidate: str, start_date: str, end_date: str) -> pd.DataFrame:
-    """Download raw OHLCV history for a symbol candidate."""
+    """Download split- and dividend-adjusted OHLCV history for a symbol.
+
+    Adjusted prices are required for technically meaningful indicators —
+    raw close prices crash artificially across stock splits and reverse
+    splits, which corrupts every moving average / Bollinger / MACD reading.
+    """
     try:
         candidate_data = yf.download(
             candidate,
@@ -127,11 +149,25 @@ def _download_history(candidate: str, start_date: str, end_date: str) -> pd.Data
             end=end_date,
             multi_level_index=False,
             progress=False,
-            auto_adjust=False,
+            auto_adjust=True,
         )
     except Exception as exc:
         raise RuntimeError(f"Failed to download history for {candidate}") from exc
     return candidate_data.reset_index()
+
+
+def _is_cache_usable(data_file: Path, curr_date_dt: datetime) -> bool:
+    """Return whether the on-disk cache should be reused for ``curr_date``.
+
+    Historical (back-dated) runs always reuse the cache; today's run only
+    reuses it if the file was written within ``_CACHE_FRESH_HOURS`` hours.
+    """
+    if not data_file.exists():
+        return False
+    if curr_date_dt.date() < datetime.now().date():
+        return True
+    age = datetime.now() - datetime.fromtimestamp(data_file.stat().st_mtime)
+    return age < timedelta(hours=_CACHE_FRESH_HOURS)
 
 
 def _load_history_candidate(
@@ -153,6 +189,72 @@ def _load_history_candidate(
     return candidate_data
 
 
+def _resolve_history_with_cache(
+    symbol: str, curr_date_dt: datetime
+) -> tuple[str, pd.DataFrame, list[str]]:
+    """Fetch (or load cached) 15-year OHLCV history for ``symbol``.
+
+    The resulting DataFrame is shared between :func:`get_yfin_data_online`
+    (which slices it by request window) and :func:`_get_stock_stats_bulk`
+    (which feeds it through stockstats), so a single download per
+    ``(symbol, curr_date)`` services every market-analyst tool call.
+
+    Args:
+        symbol: User-supplied ticker symbol.
+        curr_date_dt: The reference date used to build the 15-y window
+            and decide whether the cache is still fresh.
+
+    Returns:
+        ``(resolved_symbol, dataframe, candidate_list)``.
+
+    Raises:
+        ValueError: If no market data is found across all candidates.
+        RuntimeError: If every candidate raised on download.
+    """
+    config = get_config()
+
+    end_date = pd.Timestamp(curr_date_dt + timedelta(days=1))
+    start_date = pd.Timestamp(curr_date_dt) - pd.DateOffset(years=15)
+    start_date_str = start_date.strftime("%Y-%m-%d")
+    end_date_str = end_date.strftime("%Y-%m-%d")
+
+    cache_dir = Path(str(config.data_cache_dir))
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    candidates = get_yfinance_symbol_candidates(symbol)
+    data = pd.DataFrame()
+    resolved_symbol = candidates[0]
+    last_error: Exception | None = None
+    fetched_any_candidate = False
+
+    for candidate in candidates:
+        data_file = cache_dir / f"{candidate}-YFin-data-{start_date_str}-{end_date_str}.csv"
+        use_cache = _is_cache_usable(data_file, curr_date_dt)
+        try:
+            candidate_data = _load_history_candidate(
+                candidate, data_file, start_date_str, end_date_str, use_cache=use_cache
+            )
+        except Exception as exc:
+            logger.debug("Failed to load market data for %s", candidate, exc_info=True)
+            last_error = exc
+            continue
+        fetched_any_candidate = True
+        if not candidate_data.empty:
+            data = candidate_data
+            resolved_symbol = candidate
+            break
+
+    if data.empty:
+        tried = describe_symbol_candidates(symbol, candidates)
+        if not fetched_any_candidate and last_error is not None:
+            raise RuntimeError(
+                f"Failed to fetch market data for symbol '{symbol}' (tried: {tried})"
+            ) from last_error
+        raise ValueError(f"No market data found for symbol '{symbol}' (tried: {tried}).")
+
+    return resolved_symbol, data, candidates
+
+
 def _has_meaningful_ticker_info(info: dict) -> bool:
     """Return whether yfinance info contains an actual resolved quote.
 
@@ -171,7 +273,10 @@ def get_yfin_data_online(
     start_date: Annotated[str, "Start date in yyyy-mm-dd format"],
     end_date: Annotated[str, "End date in yyyy-mm-dd format"],
 ) -> str:
-    """Fetch OHLCV stock data online via yfinance and return as CSV string.
+    """Fetch OHLCV stock data via yfinance (cached) and return as CSV string.
+
+    Reads from the same 15-year on-disk cache used by the indicator
+    pipeline so a single download services every market-analyst tool call.
 
     Args:
         symbol (str): Ticker symbol of the company.
@@ -185,56 +290,38 @@ def get_yfin_data_online(
         ValueError: If `start_date` or `end_date` does not match YYYY-MM-DD, or
             if the ticker symbol is empty.
     """
-    _, end_dt = _validate_date_range(start_date, end_date)
-    download_end_date = (end_dt + timedelta(days=1)).strftime("%Y-%m-%d")
+    start_dt, end_dt = _validate_date_range(start_date, end_date)
 
-    candidates = get_yfinance_symbol_candidates(symbol)
+    try:
+        resolved_symbol, data, candidates = _resolve_history_with_cache(symbol, end_dt)
+    except (ValueError, RuntimeError) as exc:
+        return f"[TOOL_ERROR] {exc}"
 
-    data = pd.DataFrame()
-    resolved_symbol = candidates[0]
-    last_error: Exception | None = None
-    fetched_any_candidate = False
-    for candidate in candidates:
-        try:
-            ticker = yf.Ticker(candidate)
-            candidate_data = ticker.history(
-                start=start_date, end=download_end_date, auto_adjust=False
-            )
-        except Exception as exc:
-            logger.debug("Failed to fetch history for %s", candidate, exc_info=True)
-            last_error = exc
-            continue
-        fetched_any_candidate = True
-        if not candidate_data.empty:
-            data = candidate_data
-            resolved_symbol = candidate
-            break
+    data = data.copy()
+    data["Date"] = pd.to_datetime(data["Date"])
+    if data["Date"].dt.tz is not None:
+        data["Date"] = data["Date"].dt.tz_localize(None)
+    mask = (data["Date"] >= pd.Timestamp(start_dt)) & (data["Date"] <= pd.Timestamp(end_dt))
+    sliced = data.loc[mask].copy()
 
-    # Check if data is empty
-    if data.empty:
+    if sliced.empty:
         tried = describe_symbol_candidates(symbol, candidates)
-        if not fetched_any_candidate and last_error is not None:
-            raise RuntimeError(
-                f"Failed to fetch market data for symbol '{symbol}' (tried: {tried})"
-            ) from last_error
-        return f"No data found for symbol '{symbol}' (tried: {tried}) between {start_date} and {end_date}"
+        return (
+            f"No data found for symbol '{symbol}' (tried: {tried}) "
+            f"between {start_date} and {end_date}"
+        )
 
-    # Remove timezone info from index for cleaner output
-    if data.index.tz is not None:
-        data.index = data.index.tz_localize(None)
-
-    # Round numerical values to 2 decimal places for cleaner display
     numeric_columns = ["Open", "High", "Low", "Close", "Adj Close"]
     for col in numeric_columns:
-        if col in data.columns:
-            data[col] = data[col].round(2)
+        if col in sliced.columns:
+            sliced[col] = sliced[col].round(2)
 
-    # Convert DataFrame to CSV string
-    csv_string = data.to_csv()
+    sliced["Date"] = sliced["Date"].dt.strftime("%Y-%m-%d")
+    csv_string = sliced.to_csv(index=False)
 
-    # Add header information
     header = f"# Stock data for {resolved_symbol} from {start_date} to {end_date}\n"
-    header += f"# Total records: {len(data)}\n"
+    header += f"# Total records: {len(sliced)}\n"
+    header += "# Note: OHLC values are split- and dividend-adjusted (auto_adjust=True).\n"
     header += f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
 
     return header + csv_string
@@ -384,48 +471,13 @@ def _get_stock_stats_bulk(
         ValueError: If the symbol is empty or no market data is found.
         RuntimeError: If the global TradingAgentsConfig has not been initialized.
     """
-    config = get_config()
-
     curr_date_dt = _parse_yyyy_mm_dd(curr_date, "curr_date")
-    end_date = pd.Timestamp(curr_date_dt + timedelta(days=1))
-    start_date = pd.Timestamp(curr_date_dt) - pd.DateOffset(years=15)
-    start_date_str = start_date.strftime("%Y-%m-%d")
-    end_date_str = end_date.strftime("%Y-%m-%d")
+    _, data, _ = _resolve_history_with_cache(symbol, curr_date_dt)
 
-    cache_dir = Path(str(config.data_cache_dir))
-    cache_dir.mkdir(parents=True, exist_ok=True)
-
-    candidates = get_yfinance_symbol_candidates(symbol)
-    data = pd.DataFrame()
-    last_error: Exception | None = None
-    fetched_any_candidate = False
-
-    for candidate in candidates:
-        data_file = cache_dir / f"{candidate}-YFin-data-{start_date_str}-{end_date_str}.csv"
-        use_cache = data_file.exists() and curr_date_dt.date() < datetime.now().date()
-        try:
-            candidate_data = _load_history_candidate(
-                candidate, data_file, start_date_str, end_date_str, use_cache=use_cache
-            )
-        except Exception as exc:
-            logger.debug("Failed to load market data for %s", candidate, exc_info=True)
-            last_error = exc
-            continue
-        fetched_any_candidate = True
-
-        if not candidate_data.empty:
-            data = candidate_data
-            break
-
-    if data.empty:
-        tried = describe_symbol_candidates(symbol, candidates)
-        if not fetched_any_candidate and last_error is not None:
-            raise RuntimeError(
-                f"Failed to fetch market data for symbol '{symbol}' (tried: {tried})"
-            ) from last_error
-        raise ValueError(f"No market data found for symbol '{symbol}' (tried: {tried}).")
-
-    df = wrap(data)
+    df = wrap(data.copy())
+    df["Date"] = pd.to_datetime(df["Date"])
+    if df["Date"].dt.tz is not None:
+        df["Date"] = df["Date"].dt.tz_localize(None)
     df["Date"] = df["Date"].dt.strftime("%Y-%m-%d")
 
     # Calculate the indicator for all rows at once
@@ -568,6 +620,7 @@ def get_balance_sheet(
     candidates = get_yfinance_symbol_candidates(ticker)
     data = pd.DataFrame()
     resolved_ticker = candidates[0]
+    currency = "UNKNOWN"
     last_error: Exception | None = None
     fetched_any_candidate = False
 
@@ -590,6 +643,7 @@ def get_balance_sheet(
         if not candidate_data.empty:
             data = candidate_data
             resolved_ticker = candidate
+            currency = _get_financial_currency(ticker_obj)
             break
 
     if data.empty:
@@ -606,6 +660,7 @@ def get_balance_sheet(
     csv_string = data.to_csv()
 
     header = f"# Balance Sheet data for {resolved_ticker} ({freq})\n"
+    header += f"# Reported currency: {currency}\n"
     header += _statement_as_of_note(curr_date, freq)
     header += f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
 
@@ -632,6 +687,7 @@ def get_cashflow(
     candidates = get_yfinance_symbol_candidates(ticker)
     data = pd.DataFrame()
     resolved_ticker = candidates[0]
+    currency = "UNKNOWN"
     last_error: Exception | None = None
     fetched_any_candidate = False
 
@@ -652,6 +708,7 @@ def get_cashflow(
         if not candidate_data.empty:
             data = candidate_data
             resolved_ticker = candidate
+            currency = _get_financial_currency(ticker_obj)
             break
 
     if data.empty:
@@ -668,6 +725,7 @@ def get_cashflow(
     csv_string = data.to_csv()
 
     header = f"# Cash Flow data for {resolved_ticker} ({freq})\n"
+    header += f"# Reported currency: {currency}\n"
     header += _statement_as_of_note(curr_date, freq)
     header += f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
 
@@ -694,6 +752,7 @@ def get_income_statement(
     candidates = get_yfinance_symbol_candidates(ticker)
     data = pd.DataFrame()
     resolved_ticker = candidates[0]
+    currency = "UNKNOWN"
     last_error: Exception | None = None
     fetched_any_candidate = False
 
@@ -714,6 +773,7 @@ def get_income_statement(
         if not candidate_data.empty:
             data = candidate_data
             resolved_ticker = candidate
+            currency = _get_financial_currency(ticker_obj)
             break
 
     if data.empty:
@@ -730,10 +790,43 @@ def get_income_statement(
     csv_string = data.to_csv()
 
     header = f"# Income Statement data for {resolved_ticker} ({freq})\n"
+    header += f"# Reported currency: {currency}\n"
     header += _statement_as_of_note(curr_date, freq)
     header += f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
 
     return header + csv_string
+
+
+_INSIDER_HISTORY_HORIZON_DAYS = 180
+
+
+def _insider_history_unavailable_message(ticker: str, curr_date: str | None) -> str | None:
+    """Return a no-data message if curr_date is older than yfinance's horizon."""
+    as_of = _as_of_datetime(curr_date)
+    if as_of is None:
+        return None
+    horizon = datetime.now().date() - timedelta(days=_INSIDER_HISTORY_HORIZON_DAYS)
+    if as_of.date() >= horizon:
+        return None
+    return (
+        f"# Insider Transactions data for {ticker}\n"
+        f"# Requested as_of: {curr_date}\n"
+        f"# yfinance exposes only the most recent ~{_INSIDER_HISTORY_HORIZON_DAYS} days "
+        f"of insider transactions; historical data before "
+        f"{horizon.strftime('%Y-%m-%d')} is not available through this tool. "
+        f"Returning no rows to avoid lookahead bias.\n"
+    )
+
+
+def _filter_insider_by_date(candidate_data: pd.DataFrame, as_of: datetime | None) -> pd.DataFrame:
+    """Restrict insider rows to those on or before as_of, when possible."""
+    if as_of is None:
+        return candidate_data
+    date_columns = [column for column in candidate_data.columns if "date" in str(column).lower()]
+    if not date_columns:
+        return candidate_data
+    dates = pd.to_datetime(candidate_data[date_columns[0]], errors="coerce")
+    return candidate_data.loc[dates <= pd.Timestamp(as_of)]
 
 
 def get_insider_transactions(
@@ -742,14 +835,24 @@ def get_insider_transactions(
 ) -> str:
     """Get insider transactions data from yfinance.
 
+    Yahoo Finance only exposes the most recent ~6 months of insider activity;
+    it does **not** archive older transactions. For ``curr_date`` more than 6
+    months in the past, this tool refuses rather than risk leaking present-day
+    insider rows into a back-dated run.
+
     Args:
         ticker (str): Ticker symbol of the company.
         curr_date (str | None, optional): Current date used as a point-in-time
             boundary when transaction date columns are available. Defaults to None.
 
     Returns:
-        str: CSV string containing insider transactions data.
+        str: CSV string containing insider transactions data, or a no-data
+        message when the request is older than the available horizon.
     """
+    horizon_message = _insider_history_unavailable_message(ticker, curr_date)
+    if horizon_message is not None:
+        return horizon_message
+
     as_of = _as_of_datetime(curr_date)
     candidates = get_yfinance_symbol_candidates(ticker)
     data = pd.DataFrame()
@@ -768,13 +871,7 @@ def get_insider_transactions(
         fetched_any_candidate = True
         if candidate_data is None or candidate_data.empty:
             continue
-        if as_of is not None:
-            date_columns = [
-                column for column in candidate_data.columns if "date" in str(column).lower()
-            ]
-            if date_columns:
-                dates = pd.to_datetime(candidate_data[date_columns[0]], errors="coerce")
-                candidate_data = candidate_data.loc[dates <= pd.Timestamp(as_of)]
+        candidate_data = _filter_insider_by_date(candidate_data, as_of)
         if not candidate_data.empty:
             data = candidate_data
             resolved_ticker = candidate

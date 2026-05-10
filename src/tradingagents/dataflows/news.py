@@ -156,7 +156,7 @@ def _get_news_yfinance(ticker: str, start_date: str, end_date: str) -> str:
             skipped_undated += 1
             continue
         pub_date_naive = pub_date.replace(tzinfo=None)
-        if not (start_dt <= pub_date_naive <= end_dt + relativedelta(days=1)):
+        if not (start_dt <= pub_date_naive < end_dt + relativedelta(days=1)):
             continue
 
         news_str += f"### {data['title']} (source: {data['publisher']})\n"
@@ -229,7 +229,7 @@ def _collect_global_news(
                 skipped_undated += 1
                 continue
             pub_date_naive = pub_date.replace(tzinfo=None)
-            if not (start_dt <= pub_date_naive <= end_dt + relativedelta(days=1)):
+            if not (start_dt <= pub_date_naive < end_dt + relativedelta(days=1)):
                 continue
             if title and title not in seen_titles:
                 seen_titles.add(title)
