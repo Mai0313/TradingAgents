@@ -1,12 +1,10 @@
 # TradingAgents/graph/signal_processing.py
 
 import re
-from typing import Literal, cast
+from typing import Any, Literal, cast
 import logging
 
-from pydantic import Field, BaseModel, ConfigDict, SkipValidation
-
-from tradingagents.llm import ChatModel
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +15,7 @@ _FINAL_PATTERN = re.compile(
 )
 
 
-def extract_trade_signal(full_signal: object) -> TradeSignal:
+def extract_trade_signal(full_signal: str | list[str | dict[str, Any]] | None) -> TradeSignal:
     """Extract a canonical BUY/SELL/HOLD decision without another LLM call.
 
     Always returns one of BUY/SELL/HOLD; logs a warning and defaults to
@@ -57,18 +55,6 @@ def extract_trade_signal(full_signal: object) -> TradeSignal:
 
 class SignalProcessor(BaseModel):
     """Processes trading signals deterministically to extract actionable decisions."""
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    # --- User-configurable fields ---
-
-    quick_thinking_llm: SkipValidation[ChatModel | None] = Field(
-        default=None,
-        title="Quick Thinking LLM",
-        description="Deprecated compatibility field; signal extraction is deterministic",
-    )
-
-    # --- Public methods ---
 
     def process_signal(self, full_signal: str) -> TradeSignal:
         """Process a full trading signal to extract the core decision.

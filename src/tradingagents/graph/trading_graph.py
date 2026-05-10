@@ -10,6 +10,7 @@ from pydantic import Field, BaseModel, ConfigDict, computed_field, model_validat
 from langgraph.prebuilt import ToolNode
 from langgraph.graph.state import CompiledStateGraph
 from langchain_core.messages import AnyMessage, HumanMessage, messages_to_dict
+from langchain_core.callbacks import BaseCallbackHandler
 
 from tradingagents.llm import ChatModel, build_chat_model
 from tradingagents.config import TradingAgentsConfig, set_config
@@ -27,7 +28,7 @@ from tradingagents.agents.utils.agent_utils import (
 )
 from tradingagents.agents.utils.agent_states import AgentState
 
-from .setup import GraphSetup, MemoryComponents
+from .setup import SUPPORTED_ANALYSTS, GraphSetup, MemoryComponents
 from .reflection import Reflector
 from .propagation import Propagator
 from .conditional_logic import ConditionalLogic
@@ -77,7 +78,7 @@ class TradingAgentsGraph(BaseModel):
 
     # --- User-configurable fields ---
     selected_analysts: list[str] = Field(
-        default=["market", "social", "news", "fundamentals"],
+        default_factory=lambda: list(SUPPORTED_ANALYSTS),
         title="Selected Analysts",
         description="List of analyst types to include in the trading graph",
     )
@@ -89,7 +90,7 @@ class TradingAgentsGraph(BaseModel):
     config: TradingAgentsConfig = Field(
         ..., title="Configuration", description="Trading agents configuration settings"
     )
-    callbacks: list = Field(
+    callbacks: list[BaseCallbackHandler] = Field(
         default_factory=list,
         title="Callbacks",
         description="Optional callback handlers for tracking LLM/tool statistics",
@@ -167,7 +168,7 @@ class TradingAgentsGraph(BaseModel):
         Returns:
             FinancialSituationMemory: Memory instance for the bull researcher.
         """
-        return FinancialSituationMemory("bull_memory")
+        return FinancialSituationMemory(name="bull_memory")
 
     @computed_field
     @cached_property
@@ -177,7 +178,7 @@ class TradingAgentsGraph(BaseModel):
         Returns:
             FinancialSituationMemory: Memory instance for the bear researcher.
         """
-        return FinancialSituationMemory("bear_memory")
+        return FinancialSituationMemory(name="bear_memory")
 
     @computed_field
     @cached_property
@@ -187,7 +188,7 @@ class TradingAgentsGraph(BaseModel):
         Returns:
             FinancialSituationMemory: Memory instance for the trader.
         """
-        return FinancialSituationMemory("trader_memory")
+        return FinancialSituationMemory(name="trader_memory")
 
     @computed_field
     @cached_property
@@ -197,7 +198,7 @@ class TradingAgentsGraph(BaseModel):
         Returns:
             FinancialSituationMemory: Memory instance for the investment judge.
         """
-        return FinancialSituationMemory("invest_judge_memory")
+        return FinancialSituationMemory(name="invest_judge_memory")
 
     @computed_field
     @cached_property
@@ -207,7 +208,7 @@ class TradingAgentsGraph(BaseModel):
         Returns:
             FinancialSituationMemory: Memory instance for the risk manager.
         """
-        return FinancialSituationMemory("risk_manager_memory")
+        return FinancialSituationMemory(name="risk_manager_memory")
 
     @computed_field
     @cached_property

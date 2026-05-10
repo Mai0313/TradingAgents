@@ -15,12 +15,14 @@ ResponseLanguage = Literal[
     "de-DE",  # German
 ]
 
+_DEFAULT_RESULTS_DIR = Path("./results")
+
 
 class TradingAgentsConfig(BaseModel):
     """Configuration for the TradingAgents framework."""
 
     results_dir: Path = Field(
-        default=Path("./results"),
+        default=_DEFAULT_RESULTS_DIR,
         title="Results Directory",
         description="Directory for saving analysis results",
     )

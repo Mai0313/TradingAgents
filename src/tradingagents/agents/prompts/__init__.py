@@ -45,4 +45,4 @@ def load_prompt(name: str) -> str:
     Raises:
         FileNotFoundError: If the prompt template file does not exist.
     """
-    return (_PROMPT_DIR / f"{name}.md").read_text() + _language_instruction()
+    return (_PROMPT_DIR / f"{name}.md").read_text(encoding="utf-8") + _language_instruction()

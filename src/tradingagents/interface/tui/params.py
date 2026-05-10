@@ -15,7 +15,7 @@ from pydantic import Field, BaseModel, field_validator
 
 from tradingagents.llm import LLMProvider, ReasoningEffort  # noqa: TC001
 from tradingagents.config import ResponseLanguage  # noqa: TC001
-from tradingagents.graph.setup import SUPPORTED_ANALYSTS
+from tradingagents.graph.setup import SUPPORTED_ANALYSTS, GraphSetup
 
 
 class SetupParams(BaseModel):
@@ -117,29 +117,10 @@ class SetupParams(BaseModel):
     def _validate_analysts(cls, value: list[str]) -> list[str]:
         """Normalise and reject unknown / empty analyst lists.
 
-        Args:
-            value (list[str]): The candidate analyst list.
-
-        Returns:
-            list[str]: A de-duplicated, lowercased list.
-
-        Raises:
-            ValueError: If any analyst is unknown or the list is empty.
+        Delegates to :meth:`GraphSetup.validate_selected_analysts` so all
+        three call sites (graph build, CLI, TUI) share one validator.
         """
-        normalised: list[str] = []
-        for analyst in value:
-            key = str(analyst).strip().lower()
-            if key and key not in normalised:
-                normalised.append(key)
-        unknown = [a for a in normalised if a not in SUPPORTED_ANALYSTS]
-        if unknown:
-            raise ValueError(
-                f"Unknown analyst(s): {', '.join(unknown)}; "
-                f"supported: {', '.join(SUPPORTED_ANALYSTS)}"
-            )
-        if not normalised:
-            raise ValueError("At least one analyst must be selected.")
-        return normalised
+        return GraphSetup.validate_selected_analysts(value)
 
     @field_validator("ticker")
     @classmethod

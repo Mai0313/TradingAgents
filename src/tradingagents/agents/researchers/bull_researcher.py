@@ -31,13 +31,7 @@ def create_bull_researcher(
         """
         debate = state.investment_debate_state
 
-        curr_situation = (
-            f"{state.market_report}\n\n"
-            f"{state.sentiment_report}\n\n"
-            f"{state.news_report}\n\n"
-            f"{state.fundamentals_report}"
-        )
-        past_memories = memory.get_memories(curr_situation, n_matches=2)
+        past_memories = memory.get_memories(state.combined_reports, n_matches=2)
         past_memory_str = "".join(rec["recommendation"] + "\n\n" for rec in past_memories)
 
         prompt = load_prompt("bull_researcher").format(

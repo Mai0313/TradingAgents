@@ -154,5 +154,19 @@ class AgentState(BaseModel):
         description="Final BUY/SELL/HOLD decision produced by the Risk Manager",
     )
 
+    @property
+    def combined_reports(self) -> str:
+        """Return the four analyst reports concatenated for memory queries.
+
+        Used by every node that performs BM25 retrieval against the
+        situation snapshot (researchers, managers, trader, reflector).
+        """
+        return (
+            f"{self.market_report}\n\n"
+            f"{self.sentiment_report}\n\n"
+            f"{self.news_report}\n\n"
+            f"{self.fundamentals_report}"
+        )
+
 
 __all__ = ["AgentState", "InvestDebateState", "RiskDebateState"]
