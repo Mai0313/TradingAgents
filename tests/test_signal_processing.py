@@ -15,14 +15,26 @@ def test_extract_trade_signal_handles_list_content() -> None:
     assert extract_trade_signal(content) == "SELL"
 
 
-def test_extract_trade_signal_rejects_ambiguous_unmarked_text() -> None:
-    with pytest.raises(ValueError, match="Ambiguous"):
-        extract_trade_signal("BUY looks attractive, but HOLD is also defensible.")
+def test_extract_trade_signal_falls_back_to_hold_on_ambiguous(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Ambiguous / multi-signal output now defaults to HOLD with a warning,
+    instead of raising and aborting an in-flight 12-agent paid run.
+    """
+    with caplog.at_level("WARNING"):
+        result = extract_trade_signal("BUY looks attractive, but HOLD is also defensible.")
+    assert result == "HOLD"
+    assert "ambiguous" in caplog.text.lower()
 
 
-def test_extract_trade_signal_rejects_missing_decision() -> None:
-    with pytest.raises(ValueError, match="No BUY/SELL/HOLD"):
-        extract_trade_signal("No canonical trade decision was written.")
+def test_extract_trade_signal_falls_back_to_hold_on_missing_decision(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Empty / no-decision output also defaults to HOLD with a warning."""
+    with caplog.at_level("WARNING"):
+        result = extract_trade_signal("No canonical trade decision was written.")
+    assert result == "HOLD"
+    assert "no buy/sell/hold" in caplog.text.lower()
 
 
 def test_signal_processor_does_not_require_llm() -> None:

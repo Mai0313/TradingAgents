@@ -13,7 +13,7 @@ from rich.console import Console
 
 from tradingagents.llm import LLMProvider, ReasoningEffort  # noqa: TC001
 from tradingagents.config import ResponseLanguage, TradingAgentsConfig
-from tradingagents.graph.setup import SUPPORTED_ANALYSTS
+from tradingagents.graph.setup import SUPPORTED_ANALYSTS, GraphSetup
 from tradingagents.interface.display import MessageRenderer, print_run_header, print_final_decision
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 
@@ -37,22 +37,13 @@ def _normalize_trade_date(date_value: str | None) -> str:
 def _normalize_selected_analysts(
     selected_analysts: list[str] | tuple[str, ...] | None,
 ) -> list[str]:
-    """Validate selected analyst names early for CLI/API callers."""
+    """Validate selected analyst names early for CLI / API callers.
+
+    Delegates to :meth:`GraphSetup.validate_selected_analysts` so the CLI,
+    TUI, and graph-level validators all share one source of truth.
+    """
     analysts = list(selected_analysts) if selected_analysts else list(DEFAULT_ANALYSTS)
-    normalized = []
-    for analyst in analysts:
-        value = str(analyst).strip().lower()
-        if value and value not in normalized:
-            normalized.append(value)
-    unknown = [analyst for analyst in normalized if analyst not in SUPPORTED_ANALYSTS]
-    if unknown:
-        raise ValueError(
-            "Unknown analyst(s): "
-            f"{', '.join(unknown)}. Supported analysts: {', '.join(SUPPORTED_ANALYSTS)}."
-        )
-    if not normalized:
-        raise ValueError("At least one analyst must be selected.")
-    return normalized
+    return GraphSetup.validate_selected_analysts([str(a) for a in analysts])
 
 
 def run_cli(  # noqa: PLR0913

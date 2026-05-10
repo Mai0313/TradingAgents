@@ -22,6 +22,7 @@ uv run tradingagents tui                              # interactive questionary 
 uv run tradingagents cli                              # all defaults (GOOG, today, gemini-3.1-pro-preview)
 uv run tradingagents cli --ticker AAPL --date 2024-05-10
 uv run tradingagents cli --llm_provider openai --deep_think_llm gpt-5 --quick_think_llm gpt-5-mini
+uv run tradingagents reflect --ticker AAPL --date 2024-05-10 --returns 0.032   # apply post-trade reflection (see Memory section)
 uv run tradingagents --help                           # rich-rendered top-level help
 uv run tradingagents cli --help                       # rich-rendered per-command flags
 python -m tradingagents cli ...                       # equivalent
@@ -37,7 +38,7 @@ make clean                # nuke caches, dist, docs, .github/reports
 make gen-docs             # build MkDocs Material site (writes to docs/, then `uv run mkdocs serve` on :9987)
 ```
 
-Tests: there are **no test files in this repository** even though pytest is configured in `pyproject.toml` (`testpaths = "tests/"`, `--cov-fail-under=80`). Running `make test` / `uv run pytest` will collect zero tests and fail the coverage gate. Don't write or propose tests unless the user asks: each LangGraph run hits live LLM APIs and costs real money.
+Tests: a small **mock-based** pytest suite lives under `tests/` (added in #35). It exercises pure helpers and graph wiring via `monkeypatch` only — **no live LLM or yfinance network calls**, so it is safe and free to run via `make test` / `uv run pytest`. Update the existing tests when changing the contracts they pin (e.g. error-message format, public function names, no-data sentinels), and feel free to add similarly mock-based tests when you change shared invariants. Do **not** propose tests that require real LLM API or yfinance traffic — each live LangGraph run hits paid LLM APIs and costs real money. Coverage gate (`--cov-fail-under=80`) is currently aspirational; the suite covers a fraction of the codebase.
 
 API keys (one of these is required, picked by `llm_provider`): `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, `XAI_API_KEY`, `OPENROUTER_API_KEY`. See `.env.example`.
 
@@ -92,7 +93,9 @@ Ticker resolution (`dataflows/tickers.py`): bare symbols are resolved via `yf.Se
 
 ### Memory (`agents/utils/memory.py`)
 
-`FinancialSituationMemory` uses **BM25Okapi** (lexical, no embeddings API). `TradingAgentsGraph` constructs five instances: `bull_memory`, `bear_memory`, `trader_memory`, `invest_judge_memory`, `risk_manager_memory`. Each researcher / judge calls `get_memories(curr_situation, n_matches=k)` before reasoning. After the trade outcome is known, `TradingAgentsGraph.reflect_and_remember(returns_losses)` runs `Reflector` (`graph/reflection.py`) over each memory so future runs can learn — there is no persistence layer; memories live in-process for the lifetime of the graph instance.
+`FinancialSituationMemory` is a Pydantic `BaseModel` using **BM25Okapi** (lexical, no embeddings API). `TradingAgentsGraph` constructs five instances: `bull_memory`, `bear_memory`, `trader_memory`, `invest_judge_memory`, `risk_manager_memory`. Each is wired to `<config.data_cache_dir>/memories/<name>.jsonl`; the file is auto-loaded on construction and atomically rewritten on every `add_situations(...)` call so reflections persist across processes. Each researcher / judge calls `get_memories(state.combined_reports, n_matches=k)` before reasoning.
+
+After the trade outcome is known, run `tradingagents reflect --ticker X --date Y --returns Z` (or call `TradingAgentsGraph.reflect_and_remember(returns, state=...)` programmatically). The CLI subcommand reads `<results_dir>/<TICKER>/full_states_log_<TICKER>_<DATE>.json`, reconstructs the `AgentState`, runs `Reflector` over each component, and appends the lessons to the JSONL files. The reflector grades reasoning quality (decision-process correctness), not just realised P/L — see `prompts/reflector.md`.
 
 ### Prompts (`agents/prompts/`)
 

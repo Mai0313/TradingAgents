@@ -10,6 +10,7 @@ from pydantic import Field, BaseModel, ConfigDict, computed_field, model_validat
 from langgraph.prebuilt import ToolNode
 from langgraph.graph.state import CompiledStateGraph
 from langchain_core.messages import AnyMessage, HumanMessage, messages_to_dict
+from langchain_core.callbacks import BaseCallbackHandler
 
 from tradingagents.llm import ChatModel, build_chat_model
 from tradingagents.config import TradingAgentsConfig, set_config
@@ -27,11 +28,11 @@ from tradingagents.agents.utils.agent_utils import (
 )
 from tradingagents.agents.utils.agent_states import AgentState
 
-from .setup import GraphSetup, MemoryComponents
+from .setup import SUPPORTED_ANALYSTS, GraphSetup, MemoryComponents
 from .reflection import Reflector
 from .propagation import Propagator
 from .conditional_logic import ConditionalLogic
-from .signal_processing import SignalProcessor
+from .signal_processing import TradeSignal, SignalProcessor
 
 logger = logging.getLogger(__name__)
 _SAFE_PATH_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
@@ -43,6 +44,33 @@ def _safe_path_component(value: str) -> str:
     return safe or "unknown"
 
 
+def _atomic_write_text(path: Path, content: str) -> None:
+    """Write ``content`` to ``path`` atomically and as UTF-8.
+
+    A crash mid-write must never leave a half-written log on disk that
+    a subsequent reflection step or downstream tool would silently
+    parse as truncated JSON.
+    """
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(content, encoding="utf-8")
+    tmp.replace(path)
+
+
+def _tool_error_handler(exc: Exception) -> str:
+    """Return a non-retry message when a LangGraph tool raises.
+
+    Without this handler, any yfinance hiccup produces a traceback inside
+    the tool's ``ToolMessage.content``; the analyst then re-invokes the
+    same call and can burn the entire ``max_recur_limit`` budget. This
+    formatter instructs the LLM to stop retrying that exact call.
+    """
+    return (
+        f"[TOOL_ERROR] {type(exc).__name__}: {exc}. "
+        "Do not retry this exact call; either try a different argument, "
+        "skip this data source, or summarize what you already have."
+    )
+
+
 class TradingAgentsGraph(BaseModel):
     """Main class that orchestrates the trading agents framework."""
 
@@ -50,7 +78,7 @@ class TradingAgentsGraph(BaseModel):
 
     # --- User-configurable fields ---
     selected_analysts: list[str] = Field(
-        default=["market", "social", "news", "fundamentals"],
+        default_factory=lambda: list(SUPPORTED_ANALYSTS),
         title="Selected Analysts",
         description="List of analyst types to include in the trading graph",
     )
@@ -62,7 +90,7 @@ class TradingAgentsGraph(BaseModel):
     config: TradingAgentsConfig = Field(
         ..., title="Configuration", description="Trading agents configuration settings"
     )
-    callbacks: list = Field(
+    callbacks: list[BaseCallbackHandler] = Field(
         default_factory=list,
         title="Callbacks",
         description="Optional callback handlers for tracking LLM/tool statistics",
@@ -132,55 +160,43 @@ class TradingAgentsGraph(BaseModel):
         """
         return self._create_llm(self.config.quick_think_llm)
 
+    def _memory_path(self, name: str) -> Path:
+        """Return the JSONL storage path for a memory ``name`` under data_cache_dir."""
+        return self.config.data_cache_dir / "memories" / f"{name}.jsonl"
+
+    def _make_memory(self, name: str) -> FinancialSituationMemory:
+        """Construct a :class:`FinancialSituationMemory` wired to its on-disk file."""
+        return FinancialSituationMemory(name=name, storage_path=self._memory_path(name))
+
     @computed_field
     @cached_property
     def bull_memory(self) -> FinancialSituationMemory:
-        """Bull researcher memory instance.
-
-        Returns:
-            FinancialSituationMemory: Memory instance for the bull researcher.
-        """
-        return FinancialSituationMemory("bull_memory")
+        """Bull-researcher memory, persisted to ``<data_cache_dir>/memories/bull_memory.jsonl``."""
+        return self._make_memory("bull_memory")
 
     @computed_field
     @cached_property
     def bear_memory(self) -> FinancialSituationMemory:
-        """Bear researcher memory instance.
-
-        Returns:
-            FinancialSituationMemory: Memory instance for the bear researcher.
-        """
-        return FinancialSituationMemory("bear_memory")
+        """Bear-researcher memory, persisted to ``<data_cache_dir>/memories/bear_memory.jsonl``."""
+        return self._make_memory("bear_memory")
 
     @computed_field
     @cached_property
     def trader_memory(self) -> FinancialSituationMemory:
-        """Trader memory instance.
-
-        Returns:
-            FinancialSituationMemory: Memory instance for the trader.
-        """
-        return FinancialSituationMemory("trader_memory")
+        """Trader memory, persisted to ``<data_cache_dir>/memories/trader_memory.jsonl``."""
+        return self._make_memory("trader_memory")
 
     @computed_field
     @cached_property
     def invest_judge_memory(self) -> FinancialSituationMemory:
-        """Investment judge memory instance.
-
-        Returns:
-            FinancialSituationMemory: Memory instance for the investment judge.
-        """
-        return FinancialSituationMemory("invest_judge_memory")
+        """Investment-judge memory, persisted under ``<data_cache_dir>/memories/``."""
+        return self._make_memory("invest_judge_memory")
 
     @computed_field
     @cached_property
     def risk_manager_memory(self) -> FinancialSituationMemory:
-        """Risk manager memory instance.
-
-        Returns:
-            FinancialSituationMemory: Memory instance for the risk manager.
-        """
-        return FinancialSituationMemory("risk_manager_memory")
+        """Risk-manager memory, persisted under ``<data_cache_dir>/memories/``."""
+        return self._make_memory("risk_manager_memory")
 
     @computed_field
     @cached_property
@@ -191,15 +207,18 @@ class TradingAgentsGraph(BaseModel):
             dict[str, ToolNode]: A dictionary mapping data source names to ToolNodes.
         """
         return {
-            "market": ToolNode([get_stock_data, get_indicators]),
-            "social": ToolNode([get_news]),
-            "news": ToolNode([get_news, get_global_news, get_insider_transactions]),
-            "fundamentals": ToolNode([
-                get_fundamentals,
-                get_balance_sheet,
-                get_cashflow,
-                get_income_statement,
-            ]),
+            "market": ToolNode(
+                [get_stock_data, get_indicators], handle_tool_errors=_tool_error_handler
+            ),
+            "social": ToolNode([get_news], handle_tool_errors=_tool_error_handler),
+            "news": ToolNode(
+                [get_news, get_global_news, get_insider_transactions],
+                handle_tool_errors=_tool_error_handler,
+            ),
+            "fundamentals": ToolNode(
+                [get_fundamentals, get_balance_sheet, get_cashflow, get_income_statement],
+                handle_tool_errors=_tool_error_handler,
+            ),
         }
 
     @computed_field
@@ -267,7 +286,7 @@ class TradingAgentsGraph(BaseModel):
         trade_date: str,
         on_message: Callable[[AnyMessage], None] | None = None,
         on_state: Callable[[AgentState], None] | None = None,
-    ) -> tuple[AgentState, str]:
+    ) -> tuple[AgentState, TradeSignal]:
         """Run the trading agents graph for a company on a specific date.
 
         Args:
@@ -286,7 +305,10 @@ class TradingAgentsGraph(BaseModel):
                 fields; the CLI does not need this. Defaults to None.
 
         Returns:
-            tuple[AgentState, str]: The final agent state and the extracted signal decision.
+            tuple[AgentState, TradeSignal]: The final agent state and the
+            extracted BUY / SELL / HOLD decision (defaults to HOLD if the
+            risk judge output is empty or ambiguous; see
+            :func:`extract_trade_signal`).
 
         Raises:
             RuntimeError: If the graph execution produces no output.
@@ -435,8 +457,9 @@ class TradingAgentsGraph(BaseModel):
         directory.mkdir(parents=True, exist_ok=True)
 
         log_path = directory / f"full_states_log_{ticker_name}_{trade_date}.json"
-        with open(log_path, "w") as f:
-            json.dump(self.log_states_dict, f, indent=2, ensure_ascii=False)
+        _atomic_write_text(
+            log_path, json.dumps(self.log_states_dict, indent=2, ensure_ascii=False)
+        )
 
         # Save complete conversation log (includes raw tool results: stock data,
         # indicators, news, financials, insider transactions, etc.)
@@ -470,9 +493,8 @@ class TradingAgentsGraph(BaseModel):
         # Human-readable text log (same format as debug pretty_print output)
         txt_path = directory / f"conversation_log_{ticker_name}_{trade_date}.txt"
         try:
-            with open(txt_path, "w") as f:
-                for msg in filtered:
-                    f.write(msg.pretty_repr() + "\n")
+            txt_content = "".join(msg.pretty_repr() + "\n" for msg in filtered)
+            _atomic_write_text(txt_path, txt_content)
             logger.info("Conversation log saved to %s", txt_path)
         except Exception:
             logger.warning("Failed to save conversation text log", exc_info=True)
@@ -480,40 +502,47 @@ class TradingAgentsGraph(BaseModel):
         # Structured JSON log (machine-readable, for programmatic analysis)
         json_path = directory / f"conversation_log_{ticker_name}_{trade_date}.json"
         try:
-            with open(json_path, "w") as f:
-                json.dump(messages_to_dict(filtered), f, indent=2, ensure_ascii=False)
+            _atomic_write_text(
+                json_path, json.dumps(messages_to_dict(filtered), indent=2, ensure_ascii=False)
+            )
             logger.info("Conversation JSON saved to %s", json_path)
         except Exception:
             logger.warning("Failed to save conversation JSON log", exc_info=True)
 
-    def reflect_and_remember(self, returns_losses: float) -> None:
-        """Reflect on decisions and update memory based on returns.
+    def reflect_and_remember(self, returns_losses: float, state: AgentState | None = None) -> None:
+        """Reflect on the decision chain and append lessons to every memory.
+
+        When ``state`` is ``None`` the most recent ``self.curr_state`` from
+        :meth:`propagate` is used; pass an explicit state when reflecting on a
+        run loaded from disk (e.g. via the ``reflect`` CLI subcommand).
 
         Args:
-            returns_losses (float): Actual returns or losses from the trade.
+            returns_losses: Actual returns or losses from the trade.
+            state: Optional explicit AgentState. When omitted, falls back to
+                the most recent run-state cached on the graph instance.
 
         Raises:
-            RuntimeError: If there is no current state to reflect on.
+            RuntimeError: If no state is available to reflect on.
         """
-        if self.curr_state is None:
-            raise RuntimeError("No state available to reflect on. Run propagate() first.")
-        self.reflector.reflect_bull_researcher(self.curr_state, returns_losses, self.bull_memory)
-        self.reflector.reflect_bear_researcher(self.curr_state, returns_losses, self.bear_memory)
-        self.reflector.reflect_trader(self.curr_state, returns_losses, self.trader_memory)
-        self.reflector.reflect_invest_judge(
-            self.curr_state, returns_losses, self.invest_judge_memory
-        )
-        self.reflector.reflect_risk_manager(
-            self.curr_state, returns_losses, self.risk_manager_memory
-        )
+        target = state if state is not None else self.curr_state
+        if target is None:
+            raise RuntimeError(
+                "No state available to reflect on. Run propagate() first or pass state=..."
+            )
+        self.reflector.reflect_bull_researcher(target, returns_losses, self.bull_memory)
+        self.reflector.reflect_bear_researcher(target, returns_losses, self.bear_memory)
+        self.reflector.reflect_trader(target, returns_losses, self.trader_memory)
+        self.reflector.reflect_invest_judge(target, returns_losses, self.invest_judge_memory)
+        self.reflector.reflect_risk_manager(target, returns_losses, self.risk_manager_memory)
 
-    def process_signal(self, full_signal: str) -> str:
+    def process_signal(self, full_signal: str) -> TradeSignal:
         """Process a signal to extract the core decision.
 
         Args:
             full_signal (str): The raw text signal.
 
         Returns:
-            str: The extracted decision (BUY/SELL/HOLD).
+            TradeSignal: The extracted decision (BUY/SELL/HOLD), defaulting
+            to HOLD when the input is empty or ambiguous.
         """
         return self.signal_processor.process_signal(full_signal)

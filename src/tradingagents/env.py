@@ -19,7 +19,7 @@ def load_dotenv_if_present(path: Path | None = None) -> None:
         _LOADED = True
         return
 
-    for raw_line in env_path.read_text().splitlines():
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
         line = raw_line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue

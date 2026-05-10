@@ -5,15 +5,21 @@ from datetime import date
 
 from pydantic import Field, BaseModel
 from langchain_core.messages import HumanMessage
+from langchain_core.callbacks import BaseCallbackHandler
 
 from tradingagents.agents.utils.agent_states import AgentState
 
 
 class Propagator(BaseModel):
     max_recur_limit: int = Field(
-        default=100,
+        ...,
+        ge=25,
         title="Max Recursion Limit",
-        description="Maximum number of recursive calls allowed in the LangGraph execution",
+        description=(
+            "Maximum recursion limit for the LangGraph execution. Required so "
+            "callers cannot accidentally fall back to 100 when the value fails "
+            "to thread from TradingAgentsConfig.max_recur_limit."
+        ),
     )
 
     def create_initial_state(self, company_name: str, trade_date: str) -> AgentState:
@@ -40,16 +46,18 @@ class Propagator(BaseModel):
             trade_date=parsed_date.strftime("%Y-%m-%d"),
         )
 
-    def get_graph_args(self, callbacks: list | None = None) -> dict[str, Any]:
+    def get_graph_args(self, callbacks: list[BaseCallbackHandler] | None = None) -> dict[str, Any]:
         """Get arguments for the graph invocation.
 
         Note: LLM callbacks are handled separately via LLM constructor.
 
         Args:
-            callbacks (list | None, optional): Optional list of callback handlers for tool execution tracking. Defaults to None.
+            callbacks: Optional list of callback handlers for tool-execution
+                tracking. Defaults to None.
 
         Returns:
-            dict[str, Any]: A dictionary containing stream mode and config arguments for graph execution.
+            dict[str, Any]: A dictionary containing stream mode and config
+            arguments for graph execution.
         """
         config: dict[str, Any] = {"recursion_limit": self.max_recur_limit}
         if callbacks:

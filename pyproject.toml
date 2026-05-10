@@ -68,6 +68,7 @@ authors = [
 dependencies = [
     "backtrader>=1.9.78.123",
     "chainlit>=2.11.1",
+    "feedparser>=6.0.12",
     "fire>=0.7.1",
     "langchain-litellm>=0.6.4",
     "langchain-ollama>=1.1.0",

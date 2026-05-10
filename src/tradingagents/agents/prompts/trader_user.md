@@ -1,5 +1,7 @@
-Based on a comprehensive analysis by a team of analysts, here is an investment plan tailored for {company_name}. This plan incorporates insights from current technical market trends, macroeconomic indicators, and social media sentiment. Use this plan as a foundation for evaluating your next trading decision.
+You are reviewing an investment plan for **{company_name}** produced by the Research Manager after a Bull / Bear debate adjudicated against four analyst reports (technical, sentiment, news, fundamentals). The plan you see below is the manager's synthesis — you do NOT have direct access to the underlying reports, so do not invent specific numbers; reference any unverified figure as "manager-asserted".
 
-Proposed Investment Plan: {investment_plan}
+Use the plan to make the trader's call as instructed in the system prompt.
 
-Leverage these insights to make an informed and strategic decision.
+Proposed Investment Plan:
+
+{investment_plan}

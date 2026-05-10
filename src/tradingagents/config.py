@@ -1,5 +1,6 @@
 from typing import Literal
 from pathlib import Path
+from contextvars import ContextVar
 
 from pydantic import Field, BaseModel, computed_field
 
@@ -14,12 +15,14 @@ ResponseLanguage = Literal[
     "de-DE",  # German
 ]
 
+_DEFAULT_RESULTS_DIR = Path("./results")
+
 
 class TradingAgentsConfig(BaseModel):
     """Configuration for the TradingAgents framework."""
 
     results_dir: Path = Field(
-        default=Path("./results"),
+        default=_DEFAULT_RESULTS_DIR,
         title="Results Directory",
         description="Directory for saving analysis results",
     )
@@ -96,16 +99,22 @@ class TradingAgentsConfig(BaseModel):
         return data_cache_dir
 
 
-_config_container: list[TradingAgentsConfig | None] = [None]
+_active_config: ContextVar[TradingAgentsConfig | None] = ContextVar(
+    "tradingagents_active_config", default=None
+)
 
 
 def set_config(config: TradingAgentsConfig) -> None:
     """Register the active TradingAgentsConfig for cross-module access.
 
+    Backed by :class:`contextvars.ContextVar` so concurrent graphs (e.g.
+    notebook batch runs, async tasks) each see their own configuration
+    instead of racing over one shared module-level slot.
+
     Args:
         config (TradingAgentsConfig): The configuration object to set as active.
     """
-    _config_container[0] = config
+    _active_config.set(config)
 
 
 def get_config() -> TradingAgentsConfig:
@@ -117,7 +126,7 @@ def get_config() -> TradingAgentsConfig:
     Raises:
         RuntimeError: If the TradingAgentsConfig has not been initialized yet.
     """
-    cfg = _config_container[0]
+    cfg = _active_config.get()
     if cfg is None:
         raise RuntimeError(
             "TradingAgentsConfig has not been initialized. "

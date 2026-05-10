@@ -2,7 +2,7 @@ from typing import Annotated
 
 from langchain_core.tools import tool
 
-from tradingagents.dataflows.news import get_news_yfinance, get_global_news_yfinance
+from tradingagents.dataflows.news import fetch_news, get_global_news_yfinance
 from tradingagents.dataflows.yfinance import get_insider_transactions as _get_insider_transactions
 
 
@@ -12,7 +12,11 @@ def get_news(
     start_date: Annotated[str, "Start date in yyyy-mm-dd format"],
     end_date: Annotated[str, "End date in yyyy-mm-dd format"],
 ) -> str:
-    """Retrieve news data for a given ticker symbol.
+    """Retrieve news for a ticker from yfinance plus Google News RSS fallback.
+
+    The combined report includes whichever sources returned articles. If
+    both sources are empty, a single combined ``[NO_DATA]`` message is
+    returned so the calling LLM sees both diagnostic reasons.
 
     Args:
         ticker (str): Ticker symbol.
@@ -20,9 +24,10 @@ def get_news(
         end_date (str): End date in YYYY-MM-DD format.
 
     Returns:
-        str: A formatted news report, a no-data message, or an error message.
+        str: A formatted news report, a ``[NO_DATA]`` message, or a
+        ``[TOOL_ERROR]`` message.
     """
-    return get_news_yfinance(ticker, start_date, end_date)
+    return fetch_news(ticker, start_date, end_date)
 
 
 @tool
