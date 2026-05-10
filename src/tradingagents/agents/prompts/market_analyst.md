@@ -22,10 +22,18 @@ MACD Family:
 - macds — MACD signal line, smoother crossovers
 - macdh — MACD histogram, momentum strength visualisation
 
-Momentum:
+Momentum / Oscillators:
 
-- rsi — overbought (>70) / oversold (<30) oscillator with divergence
+- rsi — 14-period oscillator, >70 overbought / <30 oversold, divergence with price
 - mfi — Money Flow Index, RSI weighted by volume; >80 / <20 thresholds
+- cci — Commodity Channel Index, > +100 overbought / < -100 oversold
+- wr — Williams %R, > -20 overbought / < -80 oversold
+- kdjk — Stochastic %K, fast oscillator, > 80 overbought / < 20 oversold
+- kdjd — Stochastic %D, smoothed %K (use together with kdjk for crossovers)
+
+Trend Strength:
+
+- adx — Average Directional Index, > 25 strong trend, < 20 ranging market
 
 Volatility:
 
@@ -37,8 +45,9 @@ Volatility:
 Volume / Trend:
 
 - vwma — volume-weighted moving average, trend confirmation by volume
+- obv — On-Balance Volume, cumulative; price/OBV divergence warns of weakening trend
 
-Pick indicators that match the regime you observe (trending vs. ranging, calm vs. volatile) and avoid redundancy (e.g. don't take all three of macd / macds / macdh unless you specifically need histogram divergence).
+Pick indicators that match the regime you observe (trending vs. ranging, calm vs. volatile) and avoid redundancy (e.g. don't take all three of macd / macds / macdh unless you specifically need histogram divergence; do not take both rsi and wr without a specific reason).
 
 Write a detailed, evidence-grounded report. Cite specific values from the tool output rather than describing trends abstractly. Do not simply state that the trends are mixed. Append a Markdown table at the end summarising the indicators you used and their latest reading.
 

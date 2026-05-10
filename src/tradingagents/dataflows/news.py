@@ -1,10 +1,13 @@
-"""yfinance-based news data fetching functions."""
+"""News-fetching functions with yfinance + Google News RSS fallback."""
 
 import logging
 from datetime import datetime
 import contextlib
+from email.utils import parsedate_to_datetime
+import urllib.parse
 
 import yfinance as yf
+import feedparser
 from dateutil.relativedelta import relativedelta
 
 from tradingagents.dataflows.tickers import (
@@ -13,6 +16,10 @@ from tradingagents.dataflows.tickers import (
 )
 
 logger = logging.getLogger(__name__)
+
+_GOOGLE_NEWS_RSS = "https://news.google.com/rss/search?q={query}&hl=en-US&gl=US&ceid=US:en"
+_TOOL_ERROR_PREFIX = "[TOOL_ERROR]"
+_NO_DATA_PREFIX = "[NO_DATA]"
 
 
 def _parse_yyyy_mm_dd(value: str, field_name: str) -> datetime:
@@ -32,6 +39,9 @@ def _parse_pub_date(value: object) -> datetime | None:
     if isinstance(value, str):
         with contextlib.suppress(ValueError, AttributeError):
             return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        # RFC-2822 / email-style fallback ("Mon, 13 Jan 2025 10:30:00 GMT")
+        with contextlib.suppress(Exception):
+            return parsedate_to_datetime(value).replace(tzinfo=None)
     return None
 
 
@@ -116,19 +126,25 @@ def _get_first_ticker_news(ticker: str) -> tuple[str, list[dict], list[str]]:
 def get_news_yfinance(ticker: str, start_date: str, end_date: str) -> str:
     """Retrieve news for a specific stock ticker using yfinance.
 
+    Note: yfinance returns only the ~50 most recent articles regardless of
+    the date range, so back-dated runs typically yield no results. Callers
+    that need historical coverage should use :func:`fetch_news` which
+    falls back to Google News RSS.
+
     Args:
         ticker (str): Stock ticker symbol, such as "AAPL".
         start_date (str): Start date in YYYY-MM-DD format.
         end_date (str): End date in YYYY-MM-DD format.
 
     Returns:
-        str: A formatted news report, a no-data message, or an error message.
+        str: A formatted news report, a no-data message (prefixed with
+        ``[NO_DATA]``), or an error message (prefixed with ``[TOOL_ERROR]``).
     """
     try:
         return _get_news_yfinance(ticker, start_date, end_date)
     except Exception as exc:
         logger.debug("Failed to fetch news for %s", ticker, exc_info=True)
-        return f"Error fetching news for {ticker}: {exc!s}"
+        return f"{_TOOL_ERROR_PREFIX} Failed fetching yfinance news for {ticker}: {exc!s}"
 
 
 def _get_news_yfinance(ticker: str, start_date: str, end_date: str) -> str:
@@ -137,7 +153,7 @@ def _get_news_yfinance(ticker: str, start_date: str, end_date: str) -> str:
 
     if not news:
         tried = describe_symbol_candidates(ticker, candidates)
-        return f"No news found for {ticker} (tried: {tried})"
+        return f"{_NO_DATA_PREFIX} No yfinance news found for {ticker} (tried: {tried})"
 
     start_dt = _parse_yyyy_mm_dd(start_date, "start_date")
     end_dt = _parse_yyyy_mm_dd(end_date, "end_date")
@@ -170,11 +186,123 @@ def _get_news_yfinance(ticker: str, start_date: str, end_date: str) -> str:
 
     if filtered_count == 0:
         return (
-            f"No dated news found for {resolved_ticker} between {start_date} and {end_date}. "
-            f"Skipped {skipped_undated} undated articles to avoid lookahead bias."
+            f"{_NO_DATA_PREFIX} No dated yfinance news for {resolved_ticker} "
+            f"between {start_date} and {end_date}. (yfinance only exposes "
+            f"~50 most recent articles; back-dated runs typically miss this window. "
+            f"Skipped {skipped_undated} undated articles to avoid lookahead bias.)"
         )
 
-    return f"## {resolved_ticker} News, from {start_date} to {end_date}:\n\n{news_str}"
+    return f"## {resolved_ticker} News (yfinance), from {start_date} to {end_date}:\n\n{news_str}"
+
+
+def _entry_publisher(entry: object) -> str:
+    """Extract publisher name from a feedparser entry, with fallback."""
+    source = getattr(entry, "source", None)
+    if source:
+        title = source.get("title") if isinstance(source, dict) else getattr(source, "title", None)
+        if title:
+            return str(title)
+    return "Google News"
+
+
+def _entry_pub_date(entry: object) -> datetime | None:
+    """Extract a naive UTC datetime from a feedparser entry."""
+    parsed = getattr(entry, "published_parsed", None) or getattr(entry, "updated_parsed", None)
+    if parsed:
+        with contextlib.suppress(TypeError, ValueError):
+            return datetime(*parsed[:6])
+    raw = getattr(entry, "published", None) or getattr(entry, "updated", None)
+    return _parse_pub_date(raw) if raw else None
+
+
+def get_news_google_rss(ticker: str, start_date: str, end_date: str, limit: int = 30) -> str:
+    """Retrieve ticker news from Google News RSS within a date window.
+
+    Useful as a fallback to yfinance, which only returns the ~50 most
+    recent articles regardless of the requested date range. Google News
+    RSS reaches further into history (typically 2-4 weeks for free
+    queries; longer with explicit date filters).
+
+    Args:
+        ticker (str): Stock ticker symbol, such as "AAPL".
+        start_date (str): Start date in YYYY-MM-DD format.
+        end_date (str): End date in YYYY-MM-DD format.
+        limit (int, optional): Maximum number of articles to keep after
+            date filtering. Defaults to 30.
+
+    Returns:
+        str: A formatted news report, a no-data message, or an error message.
+    """
+    try:
+        start_dt = _parse_yyyy_mm_dd(start_date, "start_date")
+        end_dt = _parse_yyyy_mm_dd(end_date, "end_date")
+        if start_dt > end_dt:
+            raise ValueError(
+                f"start_date must be on or before end_date: {start_date} > {end_date}"
+            )
+
+        query = urllib.parse.quote_plus(f"{ticker} stock")
+        url = _GOOGLE_NEWS_RSS.format(query=query)
+        feed = feedparser.parse(url)
+    except Exception as exc:
+        logger.debug("Failed to fetch Google News RSS for %s", ticker, exc_info=True)
+        return f"{_TOOL_ERROR_PREFIX} Google News RSS fetch failed for {ticker}: {exc!s}"
+
+    entries = list(getattr(feed, "entries", []) or [])
+    if not entries:
+        return f"{_NO_DATA_PREFIX} No Google News results for {ticker}"
+
+    news_str = ""
+    kept = 0
+    for entry in entries:
+        pub_date = _entry_pub_date(entry)
+        if pub_date is None:
+            continue
+        if not (start_dt <= pub_date < end_dt + relativedelta(days=1)):
+            continue
+        title = getattr(entry, "title", "(no title)")
+        link = getattr(entry, "link", "")
+        publisher = _entry_publisher(entry)
+        news_str += f"### {title} (source: {publisher})\n"
+        news_str += f"Published: {pub_date.strftime('%Y-%m-%d %H:%M:%S')}\n"
+        if link:
+            news_str += f"Link: {link}\n"
+        news_str += "\n"
+        kept += 1
+        if kept >= limit:
+            break
+
+    if kept == 0:
+        return (
+            f"{_NO_DATA_PREFIX} No Google News results for {ticker} between "
+            f"{start_date} and {end_date}"
+        )
+
+    return f"## {ticker} News (Google News RSS), from {start_date} to {end_date}:\n\n{news_str}"
+
+
+def fetch_news(ticker: str, start_date: str, end_date: str) -> str:
+    """Combine yfinance and Google News RSS coverage for a ticker.
+
+    Tries yfinance first, then Google News RSS. Returns whichever sources
+    produced articles; if both are empty, returns a single combined
+    no-data message so the calling LLM can decide how to proceed.
+    """
+    yf_result = get_news_yfinance(ticker, start_date, end_date)
+    rss_result = get_news_google_rss(ticker, start_date, end_date)
+
+    yf_has_articles = yf_result.lstrip().startswith("##")
+    rss_has_articles = rss_result.lstrip().startswith("##")
+
+    if yf_has_articles and rss_has_articles:
+        return yf_result + "\n\n---\n\n" + rss_result
+    if yf_has_articles:
+        return yf_result
+    if rss_has_articles:
+        return rss_result
+    # Both failed or empty -- combine the diagnostic messages so the LLM
+    # sees both reasons rather than guessing.
+    return f"{yf_result}\n\n{rss_result}"
 
 
 def _format_article_to_str(article: dict) -> str:
@@ -262,26 +390,20 @@ def get_global_news_yfinance(curr_date: str, look_back_days: int = 7, limit: int
         return _get_global_news_yfinance(curr_date, look_back_days, limit)
     except Exception as exc:
         logger.debug("Failed to fetch global news", exc_info=True)
-        return f"Error fetching global news: {exc!s}"
+        return f"{_TOOL_ERROR_PREFIX} Failed fetching global news: {exc!s}"
+
+
+_GLOBAL_NEWS_QUERIES = (
+    "global stock market economy",
+    "interest rates inflation economic outlook",
+    "Asia semiconductor supply chain",
+    "Taiwan stock market TAIEX",
+    "China Japan Korea markets",
+)
 
 
 def _get_global_news_yfinance(curr_date: str, look_back_days: int = 7, limit: int = 10) -> str:
     """Retrieve global news, raising errors for the public wrapper."""
-    search_queries = [
-        "global stock market economy",
-        "interest rates inflation economic outlook",
-        "Asia markets trading",
-        "semiconductor supply chain market outlook",
-        "global markets trading",
-        "Taiwan stock market TAIEX",
-        "Taiwan economy export outlook",
-        "Asia semiconductor industry",
-        "China Hong Kong stock market",
-        "Japan Korea stock market",
-        "台股 加權指數",
-        "亞洲股市 經濟",
-    ]
-
     if look_back_days < 0:
         raise ValueError("look_back_days must be >= 0.")
     if limit <= 0:
@@ -291,11 +413,13 @@ def _get_global_news_yfinance(curr_date: str, look_back_days: int = 7, limit: in
     start_dt = curr_dt - relativedelta(days=look_back_days)
     start_date = start_dt.strftime("%Y-%m-%d")
 
-    all_news, skipped_undated = _collect_global_news(search_queries, start_dt, curr_dt, limit)
+    all_news, skipped_undated = _collect_global_news(
+        list(_GLOBAL_NEWS_QUERIES), start_dt, curr_dt, limit
+    )
 
     if not all_news:
         return (
-            f"No dated global news found between {start_date} and {curr_date}. "
+            f"{_NO_DATA_PREFIX} No dated global news between {start_date} and {curr_date}. "
             f"Skipped {skipped_undated} undated articles to avoid lookahead bias."
         )
 
