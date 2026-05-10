@@ -3,6 +3,7 @@ from collections.abc import Callable
 
 from tradingagents.llm import ChatModel
 from tradingagents.agents.prompts import load_prompt
+from tradingagents.agents.risk_mgmt._helpers import first_turn_or
 from tradingagents.agents.utils.agent_states import AgentState, RiskDebateState
 
 
@@ -34,8 +35,8 @@ def create_aggressive_debator(llm: ChatModel) -> Callable[[AgentState], dict[str
             news_report=state.news_report,
             fundamentals_report=state.fundamentals_report,
             history=risk.history,
-            current_conservative_response=risk.current_conservative_response,
-            current_neutral_response=risk.current_neutral_response,
+            current_conservative_response=first_turn_or(risk.current_conservative_response),
+            current_neutral_response=first_turn_or(risk.current_neutral_response),
         )
 
         response = llm.invoke(prompt)

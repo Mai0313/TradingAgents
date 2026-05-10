@@ -11,9 +11,14 @@ from tradingagents.agents.utils.agent_states import AgentState
 
 class Propagator(BaseModel):
     max_recur_limit: int = Field(
-        default=100,
+        ...,
+        ge=25,
         title="Max Recursion Limit",
-        description="Maximum number of recursive calls allowed in the LangGraph execution",
+        description=(
+            "Maximum recursion limit for the LangGraph execution. Required so "
+            "callers cannot accidentally fall back to 100 when the value fails "
+            "to thread from TradingAgentsConfig.max_recur_limit."
+        ),
     )
 
     def create_initial_state(self, company_name: str, trade_date: str) -> AgentState:

@@ -9,14 +9,23 @@ from tradingagents.agents.utils.agent_states import AgentState
 
 class ConditionalLogic(BaseModel):
     max_debate_rounds: int = Field(
-        default=1,
+        ...,
+        ge=1,
         title="Max Debate Rounds",
-        description="Maximum number of Bull/Bear investment debate rounds",
+        description=(
+            "Maximum number of Bull/Bear investment debate rounds. Required so "
+            "callers cannot accidentally fall back to a single round when the "
+            "value fails to thread from TradingAgentsConfig.max_debate_rounds."
+        ),
     )
     max_risk_discuss_rounds: int = Field(
-        default=1,
+        ...,
+        ge=1,
         title="Max Risk Discussion Rounds",
-        description="Maximum number of Risk debate rounds",
+        description=(
+            "Maximum number of three-way risk debate rounds. Required for the "
+            "same reason as max_debate_rounds."
+        ),
     )
 
     def should_continue_market(

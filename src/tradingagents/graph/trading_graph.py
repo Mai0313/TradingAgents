@@ -31,7 +31,7 @@ from .setup import GraphSetup, MemoryComponents
 from .reflection import Reflector
 from .propagation import Propagator
 from .conditional_logic import ConditionalLogic
-from .signal_processing import SignalProcessor
+from .signal_processing import TradeSignal, SignalProcessor
 
 logger = logging.getLogger(__name__)
 _SAFE_PATH_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
@@ -41,6 +41,33 @@ def _safe_path_component(value: str) -> str:
     """Return a filesystem-safe name for per-ticker result paths."""
     safe = _SAFE_PATH_CHARS.sub("_", value.strip()).strip("._")
     return safe or "unknown"
+
+
+def _atomic_write_text(path: Path, content: str) -> None:
+    """Write ``content`` to ``path`` atomically and as UTF-8.
+
+    A crash mid-write must never leave a half-written log on disk that
+    a subsequent reflection step or downstream tool would silently
+    parse as truncated JSON.
+    """
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(content, encoding="utf-8")
+    tmp.replace(path)
+
+
+def _tool_error_handler(exc: Exception) -> str:
+    """Return a non-retry message when a LangGraph tool raises.
+
+    Without this handler, any yfinance hiccup produces a traceback inside
+    the tool's ``ToolMessage.content``; the analyst then re-invokes the
+    same call and can burn the entire ``max_recur_limit`` budget. This
+    formatter instructs the LLM to stop retrying that exact call.
+    """
+    return (
+        f"[TOOL_ERROR] {type(exc).__name__}: {exc}. "
+        "Do not retry this exact call; either try a different argument, "
+        "skip this data source, or summarize what you already have."
+    )
 
 
 class TradingAgentsGraph(BaseModel):
@@ -191,15 +218,18 @@ class TradingAgentsGraph(BaseModel):
             dict[str, ToolNode]: A dictionary mapping data source names to ToolNodes.
         """
         return {
-            "market": ToolNode([get_stock_data, get_indicators]),
-            "social": ToolNode([get_news]),
-            "news": ToolNode([get_news, get_global_news, get_insider_transactions]),
-            "fundamentals": ToolNode([
-                get_fundamentals,
-                get_balance_sheet,
-                get_cashflow,
-                get_income_statement,
-            ]),
+            "market": ToolNode(
+                [get_stock_data, get_indicators], handle_tool_errors=_tool_error_handler
+            ),
+            "social": ToolNode([get_news], handle_tool_errors=_tool_error_handler),
+            "news": ToolNode(
+                [get_news, get_global_news, get_insider_transactions],
+                handle_tool_errors=_tool_error_handler,
+            ),
+            "fundamentals": ToolNode(
+                [get_fundamentals, get_balance_sheet, get_cashflow, get_income_statement],
+                handle_tool_errors=_tool_error_handler,
+            ),
         }
 
     @computed_field
@@ -267,7 +297,7 @@ class TradingAgentsGraph(BaseModel):
         trade_date: str,
         on_message: Callable[[AnyMessage], None] | None = None,
         on_state: Callable[[AgentState], None] | None = None,
-    ) -> tuple[AgentState, str]:
+    ) -> tuple[AgentState, TradeSignal]:
         """Run the trading agents graph for a company on a specific date.
 
         Args:
@@ -435,8 +465,9 @@ class TradingAgentsGraph(BaseModel):
         directory.mkdir(parents=True, exist_ok=True)
 
         log_path = directory / f"full_states_log_{ticker_name}_{trade_date}.json"
-        with open(log_path, "w") as f:
-            json.dump(self.log_states_dict, f, indent=2, ensure_ascii=False)
+        _atomic_write_text(
+            log_path, json.dumps(self.log_states_dict, indent=2, ensure_ascii=False)
+        )
 
         # Save complete conversation log (includes raw tool results: stock data,
         # indicators, news, financials, insider transactions, etc.)
@@ -470,9 +501,8 @@ class TradingAgentsGraph(BaseModel):
         # Human-readable text log (same format as debug pretty_print output)
         txt_path = directory / f"conversation_log_{ticker_name}_{trade_date}.txt"
         try:
-            with open(txt_path, "w") as f:
-                for msg in filtered:
-                    f.write(msg.pretty_repr() + "\n")
+            txt_content = "".join(msg.pretty_repr() + "\n" for msg in filtered)
+            _atomic_write_text(txt_path, txt_content)
             logger.info("Conversation log saved to %s", txt_path)
         except Exception:
             logger.warning("Failed to save conversation text log", exc_info=True)
@@ -480,8 +510,9 @@ class TradingAgentsGraph(BaseModel):
         # Structured JSON log (machine-readable, for programmatic analysis)
         json_path = directory / f"conversation_log_{ticker_name}_{trade_date}.json"
         try:
-            with open(json_path, "w") as f:
-                json.dump(messages_to_dict(filtered), f, indent=2, ensure_ascii=False)
+            _atomic_write_text(
+                json_path, json.dumps(messages_to_dict(filtered), indent=2, ensure_ascii=False)
+            )
             logger.info("Conversation JSON saved to %s", json_path)
         except Exception:
             logger.warning("Failed to save conversation JSON log", exc_info=True)
@@ -507,13 +538,14 @@ class TradingAgentsGraph(BaseModel):
             self.curr_state, returns_losses, self.risk_manager_memory
         )
 
-    def process_signal(self, full_signal: str) -> str:
+    def process_signal(self, full_signal: str) -> TradeSignal:
         """Process a signal to extract the core decision.
 
         Args:
             full_signal (str): The raw text signal.
 
         Returns:
-            str: The extracted decision (BUY/SELL/HOLD).
+            TradeSignal: The extracted decision (BUY/SELL/HOLD), defaulting
+            to HOLD when the input is empty or ambiguous.
         """
         return self.signal_processor.process_signal(full_signal)

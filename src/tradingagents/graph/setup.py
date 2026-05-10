@@ -81,9 +81,13 @@ class GraphSetup(BaseModel):
         ..., title="Memory Components", description="All agent memory stores grouped together"
     )
     conditional_logic: ConditionalLogic = Field(
-        default_factory=ConditionalLogic,
+        ...,
         title="Conditional Logic",
-        description="Logic instance that determines graph edge routing",
+        description=(
+            "Logic instance that determines graph edge routing. Required so "
+            "max_debate_rounds / max_risk_discuss_rounds always thread from "
+            "TradingAgentsConfig instead of silently defaulting."
+        ),
     )
 
     # --- Private helpers ---
