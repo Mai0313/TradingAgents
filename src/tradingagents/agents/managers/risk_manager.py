@@ -44,6 +44,10 @@ def create_risk_manager(
             trader_plan=state.trader_investment_plan,
             past_memory_str=past_memory_str,
             history=risk.history,
+            market_research_report=state.market_report,
+            sentiment_report=state.sentiment_report,
+            news_report=state.news_report,
+            fundamentals_report=state.fundamentals_report,
         )
 
         response = llm.invoke(prompt)

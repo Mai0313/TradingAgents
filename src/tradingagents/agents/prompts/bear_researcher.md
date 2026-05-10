@@ -17,4 +17,7 @@ Company fundamentals report: {fundamentals_report}
 Conversation history of the debate: {history}
 Last bull argument: {current_response}
 Reflections from similar situations and lessons learned: {past_memory_str}
-Use this information to deliver a compelling bear argument, refute the bull's claims, and engage in a dynamic debate that demonstrates the risks and weaknesses of investing in the stock. You must also address reflections and learn from lessons and mistakes you made in the past.
+
+If `Last bull argument` is empty, this is the opening turn of the debate — present your bear case from scratch without inventing a counterpoint to address. If `Reflections from similar situations and lessons learned` is empty, do not invent prior lessons.
+
+Use this information to deliver a compelling bear argument grounded in the source reports. When you cite a number or claim, anchor it to the report it came from rather than asserting it as your own conviction. Refute the bull's claims with specific evidence, and engage in a dynamic debate that demonstrates the risks and weaknesses of investing in the stock. You must also address past reflections (when present) and learn from prior mistakes.
