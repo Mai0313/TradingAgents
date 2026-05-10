@@ -22,6 +22,7 @@ uv run tradingagents tui                              # interactive questionary 
 uv run tradingagents cli                              # all defaults (GOOG, today, gemini-3.1-pro-preview)
 uv run tradingagents cli --ticker AAPL --date 2024-05-10
 uv run tradingagents cli --llm_provider openai --deep_think_llm gpt-5 --quick_think_llm gpt-5-mini
+uv run tradingagents reflect --ticker AAPL --date 2024-05-10 --returns 0.032   # apply post-trade reflection (see Memory section)
 uv run tradingagents --help                           # rich-rendered top-level help
 uv run tradingagents cli --help                       # rich-rendered per-command flags
 python -m tradingagents cli ...                       # equivalent
@@ -92,7 +93,9 @@ Ticker resolution (`dataflows/tickers.py`): bare symbols are resolved via `yf.Se
 
 ### Memory (`agents/utils/memory.py`)
 
-`FinancialSituationMemory` uses **BM25Okapi** (lexical, no embeddings API). `TradingAgentsGraph` constructs five instances: `bull_memory`, `bear_memory`, `trader_memory`, `invest_judge_memory`, `risk_manager_memory`. Each researcher / judge calls `get_memories(curr_situation, n_matches=k)` before reasoning. After the trade outcome is known, `TradingAgentsGraph.reflect_and_remember(returns_losses)` runs `Reflector` (`graph/reflection.py`) over each memory so future runs can learn — there is no persistence layer; memories live in-process for the lifetime of the graph instance.
+`FinancialSituationMemory` is a Pydantic `BaseModel` using **BM25Okapi** (lexical, no embeddings API). `TradingAgentsGraph` constructs five instances: `bull_memory`, `bear_memory`, `trader_memory`, `invest_judge_memory`, `risk_manager_memory`. Each is wired to `<config.data_cache_dir>/memories/<name>.jsonl`; the file is auto-loaded on construction and atomically rewritten on every `add_situations(...)` call so reflections persist across processes. Each researcher / judge calls `get_memories(state.combined_reports, n_matches=k)` before reasoning.
+
+After the trade outcome is known, run `tradingagents reflect --ticker X --date Y --returns Z` (or call `TradingAgentsGraph.reflect_and_remember(returns, state=...)` programmatically). The CLI subcommand reads `<results_dir>/<TICKER>/full_states_log_<TICKER>_<DATE>.json`, reconstructs the `AgentState`, runs `Reflector` over each component, and appends the lessons to the JSONL files. The reflector grades reasoning quality (decision-process correctness), not just realised P/L — see `prompts/reflector.md`.
 
 ### Prompts (`agents/prompts/`)
 

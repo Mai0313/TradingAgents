@@ -160,55 +160,43 @@ class TradingAgentsGraph(BaseModel):
         """
         return self._create_llm(self.config.quick_think_llm)
 
+    def _memory_path(self, name: str) -> Path:
+        """Return the JSONL storage path for a memory ``name`` under data_cache_dir."""
+        return self.config.data_cache_dir / "memories" / f"{name}.jsonl"
+
+    def _make_memory(self, name: str) -> FinancialSituationMemory:
+        """Construct a :class:`FinancialSituationMemory` wired to its on-disk file."""
+        return FinancialSituationMemory(name=name, storage_path=self._memory_path(name))
+
     @computed_field
     @cached_property
     def bull_memory(self) -> FinancialSituationMemory:
-        """Bull researcher memory instance.
-
-        Returns:
-            FinancialSituationMemory: Memory instance for the bull researcher.
-        """
-        return FinancialSituationMemory(name="bull_memory")
+        """Bull-researcher memory, persisted to ``<data_cache_dir>/memories/bull_memory.jsonl``."""
+        return self._make_memory("bull_memory")
 
     @computed_field
     @cached_property
     def bear_memory(self) -> FinancialSituationMemory:
-        """Bear researcher memory instance.
-
-        Returns:
-            FinancialSituationMemory: Memory instance for the bear researcher.
-        """
-        return FinancialSituationMemory(name="bear_memory")
+        """Bear-researcher memory, persisted to ``<data_cache_dir>/memories/bear_memory.jsonl``."""
+        return self._make_memory("bear_memory")
 
     @computed_field
     @cached_property
     def trader_memory(self) -> FinancialSituationMemory:
-        """Trader memory instance.
-
-        Returns:
-            FinancialSituationMemory: Memory instance for the trader.
-        """
-        return FinancialSituationMemory(name="trader_memory")
+        """Trader memory, persisted to ``<data_cache_dir>/memories/trader_memory.jsonl``."""
+        return self._make_memory("trader_memory")
 
     @computed_field
     @cached_property
     def invest_judge_memory(self) -> FinancialSituationMemory:
-        """Investment judge memory instance.
-
-        Returns:
-            FinancialSituationMemory: Memory instance for the investment judge.
-        """
-        return FinancialSituationMemory(name="invest_judge_memory")
+        """Investment-judge memory, persisted under ``<data_cache_dir>/memories/``."""
+        return self._make_memory("invest_judge_memory")
 
     @computed_field
     @cached_property
     def risk_manager_memory(self) -> FinancialSituationMemory:
-        """Risk manager memory instance.
-
-        Returns:
-            FinancialSituationMemory: Memory instance for the risk manager.
-        """
-        return FinancialSituationMemory(name="risk_manager_memory")
+        """Risk-manager memory, persisted under ``<data_cache_dir>/memories/``."""
+        return self._make_memory("risk_manager_memory")
 
     @computed_field
     @cached_property
@@ -518,26 +506,31 @@ class TradingAgentsGraph(BaseModel):
         except Exception:
             logger.warning("Failed to save conversation JSON log", exc_info=True)
 
-    def reflect_and_remember(self, returns_losses: float) -> None:
-        """Reflect on decisions and update memory based on returns.
+    def reflect_and_remember(self, returns_losses: float, state: AgentState | None = None) -> None:
+        """Reflect on the decision chain and append lessons to every memory.
+
+        When ``state`` is ``None`` the most recent ``self.curr_state`` from
+        :meth:`propagate` is used; pass an explicit state when reflecting on a
+        run loaded from disk (e.g. via the ``reflect`` CLI subcommand).
 
         Args:
-            returns_losses (float): Actual returns or losses from the trade.
+            returns_losses: Actual returns or losses from the trade.
+            state: Optional explicit AgentState. When omitted, falls back to
+                the most recent run-state cached on the graph instance.
 
         Raises:
-            RuntimeError: If there is no current state to reflect on.
+            RuntimeError: If no state is available to reflect on.
         """
-        if self.curr_state is None:
-            raise RuntimeError("No state available to reflect on. Run propagate() first.")
-        self.reflector.reflect_bull_researcher(self.curr_state, returns_losses, self.bull_memory)
-        self.reflector.reflect_bear_researcher(self.curr_state, returns_losses, self.bear_memory)
-        self.reflector.reflect_trader(self.curr_state, returns_losses, self.trader_memory)
-        self.reflector.reflect_invest_judge(
-            self.curr_state, returns_losses, self.invest_judge_memory
-        )
-        self.reflector.reflect_risk_manager(
-            self.curr_state, returns_losses, self.risk_manager_memory
-        )
+        target = state if state is not None else self.curr_state
+        if target is None:
+            raise RuntimeError(
+                "No state available to reflect on. Run propagate() first or pass state=..."
+            )
+        self.reflector.reflect_bull_researcher(target, returns_losses, self.bull_memory)
+        self.reflector.reflect_bear_researcher(target, returns_losses, self.bear_memory)
+        self.reflector.reflect_trader(target, returns_losses, self.trader_memory)
+        self.reflector.reflect_invest_judge(target, returns_losses, self.invest_judge_memory)
+        self.reflector.reflect_risk_manager(target, returns_losses, self.risk_manager_memory)
 
     def process_signal(self, full_signal: str) -> TradeSignal:
         """Process a signal to extract the core decision.
