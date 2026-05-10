@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pandas as pd
 import pytest
@@ -28,38 +28,45 @@ def test_filter_statement_as_of_returns_empty_when_no_period_was_available() -> 
     assert filtered.empty
 
 
-def test_get_yfin_data_online_treats_end_date_as_inclusive(
+def test_get_yfin_data_online_slices_from_shared_history_cache(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    seen: dict[str, str] = {}
+    """get_yfin_data_online now reads the shared 15-y cache and slices the requested window.
 
-    class FakeTicker:
-        def __init__(self, candidate: str) -> None:
-            self.candidate = candidate
+    The previous test verified the live yfinance call directly; the new
+    implementation goes through ``_resolve_history_with_cache`` so a single
+    download services both the OHLCV tool and the indicator pipeline.
+    """
+    seen: dict[str, object] = {}
 
-        def history(self, *, start: str, end: str, auto_adjust: bool) -> pd.DataFrame:
-            seen["start"] = start
-            seen["end"] = end
-            seen["auto_adjust"] = str(auto_adjust)
-            return pd.DataFrame(
-                {
-                    "Open": [1.0],
-                    "High": [2.0],
-                    "Low": [0.5],
-                    "Close": [1.5],
-                    "Adj Close": [1.5],
-                    "Volume": [100],
-                },
-                index=pd.DatetimeIndex([pd.Timestamp("2024-01-01")]),
-            )
+    fake_history = pd.DataFrame({
+        "Date": pd.to_datetime(["2023-12-31", "2024-01-01", "2024-01-02"]),
+        "Open": [0.9, 1.0, 1.1],
+        "High": [1.9, 2.0, 2.1],
+        "Low": [0.4, 0.5, 0.6],
+        "Close": [1.4, 1.5, 1.6],
+        "Adj Close": [1.4, 1.5, 1.6],
+        "Volume": [90, 100, 110],
+    })
 
-    monkeypatch.setattr(yfinance_data, "get_yfinance_symbol_candidates", lambda symbol: ["AAPL"])
-    monkeypatch.setattr(yfinance_data.yf, "Ticker", FakeTicker)
+    def fake_resolve(symbol: str, curr_date_dt: datetime) -> tuple[str, pd.DataFrame, list[str]]:
+        seen["symbol"] = symbol
+        seen["curr_date_dt"] = curr_date_dt
+        return ("AAPL", fake_history.copy(), ["AAPL"])
+
+    monkeypatch.setattr(yfinance_data, "_resolve_history_with_cache", fake_resolve)
 
     result = yfinance_data.get_yfin_data_online("AAPL", "2024-01-01", "2024-01-01")
 
-    assert seen == {"start": "2024-01-01", "end": "2024-01-02", "auto_adjust": "False"}
+    assert seen["symbol"] == "AAPL"
+    assert seen["curr_date_dt"] == datetime(2024, 1, 1)
+    # Window slice must include 2024-01-01 only, dropping 2023-12-31 and 2024-01-02.
     assert "# Total records: 1" in result
+    assert "2024-01-01" in result
+    assert "2023-12-31" not in result
+    assert "2024-01-02" not in result
+    # The header now advertises split- / dividend-adjusted prices.
+    assert "auto_adjust=True" in result or "split- and dividend-adjusted" in result
 
 
 @pytest.mark.parametrize(
@@ -109,6 +116,12 @@ def test_statement_fetches_continue_after_candidate_exception(
 def test_insider_transactions_continue_after_candidate_exception(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # Use a date inside the insider history horizon so the lookahead-bias
+    # short-circuit (`_insider_history_unavailable_message`) does not preempt
+    # the candidate-fallthrough loop we are actually testing.
+    near_date = (datetime.now().date() - timedelta(days=30)).strftime("%Y-%m-%d")
+    near_timestamp = pd.Timestamp(near_date)
+
     class FakeTicker:
         def __init__(self, candidate: str) -> None:
             self.candidate = candidate
@@ -117,21 +130,24 @@ def test_insider_transactions_continue_after_candidate_exception(
         def insider_transactions(self) -> pd.DataFrame:
             if self.candidate == "BAD":
                 raise RuntimeError("candidate failed")
-            return pd.DataFrame({"Start Date": [pd.Timestamp("2024-01-01")], "Shares": [10]})
+            return pd.DataFrame({"Start Date": [near_timestamp], "Shares": [10]})
 
     monkeypatch.setattr(
         yfinance_data, "get_yfinance_symbol_candidates", lambda ticker: ["BAD", "GOOD"]
     )
     monkeypatch.setattr(yfinance_data.yf, "Ticker", FakeTicker)
 
-    result = yfinance_data.get_insider_transactions("BRK.A", curr_date="2024-02-01")
+    result = yfinance_data.get_insider_transactions("BRK.A", curr_date=near_date)
 
     assert "# Insider Transactions data for GOOD" in result
 
 
-def test_stock_stats_bulk_continues_after_candidate_load_exception(
+def test_stock_stats_bulk_multi_continues_after_candidate_load_exception(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """The single-indicator helper was replaced by ``_get_stock_stats_bulk_multi``
+    in the indicator-batching refactor; this test now exercises the new helper.
+    """
     calls: list[str] = []
 
     def fake_load_history_candidate(
@@ -157,10 +173,13 @@ def test_stock_stats_bulk_continues_after_candidate_load_exception(
     )
     monkeypatch.setattr(yfinance_data, "_load_history_candidate", fake_load_history_candidate)
 
-    result = yfinance_data._get_stock_stats_bulk("BRK.A", "close_10_ema", "2024-01-03")
+    resolved, data_map = yfinance_data._get_stock_stats_bulk_multi(
+        "BRK.A", ["close_10_ema"], "2024-01-03"
+    )
 
     assert calls == ["BAD", "GOOD"]
-    assert "2024-01-03" in result
+    assert resolved == "GOOD"
+    assert "2024-01-03" in data_map["close_10_ema"]
 
 
 def test_normalize_freq_rejects_unknown_values() -> None:
@@ -200,7 +219,12 @@ def test_get_news_yfinance_skips_undated_and_future_articles(
     assert "Future" not in result
 
 
-def test_get_news_yfinance_returns_error_message(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_get_news_yfinance_returns_tool_error_sentinel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """News fetch errors must surface a ``[TOOL_ERROR]`` sentinel that the prompt
+    layer can react to deterministically (rather than treating the traceback
+    string as ordinary text).
+    """
+
     def raise_fetch_error(ticker: str) -> None:
         raise RuntimeError("network down")
 
@@ -208,10 +232,16 @@ def test_get_news_yfinance_returns_error_message(monkeypatch: pytest.MonkeyPatch
 
     result = news.get_news_yfinance("AAPL", "2024-01-01", "2024-01-01")
 
-    assert result == "Error fetching news for AAPL: network down"
+    assert result.startswith("[TOOL_ERROR]")
+    assert "AAPL" in result
+    assert "network down" in result
 
 
-def test_get_global_news_yfinance_returns_error_message(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_get_global_news_yfinance_returns_tool_error_sentinel(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Same ``[TOOL_ERROR]`` sentinel contract on the global-news path."""
+
     class FailingSearch:
         def __init__(self, **kwargs: object) -> None:
             raise RuntimeError("search down")
@@ -220,7 +250,5 @@ def test_get_global_news_yfinance_returns_error_message(monkeypatch: pytest.Monk
 
     result = news.get_global_news_yfinance("2024-01-01")
 
-    assert (
-        result
-        == "Error fetching global news: Failed to fetch global news from Yahoo Finance: search down"
-    )
+    assert result.startswith("[TOOL_ERROR]")
+    assert "search down" in result

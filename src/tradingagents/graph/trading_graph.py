@@ -305,7 +305,10 @@ class TradingAgentsGraph(BaseModel):
                 fields; the CLI does not need this. Defaults to None.
 
         Returns:
-            tuple[AgentState, str]: The final agent state and the extracted signal decision.
+            tuple[AgentState, TradeSignal]: The final agent state and the
+            extracted BUY / SELL / HOLD decision (defaults to HOLD if the
+            risk judge output is empty or ambiguous; see
+            :func:`extract_trade_signal`).
 
         Raises:
             RuntimeError: If the graph execution produces no output.

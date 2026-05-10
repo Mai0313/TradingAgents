@@ -893,10 +893,17 @@ def get_income_statement(
 
 
 _INSIDER_HISTORY_HORIZON_DAYS = 180
+_NO_DATA_PREFIX = "[NO_DATA]"
 
 
 def _insider_history_unavailable_message(ticker: str, curr_date: str | None) -> str | None:
-    """Return a no-data message if curr_date is older than yfinance's horizon."""
+    """Return a no-data message if curr_date is older than yfinance's horizon.
+
+    The message is prefixed with ``[NO_DATA]`` to match the sentinel used by
+    the news / RSS fallback path in :mod:`tradingagents.dataflows.news`, so
+    LLM prompts can deterministically distinguish "no data available" from
+    a real partial result.
+    """
     as_of = _as_of_datetime(curr_date)
     if as_of is None:
         return None
@@ -904,7 +911,7 @@ def _insider_history_unavailable_message(ticker: str, curr_date: str | None) -> 
     if as_of.date() >= horizon:
         return None
     return (
-        f"# Insider Transactions data for {ticker}\n"
+        f"{_NO_DATA_PREFIX} Insider Transactions for {ticker} unavailable.\n"
         f"# Requested as_of: {curr_date}\n"
         f"# yfinance exposes only the most recent ~{_INSIDER_HISTORY_HORIZON_DAYS} days "
         f"of insider transactions; historical data before "

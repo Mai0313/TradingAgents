@@ -38,7 +38,7 @@ make clean                # nuke caches, dist, docs, .github/reports
 make gen-docs             # build MkDocs Material site (writes to docs/, then `uv run mkdocs serve` on :9987)
 ```
 
-Tests: there are **no test files in this repository** even though pytest is configured in `pyproject.toml` (`testpaths = "tests/"`, `--cov-fail-under=80`). Running `make test` / `uv run pytest` will collect zero tests and fail the coverage gate. Don't write or propose tests unless the user asks: each LangGraph run hits live LLM APIs and costs real money.
+Tests: a small **mock-based** pytest suite lives under `tests/` (added in #35). It exercises pure helpers and graph wiring via `monkeypatch` only — **no live LLM or yfinance network calls**, so it is safe and free to run via `make test` / `uv run pytest`. Update the existing tests when changing the contracts they pin (e.g. error-message format, public function names, no-data sentinels), and feel free to add similarly mock-based tests when you change shared invariants. Do **not** propose tests that require real LLM API or yfinance traffic — each live LangGraph run hits paid LLM APIs and costs real money. Coverage gate (`--cov-fail-under=80`) is currently aspirational; the suite covers a fraction of the codebase.
 
 API keys (one of these is required, picked by `llm_provider`): `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, `XAI_API_KEY`, `OPENROUTER_API_KEY`. See `.env.example`.
 

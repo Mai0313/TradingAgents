@@ -24,8 +24,8 @@ MACD Family:
 
 Momentum / Oscillators:
 
-- rsi — 14-period oscillator, >70 overbought / <30 oversold, divergence with price
-- mfi — Money Flow Index, RSI weighted by volume; >80 / <20 thresholds
+- rsi — 14-period oscillator, >70 overbought / \<30 oversold, divergence with price
+- mfi — Money Flow Index, RSI weighted by volume; >80 / \<20 thresholds
 - cci — Commodity Channel Index, > +100 overbought / < -100 oversold
 - wr — Williams %R, > -20 overbought / < -80 oversold
 - kdjk — Stochastic %K, fast oscillator, > 80 overbought / < 20 oversold
