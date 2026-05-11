@@ -8,7 +8,7 @@ Guidelines for working on this codebase. Use the actual source under `src/tradin
 # Development
 make help               # List available make targets
 make clean              # Clean caches, artifacts and generated docs
-make format             # Run all pre-commit hooks
+make fmt                # Run all pre-commit hooks
 make test               # Run pytest across the repository
 make gen-docs           # Generate docs from src/ and scripts/
 

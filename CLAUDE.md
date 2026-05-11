@@ -4,16 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
-Dependency / environment (managed by `uv`, not pip):
-
-```bash
-make uv-install           # install uv itself (one-time)
-uv sync                   # install runtime deps
-uv sync --group dev       # add pre-commit / poethepoet / notebook
-uv sync --group docs      # add MkDocs deps
-uv add <pkg>              # add runtime dep
-uv add <pkg> --dev        # add dev dep
-```
+Dependency / environment is managed by `uv` (not pip). Dev extras live under `--group dev`; docs under `--group docs`.
 
 Running the pipeline (the project ships a `tradingagents` console script registered in `[project.scripts]`):
 
@@ -22,25 +13,21 @@ uv run tradingagents tui                              # interactive questionary 
 uv run tradingagents cli                              # all defaults (GOOG, today, gemini-3.1-pro-preview)
 uv run tradingagents cli --ticker AAPL --date 2024-05-10
 uv run tradingagents cli --llm_provider openai --deep_think_llm gpt-5 --quick_think_llm gpt-5-mini
-uv run tradingagents reflect --ticker AAPL --date 2024-05-10 --returns 0.032   # apply post-trade reflection (see Memory section)
-uv run tradingagents --help                           # rich-rendered top-level help
-uv run tradingagents cli --help                       # rich-rendered per-command flags
-python -m tradingagents cli ...                       # equivalent
-uv run python main.py                                 # legacy script-style entrypoint at repo root
-uv run poe cli / uv run poe tui                       # poethepoet aliases
+uv run tradingagents reflect --ticker AAPL --date 2024-05-10 --returns 0.032   # post-trade reflection (see Memory section)
+uv run tradingagents --help                           # rich-rendered top-level help (also `cli --help`)
 ```
 
 Quality gates:
 
 ```bash
-make format               # uv run pre-commit run -a (ruff, mypy, codespell, mdformat, gitleaks, uv-sync, ...)
+make fmt                  # uv run pre-commit run -a (ruff, mypy, codespell, mdformat, gitleaks, uv-sync, ...)
 make clean                # nuke caches, dist, docs, .github/reports
-make gen-docs             # build MkDocs Material site (writes to docs/, then `uv run mkdocs serve` on :9987)
+make gen-docs             # build MkDocs Material (then `uv run mkdocs serve` on :9987)
 ```
 
 Tests: a small **mock-based** pytest suite lives under `tests/` (added in #35). It exercises pure helpers and graph wiring via `monkeypatch` only — **no live LLM or yfinance network calls**, so it is safe and free to run via `make test` / `uv run pytest`. Update the existing tests when changing the contracts they pin (e.g. error-message format, public function names, no-data sentinels), and feel free to add similarly mock-based tests when you change shared invariants. Do **not** propose tests that require real LLM API or yfinance traffic — each live LangGraph run hits paid LLM APIs and costs real money. Coverage gate (`--cov-fail-under=80`) is currently aspirational; the suite covers a fraction of the codebase.
 
-API keys (one of these is required, picked by `llm_provider`): `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, `XAI_API_KEY`, `OPENROUTER_API_KEY`. See `.env.example`.
+API keys: one of `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GOOGLE_API_KEY` / `XAI_API_KEY` / `OPENROUTER_API_KEY` is required, picked by `llm_provider`. See `.env.example`.
 
 ## Architecture
 
@@ -103,7 +90,7 @@ Every agent's system / user prompt is a separate `.md` file (e.g. `bull_research
 
 ### CLI / TUI dispatch (`__main__.py`, `interface/`)
 
-`pyproject.toml` registers `tradingagents = "tradingagents.__main__:main"`. `main()` intercepts `--help` / `-h` / the literal `help` token and renders Rich panels via `interface/help.py` (replacing fire's default less-style pager), then hands the rest to `fire.Fire({"cli": run_cli, "tui": run_tui})`. `python -m tradingagents` resolves to the same function — there's only one routing surface. `interface/display.MessageRenderer` is the Rich-based callback wired into `TradingAgentsGraph.propagate(..., on_message=renderer)` so streamed LangGraph messages render as Markdown / pretty-JSON panels with truncation.
+`main()` intercepts `--help` / `-h` / `help` and renders Rich panels via `interface/help.py` (replacing fire's default less-style pager), then hands the rest to `fire.Fire({"cli": run_cli, "tui": run_tui})`. `interface/display.MessageRenderer` is the Rich callback wired into `TradingAgentsGraph.propagate(..., on_message=renderer)` so streamed LangGraph messages render as Markdown / pretty-JSON panels with truncation.
 
 ### Output
 
@@ -121,11 +108,10 @@ These are tightly enforced and reviewers care; full rationale lives in `CONTRIBU
 
 - **Pydantic everywhere** — every config / state / service class subclasses `BaseModel`. Every `Field()` has `default` (or `default_factory`) + `title` + `description`. Mutable defaults always use `default_factory=`. Nested Pydantic models default via `default_factory=NestedModel`, never `default=NestedModel()`. `model_config = ConfigDict(arbitrary_types_allowed=True)` only when the model holds non-Pydantic types (LLM clients, `ToolNode`, etc.). Side effects after construction belong in `@model_validator(mode="after")` returning `"ClassName"` (string forward ref).
 - **Cached derived state** — use `@computed_field` stacked directly over `@cached_property` for expensive lazily-built values (LLM instances, compiled graph). See `TradingAgentsGraph` for the canonical pattern.
-- **Type hints** — PEP 604 / lowercase generics only: `X | None`, `list[X]`, `dict[str, X]`. Never `Optional[X]` / `List[X]` / `Dict[...]`. Avoid bare `Any` in `@computed_field` returns. LLM types use the `ChatModel` union from `tradingagents.llm`, not `BaseChatModel`.
+- **Type hints** — PEP 604 / lowercase generics only. Avoid bare `Any` in `@computed_field` returns. LLM types use the `ChatModel` union from `tradingagents.llm`, not `BaseChatModel`.
 - **Paths** — `pathlib.Path` only. Never `os.path.*`, `os.getcwd()`, `os.path.join`. Anchor with `Path(__file__).resolve().parent`. Path defaults go in module-level `_CONSTANT` names, never inlined inside `Field(default=...)`.
 - **LangGraph nodes** — signature `(state: AgentState) -> dict[str, Any]`. State updates as typed instances (`InvestDebateState(...)`), not raw dicts. Initial state via `Propagator.create_initial_state()`. Use `HumanMessage(content=...)`, not `("human", ...)` tuples.
-- **Prompts** — `.md` files under `agents/prompts/<snake_case>.md`, loaded with `load_prompt(name)`. Escape literal braces as `{{` / `}}`.
-- **Commits** — Conventional Commits, English only. CI must pass; pre-commit hooks (ruff, mdformat, codespell, mypy, gitleaks, uv-sync, uv-lock) should not be skipped.
+- **Pre-commit hooks** — run `make fmt` before committing; do not skip hooks.
 
 ## Canonical examples (read these before writing similar code)
 
