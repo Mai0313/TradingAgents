@@ -12,7 +12,17 @@ LABEL maintainer="Wei Lee <mai@mai0313.com>" \
 
 FROM builder AS prod
 WORKDIR /app
+
+# Add apt packages here if your project needs them. Example:
+# RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+#     --mount=type=cache,target=/var/lib/apt,sharing=locked \
+#     apt-get update \
+#     && apt-get install -y --no-install-recommends ffmpeg
+
+COPY pyproject.toml uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --no-dev --frozen --no-install-project
+
 COPY . .
-# RUN uv sync --frozen --no-dev && uv cache clean
-RUN uv sync --no-dev && \
-    uv cache clean
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --no-dev --frozen

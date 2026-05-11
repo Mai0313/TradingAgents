@@ -49,7 +49,11 @@ jobs:
         shell: bash
         run: |
           VERSION=$(uvx dunamai from git --bump --no-metadata --style pep440)
-          uv version $VERSION --frozen
+          # Only mutate pyproject.toml on tag pushes; on main we keep the file
+          # bit-identical so the Docker deps layer can hit the registry cache.
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            uv version $VERSION --frozen
+          fi
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
@@ -93,5 +97,9 @@ jobs:
             ${{ steps.meta.outputs.tags }}
           sbom: false
           provenance: false
-          cache-from: type=registry,ref=${{ steps.extracted_name.outputs.name }}:buildcache
-          cache-to: type=registry,ref=${{ steps.extracted_name.outputs.name }}:buildcache,image-manifest=true,oci-mediatypes=true,mode=max
+          cache-from: |
+            type=gha
+            type=registry,ref=${{ steps.extracted_name.outputs.name }}:buildcache
+          cache-to: |
+            type=gha,mode=max
+            type=registry,ref=${{ steps.extracted_name.outputs.name }}:buildcache,image-manifest=true,oci-mediatypes=true,mode=max
