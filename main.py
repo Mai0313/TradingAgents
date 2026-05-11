@@ -16,6 +16,8 @@ def main() -> None:
     """
     config = TradingAgentsConfig(
         llm_provider="google_genai",
+        # This is just for testing, so we use the cheapest model for all roles.
+        # In a real application, you might want to use different models for different roles.
         deep_think_llm="gemini-flash-latest",
         quick_think_llm="gemini-flash-latest",
         max_debate_rounds=10,
