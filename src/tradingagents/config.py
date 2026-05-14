@@ -79,9 +79,16 @@ class TradingAgentsConfig(BaseModel):
     )
     max_recur_limit: int = Field(
         ...,
-        ge=25,
+        ge=30,
         title="Max Recursion Limit",
-        description="Maximum recursion limit for the LangGraph execution",
+        description=(
+            "Maximum recursion limit for the LangGraph execution. The 30-step "
+            "floor accommodates the minimum-round topology after the P0-2 "
+            "Situation Summariser node was inserted: 4 analyst phases (each "
+            "with at least one tool round-trip) + 4 Msg Clear + 1 Summariser "
+            "+ 2-turn Bull/Bear debate + Research Manager + Trader + 3-turn "
+            "risk debate + Risk Judge ≈ 25-30 supersteps before any tool retry."
+        ),
     )
 
     @computed_field(

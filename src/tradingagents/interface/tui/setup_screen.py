@@ -108,7 +108,7 @@ class SetupScreen(Screen[None]):
                 self._defaults.max_risk_discuss_rounds,
             )
             yield from self._int_row(
-                "max_recur_limit", "Max Recursion Limit (>= 25)", self._defaults.max_recur_limit
+                "max_recur_limit", "Max Recursion Limit (>= 30)", self._defaults.max_recur_limit
             )
 
             with Horizontal(classes="form-row"):

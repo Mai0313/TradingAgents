@@ -73,7 +73,7 @@ def test_graph_topology_contains_situation_summariser_between_analysts_and_bull(
         quick_think_llm="x",
         max_debate_rounds=1,
         max_risk_discuss_rounds=1,
-        max_recur_limit=25,
+        max_recur_limit=30,
         reasoning_effort="low",
         response_language="en-US",
     )
