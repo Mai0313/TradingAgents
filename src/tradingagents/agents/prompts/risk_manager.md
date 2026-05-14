@@ -36,18 +36,18 @@ Company fundamentals report:
 Provide, in this order:
 
 1. **Reasoning** — prose anchored in the debate AND the source reports.
-2. **Structured recommendation** — the LAST fenced ` ```json ` code block in your response. It MUST conform to this schema (keys exactly, in English):
-   ```json
-   {{
-     "signal": "BUY" | "SELL" | "HOLD",
-     "size_fraction": <number between 0.0 and 1.0>,
-     "target_price": <number or null>,
-     "stop_loss": <number or null>,
-     "time_horizon_days": <integer or null>,
-     "confidence": <number between 0.0 and 1.0>,
-     "rationale": "<one or two sentences, plain string>",
-     "warning_message": <string or null>
-   }}
-   ```
-   Sizing guidance: 0.0 = no position, 0.25 = light, 0.50 = normal, 0.75 = high conviction, 1.00 = max allowed. For HOLD use 0.0. Set `target_price` / `stop_loss` / `time_horizon_days` to null when you do not have a concrete numeric target rather than inventing one.
+2. **Structured recommendation** — the LAST fenced ```` ```json ```` code block in your response. It MUST conform to this schema (keys exactly, in English):
+    ```json
+    {{
+      "signal": "BUY" | "SELL" | "HOLD",
+      "size_fraction": <number between 0.0 and 1.0>,
+      "target_price": <number or null>,
+      "stop_loss": <number or null>,
+      "time_horizon_days": <integer or null>,
+      "confidence": <number between 0.0 and 1.0>,
+      "rationale": "<one or two sentences, plain string>",
+      "warning_message": <string or null>
+    }}
+    ```
+    Sizing guidance: 0.0 = no position, 0.25 = light, 0.50 = normal, 0.75 = high conviction, 1.00 = max allowed. For HOLD use 0.0. Set `target_price` / `stop_loss` / `time_horizon_days` to null when you do not have a concrete numeric target rather than inventing one.
 3. **Canonical line** — EXACTLY one of `FINAL TRANSACTION PROPOSAL: **BUY**`, `FINAL TRANSACTION PROPOSAL: **SELL**`, `FINAL TRANSACTION PROPOSAL: **HOLD**` on its own final line. {{require_canonical_signal}} If your JSON `signal` and this canonical line disagree, the canonical line wins downstream — keep them consistent.
