@@ -20,9 +20,9 @@ def main() -> None:
         # In a real application, you might want to use different models for different roles.
         deep_think_llm="gemini-flash-latest",
         quick_think_llm="gemini-flash-latest",
-        max_debate_rounds=10,
-        max_risk_discuss_rounds=10,
-        max_recur_limit=100,
+        max_debate_rounds=1,
+        max_risk_discuss_rounds=1,
+        max_recur_limit=30,
         reasoning_effort="high",
         response_language="zh-TW",
     )

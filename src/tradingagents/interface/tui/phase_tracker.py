@@ -21,7 +21,7 @@ PhaseStatus = Literal["pending", "running", "done"]
 
 ANALYST_PHASE_LABELS: dict[str, str] = {
     "market": "Market Analyst",
-    "social": "Social Analyst",
+    "social": "News Sentiment Analyst",
     "news": "News Analyst",
     "fundamentals": "Fundamentals Analyst",
 }
@@ -109,6 +109,15 @@ def derive_phases(
             value = getattr(state, field, "") or ""
             if value.strip():
                 phases[-1] = phases[-1].model_copy(update={"status": "done"})
+
+    summariser_done = bool(state is not None and (state.situation_summary or "").strip())
+    phases.append(
+        Phase(
+            id="phase-situation-summary",
+            label="Situation Summariser",
+            status="done" if summariser_done else "pending",
+        )
+    )
 
     invest = state.investment_debate_state if state is not None else None
     invest_count = invest.count if invest is not None else 0

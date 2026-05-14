@@ -7,6 +7,7 @@ matching the previous hard-coded values from the legacy cli.py.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 import datetime
 
 from rich.console import Console
@@ -16,6 +17,9 @@ from tradingagents.config import ResponseLanguage, TradingAgentsConfig
 from tradingagents.graph.setup import SUPPORTED_ANALYSTS, GraphSetup
 from tradingagents.interface.display import MessageRenderer, print_run_header, print_final_decision
 from tradingagents.graph.trading_graph import TradingAgentsGraph
+
+if TYPE_CHECKING:
+    from tradingagents.graph.signal_processing import TradeRecommendation
 
 DEFAULT_ANALYSTS: tuple[str, ...] = SUPPORTED_ANALYSTS
 
@@ -59,7 +63,7 @@ def run_cli(  # noqa: PLR0913
     max_recur_limit: int = 100,
     selected_analysts: list[str] | tuple[str, ...] | None = None,
     debug: bool = True,
-) -> str:
+) -> TradeRecommendation:
     """Run the TradingAgents pipeline for a single ticker.
 
     Args:
@@ -95,7 +99,8 @@ def run_cli(  # noqa: PLR0913
             True.
 
     Returns:
-        str: The final BUY / SELL / HOLD decision text.
+        TradeRecommendation: The structured Risk-Manager recommendation
+        (signal, size, target, stop, horizon, confidence, rationale).
     """
     date = _normalize_trade_date(date)
     analysts = _normalize_selected_analysts(selected_analysts)
@@ -117,7 +122,7 @@ def run_cli(  # noqa: PLR0913
     renderer = MessageRenderer.for_console(console=console)
 
     ta = TradingAgentsGraph(debug=debug, config=config, selected_analysts=analysts)
-    _, decision = ta.propagate(ticker, date, on_message=renderer)
+    _, recommendation = ta.propagate(ticker, date, on_message=renderer)
 
-    print_final_decision(console, decision)
-    return decision
+    print_final_decision(console, recommendation)
+    return recommendation

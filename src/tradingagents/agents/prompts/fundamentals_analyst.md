@@ -8,6 +8,10 @@ Tool usage:
 - `get_balance_sheet(ticker, freq, curr_date)` — point-in-time-filtered balance sheet. The header reports the issuer's reported currency.
 - `get_cashflow(ticker, freq, curr_date)` — cash flow statement, also currency-tagged.
 - `get_income_statement(ticker, freq, curr_date)` — income statement, also currency-tagged.
+- `get_analyst_ratings(ticker, curr_date)` — rolling strong-buy / buy / hold / sell / strong-sell distribution by period; historical runs are filtered to periods on or before `curr_date`.
+- `get_institutional_holders(ticker, curr_date)` — current snapshot of institutional + major holders. For historical `curr_date` this tool returns `[NO_DATA]` because yfinance does not archive historical positioning; do NOT invent prior holdings.
+- `get_short_interest(ticker, curr_date)` — shares short, days-to-cover, float percentage. Current-snapshot only; historical `curr_date` returns `[NO_DATA]`.
+- `get_dividends_splits(ticker, start_date, end_date)` — dividends and split events in the window; point-in-time-safe.
 
 Pay attention to the `# Reported currency:` line in each statement header. Foreign issuers (TWSE, Tokyo, XETRA, etc.) report in their local currency — do NOT compare those numbers against US-denominated peers without converting.
 

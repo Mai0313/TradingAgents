@@ -32,11 +32,17 @@ from tradingagents.interface.cli import run_cli
 from tradingagents.interface.tui import run_tui
 from tradingagents.interface.help import print_app_help, print_command_help
 from tradingagents.interface.reflect import run_reflect
+from tradingagents.interface.backtest import run_backtest
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-COMMANDS: dict[str, Callable[..., Any]] = {"cli": run_cli, "tui": run_tui, "reflect": run_reflect}
+COMMANDS: dict[str, Callable[..., Any]] = {
+    "cli": run_cli,
+    "tui": run_tui,
+    "reflect": run_reflect,
+    "backtest": run_backtest,
+}
 _HELP_FLAGS = frozenset({"--help", "-h"})
 
 

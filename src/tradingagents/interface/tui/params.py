@@ -78,9 +78,9 @@ class SetupParams(BaseModel):
     )
     max_recur_limit: int = Field(
         default=100,
-        ge=25,
+        ge=30,
         title="Max Recursion Limit",
-        description="Maximum LangGraph recursion limit (must be >= 25).",
+        description="Maximum LangGraph recursion limit (must be >= 30).",
     )
     debug: bool = Field(
         default=True,

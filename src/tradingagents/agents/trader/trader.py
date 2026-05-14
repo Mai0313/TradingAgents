@@ -5,7 +5,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from tradingagents.llm import ChatModel
 from tradingagents.agents.prompts import load_prompt
-from tradingagents.agents.utils.memory import FinancialSituationMemory
+from tradingagents.agents.utils.memory import FinancialSituationMemory, format_memories_for_prompt
 from tradingagents.agents.utils.agent_states import AgentState
 
 
@@ -31,11 +31,10 @@ def create_trader(
         Returns:
             dict[str, Any]: A dictionary containing updated messages and the trader_investment_plan.
         """
-        past_memories = memory.get_memories(state.combined_reports, n_matches=2)
-        if past_memories:
-            past_memory_str = "".join(rec["recommendation"] + "\n\n" for rec in past_memories)
-        else:
-            past_memory_str = "No past memories found."
+        past_memories = memory.get_memories(
+            state.situation_summary or state.combined_reports, n_matches=2
+        )
+        past_memory_str = format_memories_for_prompt(past_memories)
 
         messages = [
             SystemMessage(

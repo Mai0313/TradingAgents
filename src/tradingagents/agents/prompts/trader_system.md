@@ -23,8 +23,10 @@ End your response with EXACTLY one of the following canonical lines:
 - `FINAL TRANSACTION PROPOSAL: **SELL**`
 - `FINAL TRANSACTION PROPOSAL: **HOLD**`
 
-Do not write the literal placeholder string "BUY/SELL/HOLD". Keep `BUY`, `SELL`, or `HOLD` in English even when the rest of your response is in another language — downstream tooling regex-matches these tokens.
+Do not write the literal placeholder string "BUY/SELL/HOLD". {{require_canonical_signal}}
 
-# Past Reflections
+# Past situations and lessons learned
+
+Each block below shows the original situation snapshot, its similarity score against today's setup, and the lesson recorded after the trade outcome was known. Before applying a lesson, judge whether the past situation is truly analogous — a high similarity score is informative but does not guarantee comparable regime / catalyst / ticker profile. If the block is the sentinel "(no relevant past situations found.)", do not invent prior lessons.
 
 {past_memory_str}

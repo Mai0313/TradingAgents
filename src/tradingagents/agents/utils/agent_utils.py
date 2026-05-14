@@ -7,6 +7,8 @@ from tradingagents.agents.utils.agent_states import AgentState
 from tradingagents.agents.utils.news_data_tools import (
     get_news,
     get_global_news,
+    get_market_context,
+    get_earnings_calendar,
     get_insider_transactions,
 )
 
@@ -16,20 +18,30 @@ from tradingagents.agents.utils.fundamental_data_tools import (
     get_cashflow,
     get_fundamentals,
     get_balance_sheet,
+    get_short_interest,
+    get_analyst_ratings,
+    get_dividends_splits,
     get_income_statement,
+    get_institutional_holders,
 )
 from tradingagents.agents.utils.technical_indicators_tools import get_indicators
 
 __all__ = [
     "create_msg_delete",
+    "get_analyst_ratings",
     "get_balance_sheet",
     "get_cashflow",
+    "get_dividends_splits",
+    "get_earnings_calendar",
     "get_fundamentals",
     "get_global_news",
     "get_income_statement",
     "get_indicators",
     "get_insider_transactions",
+    "get_institutional_holders",
+    "get_market_context",
     "get_news",
+    "get_short_interest",
     "get_stock_data",
 ]
 

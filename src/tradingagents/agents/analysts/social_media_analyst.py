@@ -31,7 +31,7 @@ def create_social_media_analyst(llm: ChatModel) -> Callable[[AgentState], dict[s
         tools = [get_news]
 
         prompt = ChatPromptTemplate.from_messages([
-            ("system", load_prompt("social_media_analyst")),
+            ("system", load_prompt("news_sentiment_analyst")),
             MessagesPlaceholder(variable_name="messages"),
         ])
 

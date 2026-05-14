@@ -3,7 +3,7 @@ from collections.abc import Callable
 
 from tradingagents.llm import ChatModel
 from tradingagents.agents.prompts import load_prompt
-from tradingagents.agents.utils.memory import FinancialSituationMemory
+from tradingagents.agents.utils.memory import FinancialSituationMemory, format_memories_for_prompt
 from tradingagents.agents.utils.agent_states import AgentState, InvestDebateState
 
 
@@ -31,8 +31,10 @@ def create_bull_researcher(
         """
         debate = state.investment_debate_state
 
-        past_memories = memory.get_memories(state.combined_reports, n_matches=2)
-        past_memory_str = "".join(rec["recommendation"] + "\n\n" for rec in past_memories)
+        past_memories = memory.get_memories(
+            state.situation_summary or state.combined_reports, n_matches=2
+        )
+        past_memory_str = format_memories_for_prompt(past_memories)
 
         prompt = load_prompt("bull_researcher").format(
             market_research_report=state.market_report,

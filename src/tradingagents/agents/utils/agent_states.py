@@ -4,6 +4,8 @@ from pydantic import Field, BaseModel, ConfigDict
 from langchain_core.messages import AnyMessage
 from langgraph.graph.message import add_messages
 
+from tradingagents.graph.signal_processing import TradeRecommendation
+
 
 class InvestDebateState(BaseModel):
     """State for the Bull/Bear investment research debate."""
@@ -125,6 +127,18 @@ class AgentState(BaseModel):
         description="Fundamentals report produced by the Fundamentals Analyst",
     )
 
+    # --- Cross-analyst synthesis ---
+    situation_summary: str = Field(
+        default="",
+        title="Situation Summary",
+        description=(
+            "Compact (≤400 token) distilled snapshot of the four analyst reports "
+            "produced by the Situation Summariser node. Used as the BM25 retrieval "
+            "query for every memory.get_memories() call so retrieval signal is not "
+            "diluted by the full multi-KB combined_reports payload."
+        ),
+    )
+
     # --- Research debate ---
     investment_debate_state: InvestDebateState = Field(
         default_factory=InvestDebateState,
@@ -152,6 +166,15 @@ class AgentState(BaseModel):
         default="",
         title="Final Trade Decision",
         description="Final BUY/SELL/HOLD decision produced by the Risk Manager",
+    )
+    final_trade_recommendation: TradeRecommendation | None = Field(
+        default=None,
+        title="Final Trade Recommendation",
+        description=(
+            "Structured Risk-Manager output (signal, size, target, stop, horizon, "
+            "confidence, rationale). Populated by TradingAgentsGraph.propagate after "
+            "signal extraction; None until the run completes."
+        ),
     )
 
     @property

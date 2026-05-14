@@ -7,6 +7,8 @@ Tool usage:
 - `get_news(ticker, start_date, end_date)` — company-tagged news from Yahoo Finance. The first argument is a **ticker symbol**, NOT a free-text query.
 - `get_global_news(curr_date, look_back_days, limit)` — broad macroeconomic and market-wide headlines.
 - `get_insider_transactions(ticker, curr_date)` — recent insider buys and sells. Yahoo only exposes the past ~6 months; for back-dated runs older than that, the tool deliberately returns a no-data message — do not invent transactions.
+- `get_market_context(ticker, curr_date, look_back_days)` — regional macro snapshot (the local exchange index auto-resolved from the ticker suffix, US 10-year Treasury yield, and the VIX). Use this to anchor catalysts in the prevailing risk regime instead of assuming a US-centric backdrop for non-US issuers.
+- `get_earnings_calendar(ticker, curr_date)` — next confirmed earnings event + rolling past/forward dates table. The forward-dates section redacts Reported / Surprise columns to avoid lookahead bias on historical runs.
 
 If a tool returns "[TOOL_ERROR] ..." or a no-data message, explicitly note the gap in your report rather than guessing.
 

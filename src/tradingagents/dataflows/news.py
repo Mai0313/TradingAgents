@@ -11,13 +11,14 @@ import feedparser
 from dateutil.relativedelta import relativedelta
 
 from tradingagents.dataflows.tickers import (
+    get_news_locale,
     describe_symbol_candidates,
     get_yfinance_symbol_candidates,
 )
 
 logger = logging.getLogger(__name__)
 
-_GOOGLE_NEWS_RSS = "https://news.google.com/rss/search?q={query}&hl=en-US&gl=US&ceid=US:en"
+_GOOGLE_NEWS_RSS = "https://news.google.com/rss/search?q={query}&hl={hl}&gl={gl}&ceid={ceid}"
 _TOOL_ERROR_PREFIX = "[TOOL_ERROR]"
 _NO_DATA_PREFIX = "[NO_DATA]"
 
@@ -242,7 +243,8 @@ def get_news_google_rss(ticker: str, start_date: str, end_date: str, limit: int 
             )
 
         query = urllib.parse.quote_plus(f"{ticker} stock")
-        url = _GOOGLE_NEWS_RSS.format(query=query)
+        hl, gl, ceid = get_news_locale(ticker)
+        url = _GOOGLE_NEWS_RSS.format(query=query, hl=hl, gl=gl, ceid=ceid)
         feed = feedparser.parse(url)
     except Exception as exc:
         logger.debug("Failed to fetch Google News RSS for %s", ticker, exc_info=True)

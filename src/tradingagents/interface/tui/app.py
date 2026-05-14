@@ -10,7 +10,7 @@ finished.
 
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 from pathlib import Path
 
 from textual.app import App
@@ -18,10 +18,13 @@ from textual.binding import Binding
 
 from tradingagents.interface.tui.setup_screen import SetupScreen
 
+if TYPE_CHECKING:
+    from tradingagents.graph.signal_processing import TradeRecommendation
+
 _STYLES_PATH = Path(__file__).resolve().parent / "styles.tcss"
 
 
-class TradingAgentsApp(App[str | None]):
+class TradingAgentsApp(App["TradeRecommendation | None"]):
     """Top-level Textual application for the TradingAgents TUI.
 
     The app starts on :class:`SetupScreen` (parameter form). Submitting
@@ -40,7 +43,7 @@ class TradingAgentsApp(App[str | None]):
         self.push_screen(SetupScreen())
 
 
-def run_tui() -> str | None:
+def run_tui() -> TradeRecommendation | None:
     """Run the interactive TradingAgents TUI.
 
     A two-screen Textual app:
@@ -58,9 +61,10 @@ def run_tui() -> str | None:
        plain ``rich.console.Console.print`` path).
 
     Returns:
-        str | None: The final BUY / SELL / HOLD decision text returned
-        by :meth:`TradingAgentsGraph.process_signal`, or ``None`` when
-        the user cancels at the setup screen or quits before the
-        pipeline finishes.
+        TradeRecommendation | None: The structured Risk-Manager
+        recommendation returned by
+        :meth:`TradingAgentsGraph.process_signal`, or ``None`` when the
+        user cancels at the setup screen or quits before the pipeline
+        finishes.
     """
     return TradingAgentsApp().run()

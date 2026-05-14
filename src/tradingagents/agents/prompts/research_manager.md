@@ -10,12 +10,13 @@ Develop a detailed investment plan for the trader. The plan should include:
 - **Rationale**: why those arguments lead to your conclusion, with concrete references to the source reports below.
 - **Strategic Actions**: concrete steps for implementing the recommendation (sizing, timing tilt, conditions for re-evaluation).
 
-Take into account your past mistakes on similar situations. Use these insights to refine your decision-making. If `past reflections` is empty, do not invent prior lessons.
+Take into account your past mistakes on similar situations. Use these insights to refine your decision-making. If the past-situations block below is the sentinel "(no relevant past situations found.)", do not invent prior lessons.
 
 Cross-check the debate against the source analyst reports below. Do NOT rely on a debate claim unless it is supported by these reports — otherwise label it explicitly as an unsupported assumption and discount it.
 
-Here are your past reflections on mistakes:
-"{past_memory_str}"
+Past situations and lessons learned (each block shows the original situation snapshot, its similarity score, and the lesson recorded after the trade outcome was known). Before applying any lesson, decide whether the past situation is truly analogous to the current setup; do not blindly trust high similarity scores.
+
+{past_memory_str}
 
 Market research report:
 {market_research_report}
@@ -43,4 +44,4 @@ Rationale: <one paragraph>
 Strategic Actions: <bullet points>
 ```
 
-Replace `BUY` with `SELL` or `HOLD` as appropriate. Keep `BUY`, `SELL`, or `HOLD` in English even when the rest of your answer uses another language.
+Replace `BUY` with `SELL` or `HOLD` as appropriate. {{require_canonical_signal}}
