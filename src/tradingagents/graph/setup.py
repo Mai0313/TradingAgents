@@ -22,6 +22,7 @@ from tradingagents.agents import (
     create_aggressive_debator,
     create_conservative_debator,
     create_fundamentals_analyst,
+    create_situation_summariser,
     create_social_media_analyst,
 )
 from tradingagents.agents.utils.memory import FinancialSituationMemory
@@ -166,7 +167,9 @@ class GraphSetup(BaseModel):
                 next_analyst = f"{selected_analysts[i + 1].capitalize()} Analyst"
                 workflow.add_edge(current_clear, next_analyst)
             else:
-                workflow.add_edge(current_clear, "Bull Researcher")
+                # The Situation Summariser distils all four analyst reports
+                # into a compact BM25 query before any memory-backed node runs.
+                workflow.add_edge(current_clear, "Situation Summariser")
 
     # --- Public methods ---
 
@@ -193,6 +196,9 @@ class GraphSetup(BaseModel):
 
         analyst_nodes, delete_nodes, tool_nodes = self._build_analyst_nodes(selected_analysts)
 
+        # Create situation summariser node (preprocessor between analysts and the research debate)
+        situation_summariser_node = create_situation_summariser(self.quick_thinking_llm)
+
         # Create researcher and manager nodes
         bull_researcher_node = create_bull_researcher(self.quick_thinking_llm, self.memories.bull)
         bear_researcher_node = create_bear_researcher(self.quick_thinking_llm, self.memories.bear)
@@ -217,6 +223,7 @@ class GraphSetup(BaseModel):
             workflow.add_node(f"tools_{analyst_type}", tool_nodes[analyst_type])
 
         # Add other nodes
+        workflow.add_node("Situation Summariser", situation_summariser_node)
         workflow.add_node("Bull Researcher", bull_researcher_node)
         workflow.add_node("Bear Researcher", bear_researcher_node)
         workflow.add_node("Research Manager", research_manager_node)
@@ -230,8 +237,9 @@ class GraphSetup(BaseModel):
         first_analyst = selected_analysts[0]
         workflow.add_edge(START, f"{first_analyst.capitalize()} Analyst")
 
-        # Connect analysts in sequence
+        # Connect analysts in sequence; the last analyst's Msg Clear feeds the Summariser
         self._add_analyst_edges(workflow, selected_analysts)
+        workflow.add_edge("Situation Summariser", "Bull Researcher")
 
         # Add research team edges
         workflow.add_conditional_edges(

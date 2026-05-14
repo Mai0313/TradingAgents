@@ -13,6 +13,7 @@ from .risk_mgmt.aggressive_debator import create_aggressive_debator
 from .analysts.fundamentals_analyst import create_fundamentals_analyst
 from .analysts.social_media_analyst import create_social_media_analyst
 from .risk_mgmt.conservative_debator import create_conservative_debator
+from .preprocessors.situation_summariser import create_situation_summariser
 
 __all__ = [
     "AgentState",
@@ -30,6 +31,7 @@ __all__ = [
     "create_news_analyst",
     "create_research_manager",
     "create_risk_manager",
+    "create_situation_summariser",
     "create_social_media_analyst",
     "create_trader",
 ]

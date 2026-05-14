@@ -16,8 +16,10 @@ Latest world affairs news: {news_report}
 Company fundamentals report: {fundamentals_report}
 Conversation history of the debate: {history}
 Last bull argument: {current_response}
-Reflections from similar situations and lessons learned: {past_memory_str}
 
-If `Last bull argument` is empty, this is the opening turn of the debate — present your bear case from scratch without inventing a counterpoint to address. If `Reflections from similar situations and lessons learned` is empty, do not invent prior lessons.
+Past situations and lessons learned (each block shows the original situation snapshot, its similarity score, and the lesson recorded after the trade outcome was known):
+{past_memory_str}
 
-Use this information to deliver a compelling bear argument grounded in the source reports. When you cite a number or claim, anchor it to the report it came from rather than asserting it as your own conviction. Refute the bull's claims with specific evidence, and engage in a dynamic debate that demonstrates the risks and weaknesses of investing in the stock. You must also address past reflections (when present) and learn from prior mistakes.
+The Bull always speaks first in each round, so `Last bull argument` is populated by the time you respond. Engage with its specific points directly. If `Past situations and lessons learned` is the sentinel "(no relevant past situations found.)", do not invent prior lessons.
+
+Use this information to deliver a compelling bear argument grounded in the source reports. When you cite a number or claim, anchor it to the report it came from rather than asserting it as your own conviction. Refute the bull's claims with specific evidence, and engage in a dynamic debate that demonstrates the risks and weaknesses of investing in the stock. When past situations are surfaced, first judge whether the analogy actually applies (similar regime, similar ticker profile, similar catalyst), and only then apply the lesson — a high similarity score is informative but does not guarantee the situations are truly analogous.

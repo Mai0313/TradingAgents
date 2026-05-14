@@ -64,6 +64,16 @@ class Reflector(BaseModel):
         ]
         return _flatten_content(self.quick_thinking_llm.invoke(messages).content)
 
+    @staticmethod
+    def _stored_situation(current_state: AgentState) -> str:
+        """Return the BM25-index document to store alongside the reflection.
+
+        Future agents query memories with ``state.situation_summary``, so the
+        document side must use the same shape. Fall back to the full
+        ``combined_reports`` only when no summary was produced.
+        """
+        return current_state.situation_summary or current_state.combined_reports
+
     def reflect_bull_researcher(
         self,
         current_state: AgentState,
@@ -71,11 +81,12 @@ class Reflector(BaseModel):
         bull_memory: FinancialSituationMemory,
     ) -> None:
         """Reflect on the bull researcher's history and update its memory."""
-        situation = current_state.combined_reports
         result = self._reflect_on_component(
-            current_state.investment_debate_state.bull_history, situation, returns_losses
+            current_state.investment_debate_state.bull_history,
+            current_state.combined_reports,
+            returns_losses,
         )
-        bull_memory.add_situations([(situation, result)])
+        bull_memory.add_situations([(self._stored_situation(current_state), result)])
 
     def reflect_bear_researcher(
         self,
@@ -84,11 +95,12 @@ class Reflector(BaseModel):
         bear_memory: FinancialSituationMemory,
     ) -> None:
         """Reflect on the bear researcher's history and update its memory."""
-        situation = current_state.combined_reports
         result = self._reflect_on_component(
-            current_state.investment_debate_state.bear_history, situation, returns_losses
+            current_state.investment_debate_state.bear_history,
+            current_state.combined_reports,
+            returns_losses,
         )
-        bear_memory.add_situations([(situation, result)])
+        bear_memory.add_situations([(self._stored_situation(current_state), result)])
 
     def reflect_trader(
         self,
@@ -97,11 +109,10 @@ class Reflector(BaseModel):
         trader_memory: FinancialSituationMemory,
     ) -> None:
         """Reflect on the trader's plan and update its memory."""
-        situation = current_state.combined_reports
         result = self._reflect_on_component(
-            current_state.trader_investment_plan, situation, returns_losses
+            current_state.trader_investment_plan, current_state.combined_reports, returns_losses
         )
-        trader_memory.add_situations([(situation, result)])
+        trader_memory.add_situations([(self._stored_situation(current_state), result)])
 
     def reflect_invest_judge(
         self,
@@ -110,11 +121,12 @@ class Reflector(BaseModel):
         invest_judge_memory: FinancialSituationMemory,
     ) -> None:
         """Reflect on the research-manager verdict and update its memory."""
-        situation = current_state.combined_reports
         result = self._reflect_on_component(
-            current_state.investment_debate_state.judge_decision, situation, returns_losses
+            current_state.investment_debate_state.judge_decision,
+            current_state.combined_reports,
+            returns_losses,
         )
-        invest_judge_memory.add_situations([(situation, result)])
+        invest_judge_memory.add_situations([(self._stored_situation(current_state), result)])
 
     def reflect_risk_manager(
         self,
@@ -123,8 +135,9 @@ class Reflector(BaseModel):
         risk_manager_memory: FinancialSituationMemory,
     ) -> None:
         """Reflect on the risk-manager verdict and update its memory."""
-        situation = current_state.combined_reports
         result = self._reflect_on_component(
-            current_state.risk_debate_state.judge_decision, situation, returns_losses
+            current_state.risk_debate_state.judge_decision,
+            current_state.combined_reports,
+            returns_losses,
         )
-        risk_manager_memory.add_situations([(situation, result)])
+        risk_manager_memory.add_situations([(self._stored_situation(current_state), result)])

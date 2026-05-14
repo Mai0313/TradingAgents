@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from langchain_core.messages import AnyMessage
 
     from tradingagents.config import TradingAgentsConfig
+    from tradingagents.graph.signal_processing import TradeRecommendation
 
 
 _MAX_TOOL_LINES = 40
@@ -309,18 +310,48 @@ def make_run_header_panel(*, ticker: str, trade_date: str, config: TradingAgents
     )
 
 
-def make_final_decision_panel(decision: str) -> Panel:
-    """Build the highlighted BUY / SELL / HOLD final decision panel.
+_SIGNAL_STYLES: dict[str, str] = {"BUY": "bold green", "SELL": "bold red", "HOLD": "bold yellow"}
+
+
+def make_final_decision_panel(recommendation: TradeRecommendation) -> Panel:
+    """Build the highlighted final-decision panel from a :class:`TradeRecommendation`.
+
+    Surfaces every structured field (signal, size, target, stop, horizon,
+    confidence, rationale) plus a warning_message banner when the parser
+    had to fall back. A bare-string fallback path is kept so legacy
+    callers passing a plain decision string still get a sensible panel.
 
     Args:
-        decision (str): The decision text returned by process_signal.
+        recommendation (TradeRecommendation): The structured recommendation
+            returned by ``SignalProcessor.process_signal``.
 
     Returns:
         Panel: The composed Rich panel.
     """
-    text = decision.strip() or "(empty)"
+    signal = recommendation.signal
+    style = _SIGNAL_STYLES.get(signal, "bold")
+
+    table = Table.grid(padding=(0, 2))
+    table.add_column(style="bold cyan", justify="right")
+    table.add_column()
+    table.add_row("Signal", Text(signal, style=style))
+    table.add_row("Size fraction", f"{recommendation.size_fraction:.2f}")
+    if recommendation.target_price is not None:
+        table.add_row("Target price", f"{recommendation.target_price:g}")
+    if recommendation.stop_loss is not None:
+        table.add_row("Stop loss", f"{recommendation.stop_loss:g}")
+    if recommendation.time_horizon_days is not None:
+        table.add_row("Time horizon", f"{recommendation.time_horizon_days}d")
+    table.add_row("Confidence", f"{recommendation.confidence:.2f}")
+    if recommendation.rationale:
+        table.add_row("Rationale", recommendation.rationale)
+
+    renderables: list[RenderableType] = [table]
+    if recommendation.warning_message:
+        renderables.append(Text(f"⚠ {recommendation.warning_message}", style="bold yellow"))
+
     return Panel(
-        Text(text, style="bold"),
+        Group(*renderables),
         title="[bold magenta]Final Trade Decision[/]",
         title_align="left",
         border_style="magenta",
@@ -341,11 +372,12 @@ def print_run_header(
     console.print(make_run_header_panel(ticker=ticker, trade_date=trade_date, config=config))
 
 
-def print_final_decision(console: Console, decision: str) -> None:
-    """Print the final BUY / SELL / HOLD decision panel to a Rich console.
+def print_final_decision(console: Console, recommendation: TradeRecommendation) -> None:
+    """Print the final structured-recommendation panel to a Rich console.
 
     Args:
         console (Console): The Rich console to print on.
-        decision (str): The decision text returned by process_signal.
+        recommendation (TradeRecommendation): The structured recommendation
+            returned by ``SignalProcessor.process_signal``.
     """
-    console.print(make_final_decision_panel(decision))
+    console.print(make_final_decision_panel(recommendation))

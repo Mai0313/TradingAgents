@@ -177,3 +177,40 @@ class FinancialSituationMemory(BaseModel):
         self.bm25 = None
         if self.storage_path is not None and self.storage_path.exists():
             self.storage_path.unlink()
+
+
+def format_memories_for_prompt(
+    matches: list[MemoryMatch], *, max_situation_chars: int = 1200
+) -> str:
+    """Render BM25 matches into a prompt-ready "situation + lesson" block.
+
+    The earlier callsites concatenated only ``recommendation`` strings, so the
+    agent saw a lesson with no context of which situation it applied to. The
+    formatter keeps each match's situation snippet (truncated to
+    ``max_situation_chars`` to avoid blowing prompt budget) alongside its
+    lesson and similarity score so the LLM can judge whether the analogy is
+    apt before applying the lesson.
+
+    Args:
+        matches: Output of :meth:`FinancialSituationMemory.get_memories`.
+        max_situation_chars: Per-match cap on the rendered situation snippet.
+
+    Returns:
+        A formatted multi-block string, or a sentinel "(no relevant past
+        situations found.)" line when ``matches`` is empty.
+    """
+    if not matches:
+        return "(no relevant past situations found.)"
+
+    blocks: list[str] = []
+    for rec in matches:
+        situation = rec["matched_situation"]
+        if len(situation) > max_situation_chars:
+            situation = situation[:max_situation_chars].rstrip() + "…"
+        blocks.append(
+            f"## Past situation (similarity ≈ {rec['similarity_score']:.2f})\n"
+            f"{situation}\n\n"
+            f"### Lesson learned\n"
+            f"{rec['recommendation']}"
+        )
+    return "\n\n---\n\n".join(blocks)

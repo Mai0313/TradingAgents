@@ -43,6 +43,7 @@ if TYPE_CHECKING:
     from textual.app import ComposeResult
 
     from tradingagents.interface.tui.params import SetupParams
+    from tradingagents.graph.signal_processing import TradeRecommendation
     from tradingagents.agents.utils.agent_states import AgentState
 
 logger = logging.getLogger(__name__)
@@ -120,7 +121,7 @@ class RunScreen(Screen[None]):
         self.params = params
         self._log: RichLog | None = None
         self._status: Static | None = None
-        self._final_decision: str | None = None
+        self._final_decision: TradeRecommendation | None = None
         self._config = TradingAgentsConfig(
             llm_provider=params.llm_provider,
             deep_think_llm=params.deep_think_llm,
@@ -199,7 +200,7 @@ class RunScreen(Screen[None]):
                 config=self._config,
                 selected_analysts=self.params.selected_analysts,
             )
-            _, decision = ta.propagate(
+            _, recommendation = ta.propagate(
                 self.params.ticker, self.params.date, on_message=renderer, on_state=on_state
             )
         except Exception as exc:
@@ -207,7 +208,7 @@ class RunScreen(Screen[None]):
             self._safe_call(self._on_error, exc)
             return
 
-        self._safe_call(self._on_done, decision)
+        self._safe_call(self._on_done, recommendation)
 
     def _safe_call(self, func: object, *args: object) -> bool:
         """Schedule ``func(*args)`` on the Textual event loop, no-op if shut down.
@@ -283,18 +284,21 @@ class RunScreen(Screen[None]):
         if self._status is not None:
             self._status.update(text)
 
-    def _on_done(self, decision: str) -> None:
+    def _on_done(self, recommendation: TradeRecommendation) -> None:
         """Append the final-decision panel and switch the footer to Done.
 
         Args:
-            decision (str): The BUY / SELL / HOLD text returned by
+            recommendation (TradeRecommendation): The structured Risk-Manager
+                recommendation returned by
                 :meth:`TradingAgentsGraph.process_signal`.
         """
-        self._final_decision = decision
+        self._final_decision = recommendation
         if self._log is not None:
-            self._log.write(make_final_decision_panel(decision))
+            self._log.write(make_final_decision_panel(recommendation))
         self._set_status(
-            f"Done. Final decision: {decision.strip() or '(empty)'}  -  press q to quit"
+            f"Done. Signal: {recommendation.signal} "
+            f"(size {recommendation.size_fraction:.2f}, conf {recommendation.confidence:.2f}) "
+            f" -  press q to quit"
         )
 
     def _on_error(self, exc: BaseException) -> None:

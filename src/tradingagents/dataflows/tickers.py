@@ -11,6 +11,54 @@ TAIWAN_SUFFIXES = (".TW", ".TWO")
 SEARCH_QUOTE_TYPES = {"EQUITY", "ETF", "MUTUALFUND", "INDEX"}
 US_SHARE_CLASS_SUFFIXES = {"A", "B", "C", "K", "U", "V"}
 
+# Map yfinance suffixes to Google News (hl, gl, ceid) triplets.
+# The default is en-US for US tickers; foreign exchanges get their local
+# language so small-cap issuers without English coverage are not blacked
+# out of the news pipeline.
+_REGION_BY_SUFFIX: dict[str, tuple[str, str, str]] = {
+    ".TW": ("zh-TW", "TW", "TW:zh-Hant"),
+    ".TWO": ("zh-TW", "TW", "TW:zh-Hant"),
+    ".T": ("ja-JP", "JP", "JP:ja"),
+    ".HK": ("zh-HK", "HK", "HK:zh-Hant"),
+    ".SS": ("zh-CN", "CN", "CN:zh-Hans"),
+    ".SZ": ("zh-CN", "CN", "CN:zh-Hans"),
+    ".DE": ("de-DE", "DE", "DE:de"),
+    ".F": ("de-DE", "DE", "DE:de"),
+    ".KS": ("ko-KR", "KR", "KR:ko"),
+    ".KQ": ("ko-KR", "KR", "KR:ko"),
+    ".L": ("en-GB", "GB", "GB:en"),
+    ".PA": ("fr-FR", "FR", "FR:fr"),
+    ".AS": ("nl-NL", "NL", "NL:nl"),
+    ".AX": ("en-AU", "AU", "AU:en"),
+    ".TO": ("en-CA", "CA", "CA:en"),
+    ".V": ("en-CA", "CA", "CA:en"),
+}
+_DEFAULT_NEWS_LOCALE: tuple[str, str, str] = ("en-US", "US", "US:en")
+
+
+def get_news_locale(symbol: str) -> tuple[str, str, str]:
+    """Resolve Google News (hl, gl, ceid) parameters for a Yahoo Finance symbol.
+
+    The Google News RSS endpoint accepts ``hl`` (host language),
+    ``gl`` (geographical location), and ``ceid`` (country edition id);
+    keeping them aligned with the issuer's home exchange is what makes
+    small-cap foreign issuers actually surface in the news feed instead
+    of returning only US-targeted English coverage.
+
+    Args:
+        symbol: A yfinance-style ticker, optionally with a known
+            exchange suffix (``2330.TW``, ``7203.T``, ``ASML.AS``, ...).
+
+    Returns:
+        ``(hl, gl, ceid)``. Falls back to en-US for bare US-style
+        symbols, unsuffixed digits, or unrecognised suffixes.
+    """
+    cleaned = symbol.strip().upper()
+    if "." not in cleaned:
+        return _DEFAULT_NEWS_LOCALE
+    suffix = "." + cleaned.rsplit(".", 1)[-1]
+    return _REGION_BY_SUFFIX.get(suffix, _DEFAULT_NEWS_LOCALE)
+
 
 def _dedupe_symbols(symbols: tuple[str, ...]) -> list[str]:
     """Remove duplicate symbols from a tuple while preserving order.

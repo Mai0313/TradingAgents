@@ -5,17 +5,21 @@ from __future__ import annotations
 import re
 import json
 from typing import TYPE_CHECKING
+import logging
 
 from rich.panel import Panel
 from rich.console import Console
 
 from tradingagents.llm import LLMProvider, ReasoningEffort  # noqa: TC001
 from tradingagents.config import ResponseLanguage, TradingAgentsConfig
-from tradingagents.graph.trading_graph import TradingAgentsGraph
+from tradingagents.graph.trading_graph import _STATE_LOG_SCHEMA_VERSION, TradingAgentsGraph
+from tradingagents.graph.signal_processing import TradeRecommendation
 from tradingagents.agents.utils.agent_states import AgentState, RiskDebateState, InvestDebateState
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 _SAFE_PATH_RE = re.compile(r"[^A-Za-z0-9._-]+")
 
@@ -30,6 +34,41 @@ def _safe_path_component(value: str) -> str:
     return safe or "unknown"
 
 
+def _migrate_state_log_v1_to_v2(payload: dict) -> dict:
+    """Upgrade a v1 (un-versioned, flat date-keyed) log payload to v2 shape.
+
+    v1 wrote `{<date>: {fields}, ...}` directly; v2 wraps it as
+    `{"schema_version": 2, "runs": {<date>: {fields}, ...}}` so future
+    schema bumps have somewhere to live. The migration is purely a shape
+    rewrap — no field-level transformation needed for the v1→v2 step.
+    """
+    return {"schema_version": 2, "runs": payload}
+
+
+def _normalise_state_log_payload(raw_payload: dict, *, log_path: Path) -> dict:
+    """Return the v2-shaped payload regardless of the on-disk version.
+
+    Logs from older releases lack a ``schema_version`` key — those are
+    treated as v1 and upgraded. Logs from a newer release than this code
+    knows about are accepted with a warning rather than rejected, because
+    the reflect path only needs a subset of the fields (best-effort read
+    is much friendlier than crashing in a paid reflection run).
+    """
+    version = raw_payload.get("schema_version")
+    if version is None:
+        logger.info("Migrating v1 state log at %s to v2 shape on read.", log_path)
+        return _migrate_state_log_v1_to_v2(raw_payload)
+    if version > _STATE_LOG_SCHEMA_VERSION:
+        logger.warning(
+            "State log at %s has schema_version=%s, newer than this code understands (%s); "
+            "attempting best-effort read.",
+            log_path,
+            version,
+            _STATE_LOG_SCHEMA_VERSION,
+        )
+    return raw_payload
+
+
 def _resolve_state_log(results_dir: Path, ticker: str, date: str) -> tuple[Path, dict]:
     """Locate and parse the previously-written state log for ``(ticker, date)``."""
     ticker_safe = _safe_path_component(ticker)
@@ -39,18 +78,22 @@ def _resolve_state_log(results_dir: Path, ticker: str, date: str) -> tuple[Path,
             f"No state log at {log_path}. Run `tradingagents cli --ticker {ticker} "
             f"--date {date}` first."
         )
-    payload = json.loads(log_path.read_text(encoding="utf-8"))
-    if date not in payload:
+    raw_payload = json.loads(log_path.read_text(encoding="utf-8"))
+    payload = _normalise_state_log_payload(raw_payload, log_path=log_path)
+    runs = payload.get("runs") or {}
+    if date not in runs:
         raise KeyError(
-            f"date {date!r} not found in {log_path}. Available keys: {sorted(payload.keys())}"
+            f"date {date!r} not found in {log_path}. Available keys: {sorted(runs.keys())}"
         )
-    return log_path, payload[date]
+    return log_path, runs[date]
 
 
 def _reconstruct_state(raw: dict, ticker: str, date: str) -> AgentState:
     """Rebuild an :class:`AgentState` from the dict shape that ``_log_state`` writes."""
     invest_kwargs = raw.get("investment_debate_state") or {}
     risk_kwargs = raw.get("risk_debate_state") or {}
+    final_rec_raw = raw.get("final_trade_recommendation")
+    final_rec = TradeRecommendation(**final_rec_raw) if isinstance(final_rec_raw, dict) else None
     return AgentState(
         company_of_interest=raw.get("company_of_interest") or ticker,
         trade_date=raw.get("trade_date") or date,
@@ -58,11 +101,13 @@ def _reconstruct_state(raw: dict, ticker: str, date: str) -> AgentState:
         sentiment_report=raw.get("sentiment_report", ""),
         news_report=raw.get("news_report", ""),
         fundamentals_report=raw.get("fundamentals_report", ""),
+        situation_summary=raw.get("situation_summary", ""),
         investment_debate_state=InvestDebateState(**invest_kwargs),
         investment_plan=raw.get("investment_plan", ""),
         trader_investment_plan=raw.get("trader_investment_decision", ""),
         risk_debate_state=RiskDebateState(**risk_kwargs),
         final_trade_decision=raw.get("final_trade_decision", ""),
+        final_trade_recommendation=final_rec,
     )
 
 

@@ -32,10 +32,17 @@ from .setup import SUPPORTED_ANALYSTS, GraphSetup, MemoryComponents
 from .reflection import Reflector
 from .propagation import Propagator
 from .conditional_logic import ConditionalLogic
-from .signal_processing import TradeSignal, SignalProcessor
+from .signal_processing import SignalProcessor, TradeRecommendation
 
 logger = logging.getLogger(__name__)
 _SAFE_PATH_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
+
+# Bump when the on-disk shape of full_states_log_<TICKER>_<DATE>.json changes
+# in a way that requires migration on read. The reflect CLI reads logs
+# possibly produced by older releases, so always go through the migration
+# helper in :mod:`tradingagents.interface.reflect` rather than expecting v2
+# directly.
+_STATE_LOG_SCHEMA_VERSION = 2
 
 
 def _safe_path_component(value: str) -> str:
@@ -286,7 +293,7 @@ class TradingAgentsGraph(BaseModel):
         trade_date: str,
         on_message: Callable[[AnyMessage], None] | None = None,
         on_state: Callable[[AgentState], None] | None = None,
-    ) -> tuple[AgentState, TradeSignal]:
+    ) -> tuple[AgentState, TradeRecommendation]:
         """Run the trading agents graph for a company on a specific date.
 
         Args:
@@ -305,10 +312,12 @@ class TradingAgentsGraph(BaseModel):
                 fields; the CLI does not need this. Defaults to None.
 
         Returns:
-            tuple[AgentState, TradeSignal]: The final agent state and the
-            extracted BUY / SELL / HOLD decision (defaults to HOLD if the
-            risk judge output is empty or ambiguous; see
-            :func:`extract_trade_signal`).
+            tuple[AgentState, TradeRecommendation]: The final agent state
+            (with ``final_trade_recommendation`` populated) and the
+            structured BUY / SELL / HOLD recommendation extracted from the
+            Risk Judge output. Defaults to a HOLD recommendation with
+            ``warning_message`` set when the risk-judge output is empty or
+            ambiguous; see :func:`extract_trade_recommendation`.
 
         Raises:
             RuntimeError: If the graph execution produces no output.
@@ -341,9 +350,12 @@ class TradingAgentsGraph(BaseModel):
             AgentState.model_validate(raw_state) if isinstance(raw_state, dict) else raw_state
         )
 
+        recommendation = self.process_signal(final_state.final_trade_decision)
+        final_state = final_state.model_copy(update={"final_trade_recommendation": recommendation})
+
         self.curr_state = final_state
         self._log_state(trade_date, final_state, list(collected.values()))
-        return final_state, self.process_signal(final_state.final_trade_decision)
+        return final_state, recommendation
 
     def _dispatch_messages(
         self,
@@ -433,6 +445,7 @@ class TradingAgentsGraph(BaseModel):
             "sentiment_report": final_state.sentiment_report,
             "news_report": final_state.news_report,
             "fundamentals_report": final_state.fundamentals_report,
+            "situation_summary": final_state.situation_summary,
             "investment_debate_state": {
                 "bull_history": invest.bull_history,
                 "bear_history": invest.bear_history,
@@ -450,6 +463,11 @@ class TradingAgentsGraph(BaseModel):
             },
             "investment_plan": final_state.investment_plan,
             "final_trade_decision": final_state.final_trade_decision,
+            "final_trade_recommendation": (
+                final_state.final_trade_recommendation.model_dump()
+                if final_state.final_trade_recommendation is not None
+                else None
+            ),
         }
 
         ticker_name = _safe_path_component(self.ticker or "unknown")
@@ -457,9 +475,8 @@ class TradingAgentsGraph(BaseModel):
         directory.mkdir(parents=True, exist_ok=True)
 
         log_path = directory / f"full_states_log_{ticker_name}_{trade_date}.json"
-        _atomic_write_text(
-            log_path, json.dumps(self.log_states_dict, indent=2, ensure_ascii=False)
-        )
+        payload = {"schema_version": _STATE_LOG_SCHEMA_VERSION, "runs": self.log_states_dict}
+        _atomic_write_text(log_path, json.dumps(payload, indent=2, ensure_ascii=False))
 
         # Save complete conversation log (includes raw tool results: stock data,
         # indicators, news, financials, insider transactions, etc.)
@@ -535,14 +552,16 @@ class TradingAgentsGraph(BaseModel):
         self.reflector.reflect_invest_judge(target, returns_losses, self.invest_judge_memory)
         self.reflector.reflect_risk_manager(target, returns_losses, self.risk_manager_memory)
 
-    def process_signal(self, full_signal: str) -> TradeSignal:
-        """Process a signal to extract the core decision.
+    def process_signal(self, full_signal: str) -> TradeRecommendation:
+        """Process a Risk-Judge text payload into a structured recommendation.
 
         Args:
             full_signal (str): The raw text signal.
 
         Returns:
-            TradeSignal: The extracted decision (BUY/SELL/HOLD), defaulting
-            to HOLD when the input is empty or ambiguous.
+            TradeRecommendation: The structured decision (signal, size,
+            target, stop, horizon, confidence, rationale), defaulting to a
+            HOLD recommendation with ``warning_message`` set when the input
+            is empty or ambiguous.
         """
         return self.signal_processor.process_signal(full_signal)
