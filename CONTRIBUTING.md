@@ -63,31 +63,45 @@ All workflows under `.github/workflows/`:
 ```
 src/tradingagents/
 ├── agents/      # @tool definitions, agent node creators, prompts/*.md, state schemas
-├── dataflows/   # yfinance-backed data fetchers (plain module-level functions)
+│   ├── analysts/      # Market / News-Sentiment / News / Fundamentals (LLM + ToolNode)
+│   ├── preprocessors/ # Situation Summariser node (analyst reports → BM25 query)
+│   ├── researchers/   # Bull / Bear (debate loop)
+│   ├── managers/      # Research Manager / Risk Manager (deep-thinking)
+│   ├── risk_mgmt/     # Aggressive / Conservative / Neutral debaters
+│   ├── trader/        # Trader (quick-thinking)
+│   ├── prompts/       # All system / user prompts as .md, loaded via load_prompt(...)
+│   └── utils/         # Shared agent utilities (memory, tool wrappers, state)
+├── dataflows/   # yfinance + Google News RSS data fetchers (plain module-level functions)
 ├── graph/       # LangGraph wiring: setup, propagation, reflection, signal_processing, conditional_logic
 ├── interface/   # User-facing runners
 │   ├── cli.py     # fire-driven flag runner (run_cli)
-│   ├── tui.py     # questionary-driven interactive runner (run_tui)
-│   ├── display.py # rich-based LangChain message renderer
+│   ├── tui/       # textual-based interactive app (run_tui)
+│   ├── backtest.py# fire-driven backtest runner (run_backtest)
+│   ├── reflect.py # fire-driven post-trade reflect runner (run_reflect)
+│   ├── display.py # rich-based LangChain message renderer + TradeRecommendation panel
 │   └── help.py    # rich-based help renderer (replaces fire's pager UI)
+├── backtest.py  # Backtester engine, CostTracker, StubChatModel, BacktestReport
 ├── llm.py       # build_chat_model wrapping init_chat_model + per-provider reasoning_effort mapping
 ├── config.py    # TradingAgentsConfig schema + global singleton (set_config / get_config)
 ├── __init__.py  # Top-level public API re-exports (intentionally lightweight)
 └── __main__.py  # Single dispatcher: backs both `tradingagents` console script and `python -m tradingagents`
 ```
 
-The console script (defined under `[project.scripts]` in `pyproject.toml`) and `python -m tradingagents` both resolve to `tradingagents.__main__:main`. That function intercepts `--help`, `-h`, and the literal `help` token and renders `interface/help.py` directly, then hands the remaining args to `fire.Fire({"cli": run_cli, "tui": run_tui})`. There is no separate `app.py` layer.
+The console script (defined under `[project.scripts]` in `pyproject.toml`) and `python -m tradingagents` both resolve to `tradingagents.__main__:main`. That function intercepts `--help`, `-h`, and the literal `help` token and renders `interface/help.py` directly, then hands the remaining args to `fire.Fire({"cli": run_cli, "tui": run_tui, "reflect": run_reflect, "backtest": run_backtest})`. There is no separate `app.py` layer.
 
 Canonical examples (read these before writing similar code):
 
-| Pattern                  | File                                    | Symbol                |
-| ------------------------ | --------------------------------------- | --------------------- |
-| Pure config model        | `config.py`                             | `TradingAgentsConfig` |
-| Stateful service class   | `graph/trading_graph.py`                | `TradingAgentsGraph`  |
-| LangGraph state schema   | `agents/utils/agent_states.py`          | `AgentState`          |
-| Provider-agnostic LLM    | `llm.py`                                | `build_chat_model`    |
-| `@tool`-wrapped function | `agents/utils/core_stock_tools.py`      | `get_stock_data`      |
-| Agent node creator       | `agents/researchers/bull_researcher.py` | `create_bull_*`       |
+| Pattern                  | File                                    | Symbol                 |
+| ------------------------ | --------------------------------------- | ---------------------- |
+| Pure config model        | `config.py`                             | `TradingAgentsConfig`  |
+| Stateful service class   | `graph/trading_graph.py`                | `TradingAgentsGraph`   |
+| LangGraph state schema   | `agents/utils/agent_states.py`          | `AgentState`           |
+| Provider-agnostic LLM    | `llm.py`                                | `build_chat_model`     |
+| `@tool`-wrapped function | `agents/utils/core_stock_tools.py`      | `get_stock_data`       |
+| Agent node creator       | `agents/researchers/bull_researcher.py` | `create_bull_*`        |
+| Structured output parser | `graph/signal_processing.py`            | `TradeRecommendation`  |
+| Backtest driver          | `backtest.py`                           | `Backtester`           |
+| State-log migration      | `interface/reflect.py`                  | `_migrate_state_log_*` |
 
 ## 🎨 Code Style
 

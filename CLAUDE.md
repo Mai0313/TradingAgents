@@ -9,11 +9,14 @@ Dependency / environment is managed by `uv` (not pip). Dev extras live under `--
 Running the pipeline (the project ships a `tradingagents` console script registered in `[project.scripts]`):
 
 ```bash
-uv run tradingagents tui                              # interactive questionary prompts
+uv run tradingagents tui                              # interactive textual app
 uv run tradingagents cli                              # all defaults (GOOG, today, gemini-3.1-pro-preview)
 uv run tradingagents cli --ticker AAPL --date 2024-05-10
 uv run tradingagents cli --llm_provider openai --deep_think_llm gpt-5 --quick_think_llm gpt-5-mini
 uv run tradingagents reflect --ticker AAPL --date 2024-05-10 --returns 0.032   # post-trade reflection (see Memory section)
+uv run tradingagents backtest --tickers GOOG --start 2024-01-01 --end 2024-06-30 \
+    --frequency weekly --horizon-days 5 --budget-cap-usd 25                    # grid backtest with cost cap
+uv run tradingagents backtest --tickers GOOG --start 2024-01-01 --end 2024-06-30 --dry-run
 uv run tradingagents --help                           # rich-rendered top-level help (also `cli --help`)
 ```
 
@@ -25,7 +28,7 @@ make clean                # nuke caches, dist, docs, .github/reports
 make gen-docs             # build MkDocs Material (then `uv run mkdocs serve` on :9987)
 ```
 
-Tests: a small **mock-based** pytest suite lives under `tests/` (added in #35). It exercises pure helpers and graph wiring via `monkeypatch` only — **no live LLM or yfinance network calls**, so it is safe and free to run via `make test` / `uv run pytest`. Update the existing tests when changing the contracts they pin (e.g. error-message format, public function names, no-data sentinels), and feel free to add similarly mock-based tests when you change shared invariants. Do **not** propose tests that require real LLM API or yfinance traffic — each live LangGraph run hits paid LLM APIs and costs real money. Coverage gate (`--cov-fail-under=80`) is currently aspirational; the suite covers a fraction of the codebase.
+Tests: a small **mock-based** pytest suite lives under `tests/`. It exercises pure helpers and graph wiring via `monkeypatch` only — **no live LLM or yfinance network calls** — so `make test` / `uv run pytest` is safe and free. Update the existing tests when changing the contracts they pin (error-message format, public function names, no-data sentinels), and feel free to add similarly mock-based tests when you change shared invariants. Do **not** propose tests that require real LLM API or yfinance traffic — each live LangGraph run hits paid LLM APIs and costs real money.
 
 API keys: one of `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GOOGLE_API_KEY` / `XAI_API_KEY` / `OPENROUTER_API_KEY` is required, picked by `llm_provider`. See `.env.example`.
 
@@ -33,23 +36,26 @@ API keys: one of `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GOOGLE_API_KEY` / `XA
 
 ### One-line summary
 
-A LangGraph `StateGraph` orchestrates 12 LLM agent nodes plus per-agent BM25 memories through 4 sequential phases (Analysts → Research debate → Trader → Risk debate), driven by a single `TradingAgentsConfig` and exposing both a programmatic API (`TradingAgentsGraph.propagate(ticker, date)`) and a fire-driven CLI/TUI.
+A LangGraph `StateGraph` orchestrates 12 LLM agent nodes plus a Situation Summariser preprocessor and per-agent BM25 memories through 4 sequential phases (Analysts → Summariser → Research debate → Trader → Risk debate), driven by a single `TradingAgentsConfig` and exposing both a programmatic API (`TradingAgentsGraph.propagate(ticker, date) -> (AgentState, TradeRecommendation)`) and a fire-driven CLI / TUI / reflect / backtest set of subcommands.
 
 ### Big picture flow (`src/tradingagents/graph/setup.py`)
 
 ```
 START
  → [Market Analyst ⇄ tools_market]   → Msg Clear
- → [Social Analyst ⇄ tools_social]   → Msg Clear
+ → [News-Sentiment Analyst ⇄ tools_social] → Msg Clear     # internal key still "social"
  → [News Analyst ⇄ tools_news]       → Msg Clear
  → [Fundamentals Analyst ⇄ tools_fundamentals] → Msg Clear
+ → Situation Summariser → state.situation_summary
  → [Bull Researcher ⇄ Bear Researcher] × max_debate_rounds
  → Research Manager → Trader
  → [Aggressive → Conservative → Neutral] × max_risk_discuss_rounds
- → Risk Judge → END
+ → Risk Judge → SignalProcessor (TradeRecommendation) → END
 ```
 
 Each analyst phase is an LLM-with-tools loop terminated by `should_continue_<analyst>` in `graph/conditional_logic.py`. Between analysts a `Msg Clear` node emits `RemoveMessage` for every prior message plus a placeholder `HumanMessage("Continue")` so Anthropic's strict alternating-role validation does not blow up. **Don't remove that placeholder** — it's load-bearing for Anthropic.
+
+The Situation Summariser (`agents/preprocessors/situation_summariser.py`) runs once between the last analyst's Msg Clear and the Bull Researcher. It uses the quick-thinking LLM to distil the four analyst reports into a ≤400-token snapshot stored in `state.situation_summary`; every downstream memory query uses this snapshot (falling back to `state.combined_reports` when empty) instead of the full multi-KB report concatenation.
 
 ### State
 
@@ -68,35 +74,52 @@ Any model name containing `gemini` or `google` is force-routed through `Normaliz
 
 ### Configuration (`config.py`)
 
-`TradingAgentsConfig` is a Pydantic model with no defaults for `llm_provider` / `deep_think_llm` / `quick_think_llm` / `max_debate_rounds` / `max_risk_discuss_rounds` / `max_recur_limit` (caller must supply). `data_cache_dir` is a `@computed_field` under `results_dir`. A module-level `_config_container` and `set_config()` / `get_config()` form a process-global singleton; `TradingAgentsGraph._setup` (a `model_validator(mode="after")`) registers the active config so deeply-nested code (e.g. `dataflows/yfinance._get_stock_stats_bulk`, `agents/prompts.__init__._language_instruction`) can read it without prop-drilling. **Always construct a config and pass it to `TradingAgentsGraph` first**, otherwise tools / prompts that call `get_config()` raise `RuntimeError`.
+`TradingAgentsConfig` is a Pydantic model with no defaults for `llm_provider` / `deep_think_llm` / `quick_think_llm` / `max_debate_rounds` / `max_risk_discuss_rounds` / `max_recur_limit` (caller must supply). `max_recur_limit` has a `ge=30` floor — the Situation Summariser adds one superstep, so the minimum-round topology no longer fits in 25 steps. `data_cache_dir` is a `@computed_field` under `results_dir`. A module-level `_config_container` and `set_config()` / `get_config()` form a process-global singleton; `TradingAgentsGraph._setup` (a `model_validator(mode="after")`) registers the active config so deeply-nested code (e.g. `dataflows/yfinance._get_stock_stats_bulk`, `agents/prompts.__init__._language_instruction`) can read it without prop-drilling. **Always construct a config and pass it to `TradingAgentsGraph` first**, otherwise tools / prompts that call `get_config()` raise `RuntimeError`.
 
 ### Tools and dataflows
 
-Agent tools (`agents/utils/{core_stock,fundamental_data,news_data,technical_indicators}_tools.py`) are thin `@tool`-decorated wrappers over plain functions in `dataflows/yfinance.py` and `dataflows/news.py`. The Market Analyst gets `get_stock_data` + `get_indicators`; Social gets `get_news`; News gets `get_news` + `get_global_news` + `get_insider_transactions`; Fundamentals gets `get_fundamentals` + `get_balance_sheet` + `get_cashflow` + `get_income_statement`. Tool-to-analyst wiring lives in `TradingAgentsGraph.tool_nodes`.
+Agent tools (`agents/utils/{core_stock,fundamental_data,news_data,technical_indicators}_tools.py`) are thin `@tool`-decorated wrappers over plain functions in `dataflows/yfinance.py` and `dataflows/news.py`. Tool-to-analyst wiring lives in `TradingAgentsGraph.tool_nodes`:
 
-Supported technical indicators (Market Analyst can pick up to 8 per run): `close_50_sma`, `close_200_sma`, `close_10_ema`, `macd`, `macds`, `macdh`, `rsi`, `boll`, `boll_ub`, `boll_lb`, `atr`, `vwma`, `mfi` — defined in `_get_stock_stats_bulk`'s `best_ind_params` dict.
+- **market**: `get_stock_data`, `get_indicators`, `get_dividends_splits`
+- **social** (News-Sentiment Analyst): `get_news`
+- **news**: `get_news`, `get_global_news`, `get_insider_transactions`, `get_market_context`, `get_earnings_calendar`
+- **fundamentals**: `get_fundamentals`, `get_balance_sheet`, `get_cashflow`, `get_income_statement`, `get_analyst_ratings`, `get_institutional_holders`, `get_short_interest`, `get_dividends_splits`
 
-Ticker resolution (`dataflows/tickers.py`): bare symbols are resolved via `yf.Search`; pure-digit symbols also try `<DIGITS>.TW` and `<DIGITS>.TWO` (Taiwan stocks like `2330`, `8069`); explicit suffixed symbols (`AAPL`, `2330.TW`) bypass search.
+All historical tools filter their output by an `as_of` date (reporting-lag-adjusted). Tools without a historical archive in yfinance (`get_institutional_holders`, `get_short_interest`, and the recommendation summary inside `get_analyst_ratings`) return a `[NO_DATA]` sentinel for back-dated `curr_date` so back-tests cannot leak present-day positioning.
+
+Supported technical indicators (Market Analyst is asked to pick **6 – 8 per run**, defined in `BEST_IND_PARAMS` inside `dataflows/yfinance.py`): `close_50_sma`, `close_200_sma`, `close_10_ema`, `macd`, `macds`, `macdh`, `rsi`, `mfi`, `cci`, `wr`, `kdjk`, `kdjd`, `stochrsi`, `adx`, `pdi`, `boll`, `boll_ub`, `boll_lb`, `atr`, `supertrend`, `supertrend_ub`, `supertrend_lb`, `vwma`, `obv`. `get_stock_stats_indicators_batch` emits a `DATA WARNING` preamble whenever the underlying OHLCV history has fewer than 50 bars.
+
+The 15-year OHLCV cache (`_resolve_history_with_cache`) writes a ticker-only filename (`<TICKER>-YFin-data.csv`); each read validates the cached window covers the inclusive `[curr_date - 15y, curr_date]` range and re-downloads a wider window only on partial coverage. Adjacent run-dates therefore reuse the same on-disk file.
+
+Ticker resolution (`dataflows/tickers.py`): bare symbols are resolved via `yf.Search`; pure-digit symbols also try `<DIGITS>.TW` and `<DIGITS>.TWO` (Taiwan stocks like `2330`, `8069`); explicit suffixed symbols (`AAPL`, `2330.TW`) bypass search. `get_news_locale` maps suffix → `(hl, gl, ceid)` for the Google News RSS URL so non-US issuers get local-language news. `get_market_context` reuses the same mapping to pick the local index ticker (`^TWII`, `^GSPC`, `^N225`, `^HSI`, ...).
 
 ### Memory (`agents/utils/memory.py`)
 
-`FinancialSituationMemory` is a Pydantic `BaseModel` using **BM25Okapi** (lexical, no embeddings API). `TradingAgentsGraph` constructs five instances: `bull_memory`, `bear_memory`, `trader_memory`, `invest_judge_memory`, `risk_manager_memory`. Each is wired to `<config.data_cache_dir>/memories/<name>.jsonl`; the file is auto-loaded on construction and atomically rewritten on every `add_situations(...)` call so reflections persist across processes. Each researcher / judge calls `get_memories(state.combined_reports, n_matches=k)` before reasoning.
+`FinancialSituationMemory` is a Pydantic `BaseModel` using **BM25Okapi** (lexical, no embeddings API). `TradingAgentsGraph` constructs five instances: `bull_memory`, `bear_memory`, `trader_memory`, `invest_judge_memory`, `risk_manager_memory`. Each is wired to `<config.data_cache_dir>/memories/<name>.jsonl`; the file is auto-loaded on construction and atomically rewritten on every `add_situations(...)` call so reflections persist across processes. Each researcher / judge calls `get_memories(state.situation_summary or state.combined_reports, n_matches=k)` before reasoning, and renders the result via `format_memories_for_prompt` so the agent sees both the past situation snapshot and the lesson (not just the lesson string).
 
-After the trade outcome is known, run `tradingagents reflect --ticker X --date Y --returns Z` (or call `TradingAgentsGraph.reflect_and_remember(returns, state=...)` programmatically). The CLI subcommand reads `<results_dir>/<TICKER>/full_states_log_<TICKER>_<DATE>.json`, reconstructs the `AgentState`, runs `Reflector` over each component, and appends the lessons to the JSONL files. The reflector grades reasoning quality (decision-process correctness), not just realised P/L — see `prompts/reflector.md`.
+After the trade outcome is known, run `tradingagents reflect --ticker X --date Y --returns Z` (or call `TradingAgentsGraph.reflect_and_remember(returns, state=...)` programmatically). The CLI subcommand reads `<results_dir>/<TICKER>/full_states_log_<TICKER>_<DATE>.json`, normalises the payload through `_migrate_state_log_v1_to_v2` when needed, reconstructs the `AgentState`, runs `Reflector` over each component, and appends the lessons to the JSONL files. The reflector grades reasoning quality (decision-process correctness) AND emits a structured rubric — 1 – 5 per macro/technicals/price_action/news_flow/sentiment/fundamentals + overall_reasoning + outcome_quality + a `lesson_category` enum — see `prompts/reflector.md`.
 
 ### Prompts (`agents/prompts/`)
 
-Every agent's system / user prompt is a separate `.md` file (e.g. `bull_researcher.md`, `risk_manager.md`, `trader_system.md`, `trader_user.md`). Load via `load_prompt(name)` and call `.format(**kwargs)` on the result. **Never inline prompts as Python string literals.** `load_prompt` automatically appends a "Please respond in <BCP47>." line read from the active `TradingAgentsConfig.response_language`, so prompts must use `{{` and `}}` to escape literal braces.
+Every agent's system / user prompt is a separate `.md` file (e.g. `bull_researcher.md`, `risk_manager.md`, `trader_system.md`, `trader_user.md`, `situation_summariser.md`, `news_sentiment_analyst.md`). Load via `load_prompt(name)` and call `.format(**kwargs)` on the result. **Never inline prompts as Python string literals.** `load_prompt` automatically appends a "Please respond in <BCP47>." line read from the active `TradingAgentsConfig.response_language`, so prompts must use `{{` and `}}` to escape literal braces. The marker `{{require_canonical_signal}}` is replaced before `.format()` with a centralised "keep BUY/SELL/HOLD in English" notice — use it in any prompt whose output is signal-parsed downstream.
+
+### Signal extraction (`graph/signal_processing.py`)
+
+`extract_trade_recommendation(text) -> TradeRecommendation` is the structured-output parser. The Risk Judge prompt requires both a fenced ```` ```json ```` block conforming to `TradeRecommendation` (signal, size_fraction, target_price, stop_loss, time_horizon_days, confidence, rationale, warning_message) AND a canonical `FINAL TRANSACTION PROPOSAL: **<signal>**` line. Resolution order: canonical line wins on disagreement; missing / malformed JSON falls back to defaults (size 0.5, confidence 0.5) with `warning_message` populated. The parser **never raises** — degrading gracefully matters more than blowing up a paid LangGraph run that already has every other agent's output committed. `TradingAgentsGraph.propagate` returns `(AgentState, TradeRecommendation)`; the structured form is also persisted to `state.final_trade_recommendation` and the state log.
+
+### Backtest harness (`backtest.py`, `interface/backtest.py`)
+
+`Backtester(config=BacktestConfig(...)).run() -> BacktestReport` iterates `propagate()` across a `(ticker, decision_date)` grid, marks each decision against the next-bar close from the cached OHLCV, and aggregates Sharpe / hit rate / expectancy / worst drawdown. `CostTracker` is a LangChain `BaseCallbackHandler` that tallies token usage by model name and raises `CostBudgetExceeded` once `budget_cap_usd` is reached; the run loop catches that and stops cleanly. A fresh `TradingAgentsGraph` is instantiated per ticker (per-run `self.ticker` / `log_states_dict` are mutable, so reusing one instance would cross-contaminate per-ticker logs). `--dry-run` swaps in `StubChatModel` (canned `TradeRecommendation` JSON keyed by prompt keywords) so the harness can be validated against real cached OHLCV in seconds.
 
 ### CLI / TUI dispatch (`__main__.py`, `interface/`)
 
-`main()` intercepts `--help` / `-h` / `help` and renders Rich panels via `interface/help.py` (replacing fire's default less-style pager), then hands the rest to `fire.Fire({"cli": run_cli, "tui": run_tui})`. `interface/display.MessageRenderer` is the Rich callback wired into `TradingAgentsGraph.propagate(..., on_message=renderer)` so streamed LangGraph messages render as Markdown / pretty-JSON panels with truncation.
+`main()` intercepts `--help` / `-h` / `help` and renders Rich panels via `interface/help.py` (replacing fire's default less-style pager), then hands the rest to `fire.Fire({"cli": run_cli, "tui": run_tui, "reflect": run_reflect, "backtest": run_backtest})`. `interface/display.MessageRenderer` is the Rich callback wired into `TradingAgentsGraph.propagate(..., on_message=renderer)` so streamed LangGraph messages render as Markdown / pretty-JSON panels with truncation. `make_final_decision_panel(recommendation: TradeRecommendation)` is the renderer used by both CLI and TUI for the structured final output (signal / size / target / stop / horizon / confidence / rationale + optional warning banner).
 
 ### Output
 
 Per run, `TradingAgentsGraph._log_state` writes to `<config.results_dir>/<TICKER>/`:
 
-- `full_states_log_<TICKER>_<DATE>.json` — final structured state per run date
+- `full_states_log_<TICKER>_<DATE>.json` — final structured state per run date, wrapped as `{"schema_version": 2, "runs": {...}}`; `final_trade_recommendation` (the `TradeRecommendation` dump) is included so reflect / backtest can rebuild it later. `interface/reflect._normalise_state_log_payload` transparently upgrades v1 (un-versioned, flat) logs on read.
 - `conversation_log_<TICKER>_<DATE>.txt` — pretty-printed message stream
 - `conversation_log_<TICKER>_<DATE>.json` — `messages_to_dict` of the full stream
 
@@ -115,13 +138,17 @@ These are tightly enforced and reviewers care; full rationale lives in `CONTRIBU
 
 ## Canonical examples (read these before writing similar code)
 
-| Pattern                  | File                                    | Symbol                |
-| ------------------------ | --------------------------------------- | --------------------- |
-| Pure config model        | `config.py`                             | `TradingAgentsConfig` |
-| Stateful service class   | `graph/trading_graph.py`                | `TradingAgentsGraph`  |
-| LangGraph state schema   | `agents/utils/agent_states.py`          | `AgentState`          |
-| Provider-agnostic LLM    | `llm.py`                                | `build_chat_model`    |
-| `@tool`-wrapped function | `agents/utils/core_stock_tools.py`      | `get_stock_data`      |
-| Agent node creator       | `agents/researchers/bull_researcher.py` | `create_bull_*`       |
-| Conditional routing      | `graph/conditional_logic.py`            | `ConditionalLogic`    |
-| Post-trade reflection    | `graph/reflection.py`                   | `Reflector`           |
+| Pattern                   | File                                           | Symbol                        |
+| ------------------------- | ---------------------------------------------- | ----------------------------- |
+| Pure config model         | `config.py`                                    | `TradingAgentsConfig`         |
+| Stateful service class    | `graph/trading_graph.py`                       | `TradingAgentsGraph`          |
+| LangGraph state schema    | `agents/utils/agent_states.py`                 | `AgentState`                  |
+| Provider-agnostic LLM     | `llm.py`                                       | `build_chat_model`            |
+| `@tool`-wrapped function  | `agents/utils/core_stock_tools.py`             | `get_stock_data`              |
+| Agent node creator        | `agents/researchers/bull_researcher.py`        | `create_bull_*`               |
+| Preprocessor node         | `agents/preprocessors/situation_summariser.py` | `create_situation_summariser` |
+| Structured output parser  | `graph/signal_processing.py`                   | `TradeRecommendation`         |
+| Conditional routing       | `graph/conditional_logic.py`                   | `ConditionalLogic`            |
+| Post-trade reflection     | `graph/reflection.py`                          | `Reflector`                   |
+| Backtest driver           | `backtest.py`                                  | `Backtester`                  |
+| State-log v1→v2 migration | `interface/reflect.py`                         | `_migrate_state_log_v1_to_v2` |
