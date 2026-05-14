@@ -166,7 +166,7 @@ def run_backtest(  # noqa: PLR0913, D417 -- mirrors run_cli's full flag surface
         tickers=ticker_list,
         start_date=start,
         end_date=end,
-        frequency=frequency,  # type: ignore[arg-type]
+        frequency=frequency,
         horizon_days=horizon_days,
         initial_cash=initial_cash,
         max_position_fraction=max_position_fraction,

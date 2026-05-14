@@ -1151,7 +1151,7 @@ def _as_of_filter_dated_frame(
     """Return rows whose ``date_column`` is on or before ``curr_date``.
 
     Falls back to the input frame untouched when ``curr_date`` is None or
-    the column is missing / unparseable, so callers can safely chain
+    the column is missing / unparsable, so callers can safely chain
     this past best-effort yfinance shapes.
     """
     as_of = _as_of_datetime(curr_date)
