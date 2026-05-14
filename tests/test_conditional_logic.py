@@ -2,7 +2,7 @@ import pytest
 from langchain_core.messages import AIMessage
 
 from tradingagents.graph.conditional_logic import ConditionalLogic
-from tradingagents.agents.utils.agent_states import AgentState, InvestDebateState, RiskDebateState
+from tradingagents.agents.utils.agent_states import AgentState, RiskDebateState, InvestDebateState
 
 
 @pytest.mark.parametrize(

@@ -78,7 +78,10 @@ def test_message_renderer_truncates_long_tool_text() -> None:
 def test_content_to_renderable_flattens_text_blocks() -> None:
     emitted: list[RenderableType] = []
     renderer = MessageRenderer(emit=emitted.append)
-    content: list[Any] = [{"type": "text", "text": "chunk one"}, {"type": "text", "text": "chunk two"}]
+    content: list[Any] = [
+        {"type": "text", "text": "chunk one"},
+        {"type": "text", "text": "chunk two"},
+    ]
 
     renderer.render(AIMessage(content=content))
 

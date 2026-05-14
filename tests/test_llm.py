@@ -18,9 +18,7 @@ from tradingagents import llm as llm_module
     ],
 )
 def test_apply_reasoning_maps_unified_effort_to_provider_kwargs(
-    provider: llm_module.LLMProvider,
-    effort: llm_module.ReasoningEffort,
-    expected: dict[str, str],
+    provider: llm_module.LLMProvider, effort: llm_module.ReasoningEffort, expected: dict[str, str]
 ) -> None:
     kwargs: dict[str, Any] = {}
 
@@ -44,10 +42,7 @@ def test_build_chat_model_passes_callbacks_and_reasoning_to_init_chat_model(
     monkeypatch.setattr(llm_module, "init_chat_model", fake_init_chat_model)
 
     result = llm_module.build_chat_model(
-        "openai",
-        "gpt-offline",
-        reasoning_effort="max",
-        callbacks=[callback],  # type: ignore[list-item]
+        "openai", "gpt-offline", reasoning_effort="max", callbacks=[callback]
     )
 
     assert result is fake_model
@@ -81,17 +76,10 @@ def test_build_chat_model_routes_gemini_names_to_normalized_google_class(
     monkeypatch.setattr(llm_module, "init_chat_model", forbidden_init_chat_model)
 
     result = llm_module.build_chat_model(
-        "google_genai",
-        "gemini-3.1-pro-preview",
-        reasoning_effort="max",
-        callbacks=[callback],  # type: ignore[list-item]
+        "google_genai", "gemini-3.1-pro-preview", reasoning_effort="max", callbacks=[callback]
     )
 
     assert isinstance(result, FakeNormalizedGoogle)
     assert constructed == [
-        {
-            "model": "gemini-3.1-pro-preview",
-            "callbacks": [callback],
-            "thinking_level": "high",
-        }
+        {"model": "gemini-3.1-pro-preview", "callbacks": [callback], "thinking_level": "high"}
     ]

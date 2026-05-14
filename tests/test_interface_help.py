@@ -4,18 +4,14 @@ from rich.console import Console
 
 from tradingagents.interface.help import (
     _format_type,
-    _format_default,
     print_app_help,
-    print_command_help,
+    _format_default,
     _parse_google_args,
+    print_command_help,
 )
 
 
-def _sample_command(
-    ticker: str,
-    mode: Literal["fast", "deep"] = "fast",
-    limit: int = 3,
-) -> None:
+def _sample_command(ticker: str, mode: Literal["fast", "deep"] = "fast", limit: int = 3) -> None:
     """Run the sample command.
 
     Args:

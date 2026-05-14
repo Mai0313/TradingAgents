@@ -1,12 +1,11 @@
 from types import SimpleNamespace
-from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
 
 from tradingagents.graph import reflection as reflection_module
 from tradingagents.graph.reflection import Reflector, _flatten_content
-from tradingagents.agents.utils.agent_states import AgentState, InvestDebateState, RiskDebateState
+from tradingagents.agents.utils.agent_states import AgentState, RiskDebateState, InvestDebateState
 
 
 @pytest.mark.parametrize(

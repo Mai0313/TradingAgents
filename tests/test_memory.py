@@ -45,11 +45,7 @@ def test_memory_load_skips_malformed_jsonl_lines(
 ) -> None:
     storage_path = tmp_path / "bear.jsonl"
     storage_path.write_text(
-        "\n".join([
-            '{"situation": "valid macro stress", "recommendation": "Prefer HOLD."}',
-            "{not json",
-            "",
-        ]),
+        '{"situation": "valid macro stress", "recommendation": "Prefer HOLD."}\n{not json\n',
         encoding="utf-8",
     )
 
