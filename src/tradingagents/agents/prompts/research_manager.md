@@ -44,4 +44,4 @@ Rationale: <one paragraph>
 Strategic Actions: <bullet points>
 ```
 
-Replace `BUY` with `SELL` or `HOLD` as appropriate. Keep `BUY`, `SELL`, or `HOLD` in English even when the rest of your answer uses another language.
+Replace `BUY` with `SELL` or `HOLD` as appropriate. {{require_canonical_signal}}

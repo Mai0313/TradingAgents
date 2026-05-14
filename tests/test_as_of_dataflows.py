@@ -150,8 +150,15 @@ def test_stock_stats_bulk_multi_continues_after_candidate_load_exception(
     """
     calls: list[str] = []
 
-    def fake_load_history_candidate(
-        candidate: str, data_file: Path, start_date: str, end_date: str, *, use_cache: bool
+    def fake_load_history_candidate(  # noqa: PLR0913 -- mirrors signature under test
+        candidate: str,
+        data_file: Path,
+        start_date: str,
+        end_date: str,
+        *,
+        start_dt: datetime,
+        end_dt: datetime,
+        fresh: bool,
     ) -> pd.DataFrame:
         calls.append(candidate)
         if candidate == "BAD":
@@ -173,13 +180,14 @@ def test_stock_stats_bulk_multi_continues_after_candidate_load_exception(
     )
     monkeypatch.setattr(yfinance_data, "_load_history_candidate", fake_load_history_candidate)
 
-    resolved, data_map = yfinance_data._get_stock_stats_bulk_multi(
+    resolved, data_map, n_bars = yfinance_data._get_stock_stats_bulk_multi(
         "BRK.A", ["close_10_ema"], "2024-01-03"
     )
 
     assert calls == ["BAD", "GOOD"]
     assert resolved == "GOOD"
     assert "2024-01-03" in data_map["close_10_ema"]
+    assert n_bars == 2
 
 
 def test_normalize_freq_rejects_unknown_values() -> None:

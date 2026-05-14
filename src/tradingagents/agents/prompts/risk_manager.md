@@ -50,4 +50,4 @@ Provide, in this order:
    }}
    ```
    Sizing guidance: 0.0 = no position, 0.25 = light, 0.50 = normal, 0.75 = high conviction, 1.00 = max allowed. For HOLD use 0.0. Set `target_price` / `stop_loss` / `time_horizon_days` to null when you do not have a concrete numeric target rather than inventing one.
-3. **Canonical line** — EXACTLY one of `FINAL TRANSACTION PROPOSAL: **BUY**`, `FINAL TRANSACTION PROPOSAL: **SELL**`, `FINAL TRANSACTION PROPOSAL: **HOLD**` on its own final line. Keep BUY / SELL / HOLD in English even when the rest of the answer is in another language. If your JSON `signal` and this canonical line disagree, the canonical line wins downstream — keep them consistent.
+3. **Canonical line** — EXACTLY one of `FINAL TRANSACTION PROPOSAL: **BUY**`, `FINAL TRANSACTION PROPOSAL: **SELL**`, `FINAL TRANSACTION PROPOSAL: **HOLD**` on its own final line. {{require_canonical_signal}} If your JSON `signal` and this canonical line disagree, the canonical line wins downstream — keep them consistent.

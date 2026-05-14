@@ -3,6 +3,8 @@ from typing import Annotated
 from langchain_core.tools import tool
 
 from tradingagents.dataflows.news import fetch_news, get_global_news_yfinance
+from tradingagents.dataflows.yfinance import get_market_context as _get_market_context
+from tradingagents.dataflows.yfinance import get_earnings_calendar as _get_earnings_calendar
 from tradingagents.dataflows.yfinance import get_insider_transactions as _get_insider_transactions
 
 
@@ -68,3 +70,54 @@ def get_insider_transactions(
             error message.
     """
     return _get_insider_transactions(ticker, curr_date)
+
+
+@tool
+def get_earnings_calendar(
+    ticker: Annotated[str, "ticker symbol"],
+    curr_date: Annotated[str | None, "current date you are trading at, yyyy-mm-dd"] = None,
+) -> str:
+    """Get next confirmed earnings event plus a rolling past/forward dates table.
+
+    For historical ``curr_date`` the rolling earnings_dates table is
+    split into past (<= curr_date) and forward (> curr_date) sections,
+    and any "Reported" / "Surprise" columns in the forward section are
+    redacted so the News analyst cannot accidentally consume future
+    filing figures.
+
+    Args:
+        ticker (str): Ticker symbol.
+        curr_date (str | None, optional): Current trading date in
+            YYYY-MM-DD format.
+
+    Returns:
+        str: Formatted earnings-calendar report or ``[NO_DATA]`` message.
+    """
+    return _get_earnings_calendar(ticker, curr_date)
+
+
+@tool
+def get_market_context(
+    ticker: Annotated[str, "ticker symbol; suffix decides the local index region"],
+    curr_date: Annotated[str, "current date in yyyy-mm-dd format"],
+    look_back_days: Annotated[int, "look-back window in days"] = 5,
+) -> str:
+    """Get a compact regional macro snapshot (local index, US 10y yield, VIX).
+
+    The local index is auto-resolved from the ticker suffix
+    (``.TW`` -> ``^TWII``, ``.DE`` -> ``^GDAXI``, ...) so Taiwan / HK /
+    JP / DE analysts get region-correct context without having to know
+    the index ticker themselves.
+
+    Args:
+        ticker (str): Ticker symbol whose suffix selects the local index.
+        curr_date (str): As-of date in YYYY-MM-DD format.
+        look_back_days (int, optional): Window for change / range stats.
+            Defaults to 5.
+
+    Returns:
+        str: A formatted multi-section snapshot, with per-probe
+            ``[NO_DATA]`` / ``[TOOL_ERROR]`` sentinels so partial
+            failures do not nullify the context.
+    """
+    return _get_market_context(ticker, curr_date, look_back_days)

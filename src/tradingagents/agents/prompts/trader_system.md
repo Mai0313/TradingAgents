@@ -23,7 +23,7 @@ End your response with EXACTLY one of the following canonical lines:
 - `FINAL TRANSACTION PROPOSAL: **SELL**`
 - `FINAL TRANSACTION PROPOSAL: **HOLD**`
 
-Do not write the literal placeholder string "BUY/SELL/HOLD". Keep `BUY`, `SELL`, or `HOLD` in English even when the rest of your response is in another language — downstream tooling regex-matches these tokens.
+Do not write the literal placeholder string "BUY/SELL/HOLD". {{require_canonical_signal}}
 
 # Past situations and lessons learned
 
