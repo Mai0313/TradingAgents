@@ -318,8 +318,7 @@ def make_final_decision_panel(recommendation: TradeRecommendation) -> Panel:
 
     Surfaces every structured field (signal, size, target, stop, horizon,
     confidence, rationale) plus a warning_message banner when the parser
-    had to fall back. A bare-string fallback path is kept so legacy
-    callers passing a plain decision string still get a sensible panel.
+    had to fall back.
 
     Args:
         recommendation (TradeRecommendation): The structured recommendation

@@ -7,7 +7,12 @@ import pytest
 
 from tradingagents.dataflows import news
 import tradingagents.dataflows.yfinance as yfinance_data
-from tradingagents.dataflows.yfinance import _normalize_freq, _filter_statement_as_of
+from tradingagents.dataflows.yfinance import (
+    _normalize_freq,
+    _cache_covers_window,
+    get_earnings_calendar,
+    _filter_statement_as_of,
+)
 
 
 def test_filter_statement_as_of_uses_reporting_lag() -> None:
@@ -157,7 +162,7 @@ def test_stock_stats_bulk_multi_continues_after_candidate_load_exception(
         end_date: str,
         *,
         start_dt: datetime,
-        end_dt: datetime,
+        last_required_dt: datetime,
         fresh: bool,
     ) -> pd.DataFrame:
         calls.append(candidate)
@@ -193,6 +198,56 @@ def test_stock_stats_bulk_multi_continues_after_candidate_load_exception(
 def test_normalize_freq_rejects_unknown_values() -> None:
     with pytest.raises(ValueError, match="quarterly"):
         _normalize_freq("monthly")
+
+
+def test_cache_covers_window_treats_last_required_dt_as_inclusive() -> None:
+    """The cache covers up to and including curr_date; coverage check must accept that.
+
+    Previously the helper compared against the exclusive yfinance ``end=`` value
+    (curr_date + 1d), so the cached window — which never contains curr_date+1d's
+    bar — would always be flagged as insufficient and trigger a re-download.
+    """
+    cached = pd.DataFrame({
+        "Date": pd.to_datetime(["2009-01-02", "2024-01-03", "2024-01-04", "2024-01-05"])
+    })
+    # last_required_dt is curr_date itself (inclusive), NOT curr_date + 1d.
+    assert _cache_covers_window(
+        cached, start_dt=datetime(2009, 1, 2), last_required_dt=datetime(2024, 1, 5)
+    )
+
+
+def test_cache_covers_window_rejects_short_cache() -> None:
+    cached = pd.DataFrame({"Date": pd.to_datetime(["2024-01-02", "2024-01-03"])})
+    assert not _cache_covers_window(
+        cached, start_dt=datetime(2009, 1, 2), last_required_dt=datetime(2024, 1, 5)
+    )
+
+
+def test_get_earnings_calendar_handles_dataframe_calendar(monkeypatch: pytest.MonkeyPatch) -> None:
+    """yfinance.Ticker.calendar may return a DataFrame; bare ``if cal:`` raises.
+
+    Pins the type-dispatch fix so older yfinance releases (DataFrame shape)
+    no longer crash the tool with ``ValueError: The truth value of a DataFrame is ambiguous``.
+    """
+    cal_df = pd.DataFrame({"Earnings Date": ["2024-04-25"], "EPS Estimate": [1.5]})
+
+    class FakeTicker:
+        @property
+        def calendar(self) -> pd.DataFrame:
+            return cal_df
+
+        @property
+        def earnings_dates(self) -> None:
+            return None  # nothing in the rolling table -> just exercises calendar path
+
+    monkeypatch.setattr(yfinance_data, "_resolve_ticker_info", lambda t: (t, {"foo": 1}, [t]))
+    monkeypatch.setattr(yfinance_data.yf, "Ticker", lambda _t: FakeTicker())
+
+    result = get_earnings_calendar("AAPL", "2024-01-01")
+
+    assert "Calendar snapshot" in result
+    assert "Earnings Date" in result  # DataFrame's CSV rendering preserved column names
+    assert "2024-04-25" in result
 
 
 def test_extract_article_data_parses_flat_provider_publish_time() -> None:

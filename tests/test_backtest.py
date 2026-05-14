@@ -212,3 +212,58 @@ def test_backtester_dry_run_completes_grid(monkeypatch: pytest.MonkeyPatch) -> N
     assert report.avg_trade_return > 0
     assert report.n_buy == len(report.trades)
     assert report.n_hold == 0
+
+
+def test_backtester_uses_fresh_graph_per_ticker(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression: TradingAgentsGraph state (self.ticker, log_states_dict)
+    is mutable per-run; reusing one instance across tickers would cross-
+    contaminate per-ticker log files (Copilot review on PR #49).
+    """
+    instantiations: list[str] = []
+
+    real_init = trading_graph_module.TradingAgentsGraph.__init__
+
+    def counting_init(self: Any, **kwargs: Any) -> None:  # noqa: ANN401
+        real_init(self, **kwargs)
+        # The constructor does not yet know the ticker; record by id so the
+        # test asserts on the *number* of fresh instances rather than tickers.
+        instantiations.append(f"graph#{len(instantiations)}")
+
+    monkeypatch.setattr(trading_graph_module.TradingAgentsGraph, "__init__", counting_init)
+
+    fake_history = _fake_history(start="2024-01-01", n=40)
+    monkeypatch.setattr(
+        backtest_module,
+        "_resolve_history_with_cache",
+        lambda symbol, dt: (symbol, fake_history.copy(), [symbol]),
+    )
+
+    def fake_propagate(
+        self: Any,  # noqa: ANN401
+        company_name: str,
+        trade_date: str,
+        **kwargs: Any,  # noqa: ANN401
+    ) -> tuple[AgentState, TradeRecommendation]:
+        state = AgentState(company_of_interest=company_name, trade_date=trade_date)
+        rec = TradeRecommendation(signal="BUY")
+        return state, rec
+
+    monkeypatch.setattr(trading_graph_module.TradingAgentsGraph, "propagate", fake_propagate)
+
+    config = BacktestConfig(
+        tickers=["AAA", "BBB", "CCC"],
+        start_date="2024-01-05",
+        end_date="2024-01-31",
+        frequency="weekly",
+        horizon_days=3,
+        dry_run=True,
+        reflect_after_each_trade=False,
+        trading_config=_stub_trading_config(),
+    )
+
+    Backtester(config=config).run()
+
+    # One graph per ticker, regardless of how many decision dates each ticker has.
+    assert len(instantiations) == 3, (
+        f"Expected one TradingAgentsGraph instantiation per ticker, got {len(instantiations)}"
+    )

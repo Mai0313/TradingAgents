@@ -528,13 +528,20 @@ class Backtester(BaseModel):
         cost_tracker = CostTracker(budget_cap_usd=cfg.budget_cap_usd)
         restore = self._maybe_install_stub_llm()
         try:
-            graph = TradingAgentsGraph(config=cfg.trading_config, callbacks=[cost_tracker])
             trades: list[TradeRecord] = []
             stop = False
 
             for ticker in cfg.tickers:
                 if stop:
                     break
+                # New TradingAgentsGraph per ticker: it carries mutable
+                # per-run state (`self.ticker`, `self.log_states_dict`
+                # keyed only by date), and reusing one instance would let
+                # ticker A's state leak into ticker B's on-disk log file
+                # when both runs land on the same decision_date. Memory
+                # JSONLs are shared via disk regardless, so per-ticker
+                # construction is cheap and isolation-safe.
+                graph = TradingAgentsGraph(config=cfg.trading_config, callbacks=[cost_tracker])
                 for decision_date in grid:
                     if stop:
                         break

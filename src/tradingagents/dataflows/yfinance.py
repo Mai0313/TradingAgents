@@ -179,13 +179,20 @@ def _download_history(candidate: str, start_date: str, end_date: str) -> pd.Data
     return candidate_data.reset_index()
 
 
-def _cache_covers_window(cached: pd.DataFrame, start_dt: datetime, end_dt: datetime) -> bool:
-    """Return whether ``cached`` already spans the requested ``[start, end]``.
+def _cache_covers_window(
+    cached: pd.DataFrame, start_dt: datetime, last_required_dt: datetime
+) -> bool:
+    """Return whether ``cached`` spans ``[start_dt, last_required_dt]`` inclusively.
 
     The cache key no longer encodes the date range (P1-8), so any reuse
     must first verify the on-disk file actually covers the window the
-    caller needs. A partial-coverage hit triggers a wider re-download
-    rather than silently returning truncated history.
+    caller needs. ``last_required_dt`` is the latest *trading-day* the
+    caller needs — NOT the exclusive ``end=`` value passed to yfinance.
+    Comparing against the exclusive end would always fail (yfinance never
+    returns a bar dated at ``end``), defeating the cache.
+
+    A partial-coverage hit triggers a wider re-download rather than
+    silently returning truncated history.
     """
     if cached.empty or "Date" not in cached.columns:
         return False
@@ -193,7 +200,7 @@ def _cache_covers_window(cached: pd.DataFrame, start_dt: datetime, end_dt: datet
     if cached_dates.empty:
         return False
     return cached_dates.min() <= pd.Timestamp(start_dt) and cached_dates.max() >= pd.Timestamp(
-        end_dt
+        last_required_dt
     )
 
 
@@ -220,15 +227,16 @@ def _load_history_candidate(  # noqa: PLR0913 -- mix of paths + dates + freshnes
     end_date: str,
     *,
     start_dt: datetime,
-    end_dt: datetime,
+    last_required_dt: datetime,
     fresh: bool,
 ) -> pd.DataFrame:
     """Load cached history when safe, otherwise download and refresh cache.
 
     The cache filename is now ticker-only (P1-8) so adjacent run-dates
-    reuse the same file. Each call verifies the cached window covers the
-    requested ``[start_dt, end_dt]``; partial coverage falls back to a
-    fresh download that overwrites the file with the wider window.
+    reuse the same file. Each call verifies the cached window covers
+    ``[start_dt, last_required_dt]`` inclusively; partial coverage falls
+    back to a fresh download (using the exclusive ``end_date`` string
+    yfinance expects) that overwrites the file with the wider window.
     """
     candidate_data = pd.DataFrame()
     if fresh:
@@ -237,7 +245,9 @@ def _load_history_candidate(  # noqa: PLR0913 -- mix of paths + dates + freshnes
         except Exception:
             logger.warning("Ignoring unreadable cache file %s", data_file, exc_info=True)
             candidate_data = pd.DataFrame()
-        if not candidate_data.empty and not _cache_covers_window(candidate_data, start_dt, end_dt):
+        if not candidate_data.empty and not _cache_covers_window(
+            candidate_data, start_dt, last_required_dt
+        ):
             logger.info(
                 "Cache for %s does not cover %s..%s; refreshing.", candidate, start_date, end_date
             )
@@ -281,10 +291,15 @@ def _resolve_history_with_cache(
     """
     config = get_config()
 
-    end_dt = curr_date_dt + timedelta(days=1)
+    # yfinance's `end=` is exclusive, so download with curr_date+1d to
+    # actually include `curr_date` in the bar set. Coverage checks, in
+    # contrast, must compare against the latest *trading-day* we need
+    # back (curr_date itself), not the exclusive download end.
+    download_end_dt = curr_date_dt + timedelta(days=1)
+    last_required_dt = curr_date_dt
     start_dt = (pd.Timestamp(curr_date_dt) - pd.DateOffset(years=15)).to_pydatetime()
     start_date_str = pd.Timestamp(start_dt).strftime("%Y-%m-%d")
-    end_date_str = pd.Timestamp(end_dt).strftime("%Y-%m-%d")
+    end_date_str = pd.Timestamp(download_end_dt).strftime("%Y-%m-%d")
 
     cache_dir = Path(str(config.data_cache_dir))
     cache_dir.mkdir(parents=True, exist_ok=True)
@@ -305,7 +320,7 @@ def _resolve_history_with_cache(
                 start_date_str,
                 end_date_str,
                 start_dt=start_dt,
-                end_dt=end_dt,
+                last_required_dt=last_required_dt,
                 fresh=fresh,
             )
         except Exception as exc:
@@ -1241,21 +1256,24 @@ def get_earnings_calendar(  # noqa: C901, PLR0912, PLR0915 -- yfinance returns m
         pieces.append(f"# Current trading date: {curr_date}")
     pieces.append(f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-    # Calendar snapshot
+    # Calendar snapshot. yfinance returns either a dict (newer releases) or a
+    # pandas DataFrame (older releases); a bare `if cal:` check raises
+    # `ValueError: The truth value of a DataFrame is ambiguous` on the
+    # DataFrame branch, so we dispatch on type explicitly instead.
     try:
         cal = ticker_obj.calendar
     except Exception:
         cal = None
-    if cal:
+    if isinstance(cal, dict) and cal:
         pieces.append("\n## Calendar snapshot (yfinance.calendar)")
-        if isinstance(cal, dict):
-            for key, value in cal.items():
-                pieces.append(f"- {key}: {value}")
-        else:
-            try:
-                pieces.append(cal.to_csv())
-            except Exception:
-                pieces.append(str(cal))
+        for key, value in cal.items():
+            pieces.append(f"- {key}: {value}")
+    elif isinstance(cal, pd.DataFrame) and not cal.empty:
+        pieces.append("\n## Calendar snapshot (yfinance.calendar)")
+        try:
+            pieces.append(cal.to_csv())
+        except Exception:
+            pieces.append(str(cal))
 
     # Earnings dates table — split past vs forward when curr_date is set.
     try:
