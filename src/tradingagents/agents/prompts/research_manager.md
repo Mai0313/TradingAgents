@@ -21,7 +21,7 @@ Past situations and lessons learned (each block shows the original situation sna
 Market research report:
 {market_research_report}
 
-Social media sentiment report:
+News sentiment report:
 {sentiment_report}
 
 Latest world affairs news:

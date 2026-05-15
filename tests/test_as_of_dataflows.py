@@ -74,6 +74,41 @@ def test_get_yfin_data_online_slices_from_shared_history_cache(
     assert "auto_adjust=True" in result or "split- and dividend-adjusted" in result
 
 
+def test_get_yfin_data_online_returns_no_data_sentinel_for_empty_window(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_history = pd.DataFrame({
+        "Date": pd.to_datetime(["2024-01-02"]),
+        "Open": [1.0],
+        "High": [2.0],
+        "Low": [0.5],
+        "Close": [1.5],
+        "Volume": [100],
+    })
+
+    monkeypatch.setattr(
+        yfinance_data,
+        "_resolve_history_with_cache",
+        lambda symbol, curr_date_dt: ("AAPL", fake_history.copy(), ["AAPL"]),
+    )
+
+    result = yfinance_data.get_yfin_data_online("AAPL", "2024-01-03", "2024-01-03")
+
+    assert result.startswith("[NO_DATA]")
+
+
+def test_get_fundamentals_returns_no_data_sentinel_when_info_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        yfinance_data, "_resolve_ticker_info", lambda ticker: ("AAPL", {}, ["AAPL"])
+    )
+
+    result = yfinance_data.get_fundamentals("AAPL", curr_date="2024-01-03")
+
+    assert result.startswith("[NO_DATA]")
+
+
 @pytest.mark.parametrize(
     ("function_name", "expected_header"),
     [
@@ -118,6 +153,33 @@ def test_statement_fetches_continue_after_candidate_exception(
     assert expected_header in result
 
 
+@pytest.mark.parametrize(
+    "function_name", ["get_balance_sheet", "get_cashflow", "get_income_statement"]
+)
+def test_statement_fetches_return_no_data_sentinel_when_empty(
+    monkeypatch: pytest.MonkeyPatch, function_name: str
+) -> None:
+    class FakeTicker:
+        @property
+        def quarterly_balance_sheet(self) -> pd.DataFrame:
+            return pd.DataFrame()
+
+        @property
+        def quarterly_cashflow(self) -> pd.DataFrame:
+            return pd.DataFrame()
+
+        @property
+        def quarterly_income_stmt(self) -> pd.DataFrame:
+            return pd.DataFrame()
+
+    monkeypatch.setattr(yfinance_data, "get_yfinance_symbol_candidates", lambda ticker: ["AAPL"])
+    monkeypatch.setattr(yfinance_data.yf, "Ticker", lambda candidate: FakeTicker())
+
+    result = getattr(yfinance_data, function_name)("AAPL", curr_date="2024-01-03")
+
+    assert result.startswith("[NO_DATA]")
+
+
 def test_insider_transactions_continue_after_candidate_exception(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -145,6 +207,24 @@ def test_insider_transactions_continue_after_candidate_exception(
     result = yfinance_data.get_insider_transactions("BRK.A", curr_date=near_date)
 
     assert "# Insider Transactions data for GOOD" in result
+
+
+def test_insider_transactions_returns_no_data_sentinel_when_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    near_date = (datetime.now().date() - timedelta(days=30)).strftime("%Y-%m-%d")
+
+    class FakeTicker:
+        @property
+        def insider_transactions(self) -> pd.DataFrame:
+            return pd.DataFrame()
+
+    monkeypatch.setattr(yfinance_data, "get_yfinance_symbol_candidates", lambda ticker: ["AAPL"])
+    monkeypatch.setattr(yfinance_data.yf, "Ticker", lambda candidate: FakeTicker())
+
+    result = yfinance_data.get_insider_transactions("AAPL", curr_date=near_date)
+
+    assert result.startswith("[NO_DATA]")
 
 
 def test_stock_stats_bulk_multi_continues_after_candidate_load_exception(
@@ -248,6 +328,36 @@ def test_get_earnings_calendar_handles_dataframe_calendar(monkeypatch: pytest.Mo
     assert "Calendar snapshot" in result
     assert "Earnings Date" in result  # DataFrame's CSV rendering preserved column names
     assert "2024-04-25" in result
+
+
+def test_get_earnings_calendar_handles_timezone_aware_earnings_index(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    earnings_index = pd.DatetimeIndex(
+        ["2024-04-25 16:00:00", "2024-01-30 16:00:00"], tz="America/New_York", name="Earnings Date"
+    )
+    earnings_dates = pd.DataFrame(
+        {"EPS Estimate": [1.5, 1.2], "Reported EPS": [1.6, 1.1]}, index=earnings_index
+    )
+
+    class FakeTicker:
+        @property
+        def calendar(self) -> dict:
+            return {}
+
+        @property
+        def earnings_dates(self) -> pd.DataFrame:
+            return earnings_dates
+
+    monkeypatch.setattr(yfinance_data, "_resolve_ticker_info", lambda t: (t, {"foo": 1}, [t]))
+    monkeypatch.setattr(yfinance_data.yf, "Ticker", lambda _t: FakeTicker())
+
+    result = get_earnings_calendar("AAPL", "2024-02-01")
+
+    assert "[TOOL_ERROR]" not in result
+    assert "Past earnings dates" in result
+    assert "Forward earnings dates" in result
+    assert "[REDACTED]" in result
 
 
 def test_extract_article_data_parses_flat_provider_publish_time() -> None:

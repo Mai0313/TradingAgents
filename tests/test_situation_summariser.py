@@ -41,6 +41,26 @@ def test_situation_summariser_writes_to_situation_summary_field() -> None:
     assert "MACD bullish" in prompt_arg
 
 
+def test_situation_summariser_prompt_handles_unselected_reports() -> None:
+    fake_response = SimpleNamespace(content="### Ticker profile\n- AAPL.\n")
+    llm = MagicMock()
+    llm.invoke.return_value = fake_response
+    state = AgentState(
+        company_of_interest="AAPL",
+        trade_date="2024-05-10",
+        market_report="MACD bullish.",
+        news_report="[NO_DATA] No dated global news.",
+    )
+
+    node = create_situation_summariser(llm)
+    node(state)
+
+    prompt_arg = llm.invoke.call_args.args[0]
+    assert "Mark missing evidence as unavailable" in prompt_arg
+    assert "News sentiment report:" in prompt_arg
+    assert "Social media / news sentiment report" not in prompt_arg
+
+
 def test_situation_summariser_flattens_list_content() -> None:
     # Some providers (Anthropic, Gemini 3) return list-shaped content.
     fake_response = SimpleNamespace(
@@ -92,3 +112,32 @@ def test_graph_topology_contains_situation_summariser_between_analysts_and_bull(
     assert any(
         src.startswith("Msg Clear") and tgt == "Situation Summariser" for src, tgt in edge_pairs
     ), edge_pairs
+
+
+def test_graph_topology_subset_routes_last_selected_analyst_to_summariser(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(llm_module, "build_chat_model", lambda *a, **kw: MagicMock())
+    monkeypatch.setattr(trading_graph, "build_chat_model", lambda *a, **kw: MagicMock())
+
+    config = TradingAgentsConfig(
+        llm_provider="google_genai",
+        deep_think_llm="x",
+        quick_think_llm="x",
+        max_debate_rounds=1,
+        max_risk_discuss_rounds=1,
+        max_recur_limit=30,
+        reasoning_effort="low",
+        response_language="en-US",
+    )
+    ta = TradingAgentsGraph(config=config, selected_analysts=["market", "news"])
+
+    compiled = ta.graph
+    nodes: dict[str, Any] = compiled.get_graph().nodes
+    assert "Market Analyst" in nodes
+    assert "News Analyst" in nodes
+    assert "Social Analyst" not in nodes
+    assert "Fundamentals Analyst" not in nodes
+
+    edge_pairs = [(e.source, e.target) for e in compiled.get_graph().edges]
+    assert ("Msg Clear News", "Situation Summariser") in edge_pairs

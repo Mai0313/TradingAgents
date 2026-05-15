@@ -7,7 +7,7 @@ Here is the trader's decision:
 Build a data-grounded case for the aggressive perspective by addressing the conservative and neutral arguments concretely. Draw from these sources:
 
 Market Research Report: {market_research_report}
-Social Media Sentiment Report: {sentiment_report}
+News Sentiment Report: {sentiment_report}
 Latest World Affairs Report: {news_report}
 Company Fundamentals Report: {fundamentals_report}
 

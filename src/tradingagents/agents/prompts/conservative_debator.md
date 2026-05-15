@@ -7,7 +7,7 @@ Here is the trader's decision:
 Build a data-grounded case for the conservative perspective by responding directly to the aggressive and neutral arguments. Draw from these sources:
 
 Market Research Report: {market_research_report}
-Social Media Sentiment Report: {sentiment_report}
+News Sentiment Report: {sentiment_report}
 Latest World Affairs Report: {news_report}
 Company Fundamentals Report: {fundamentals_report}
 

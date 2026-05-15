@@ -26,10 +26,11 @@ from tradingagents.agents import (
     create_social_media_analyst,
 )
 from tradingagents.agents.utils.memory import FinancialSituationMemory
+from tradingagents.agents.utils.tool_registry import ANALYST_TOOL_REGISTRY
 
 from .conditional_logic import ConditionalLogic
 
-SUPPORTED_ANALYSTS = ("market", "social", "news", "fundamentals")
+SUPPORTED_ANALYSTS = tuple(ANALYST_TOOL_REGISTRY)
 
 
 class MemoryComponents(BaseModel):
@@ -180,7 +181,7 @@ class GraphSetup(BaseModel):
             selected_analysts (list[str] | None, optional): Analyst types to
                 include. Defaults to all supported analysts when None. Options are:
                 - "market": Market analyst
-                - "social": Social media analyst
+                - "social": News sentiment analyst (internal key retained for compatibility)
                 - "news": News analyst
                 - "fundamentals": Fundamentals analyst
 

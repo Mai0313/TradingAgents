@@ -205,7 +205,7 @@ TradingAgents 透過 LangGraph `StateGraph` 編排 **12 個 LLM agent** 加上 *
 
 ### Phase 1 — 分析師團隊(資料蒐集)
 
-四位 analyst 依序執行。每位 analyst 的 LLM 都會 `bind_tools(...)` 到一組以 `yfinance` 為 backend 的 `@tool` 函式,並與其專屬的 `ToolNode` 配對,持續 loop 直到沒有新的 tool call 為止。每位 analyst 結束之後會經過一個 `Msg Clear` node,它會發出 `RemoveMessage` 並補上一個 `HumanMessage("Continue")` placeholder(這是為了維持 Anthropic 對最後一則訊息必須是 human 的要求)。
+預設四位 analyst 依序執行；`selected_analysts` 可以只跑其中一部分。每位 analyst 的 LLM 都會依 central tool registry `bind_tools(...)` 到一組以 `yfinance` 為 backend 的 `@tool` 函式,並與其專屬的 `ToolNode` 配對,持續 loop 直到沒有新的 tool call 為止。每位 analyst 結束之後會經過一個 `Msg Clear` node,它會發出 `RemoveMessage` 並補上一個 `HumanMessage("Continue")` placeholder(這是為了維持 Anthropic 對最後一則訊息必須是 human 的要求)。
 
 | Analyst                    | LLM 綁定的 tools                                                                                                                                                                  | 寫入 state            |
 | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
@@ -220,7 +220,7 @@ Market Analyst 可挑選的 technical indicator(**一次選 6 – 8 個**):`clos
 
 ### Phase 1.5 — Situation Summariser
 
-最後一個 analyst 的 Msg Clear 之後,單一的 **Situation Summariser** 節點(quick-thinking LLM)把 4 份 analyst report 蒸餾成 ≤400-token 的結構化 snapshot。snapshot 寫進 `state.situation_summary`,並成為之後每一次 memory 查詢的 BM25 retrieval query — 取代原本 10-20 KB、太散漫無法 surface 出相關歷史 situation 的 `combined_reports` query。
+最後一個 selected analyst 的 Msg Clear 之後,單一的 **Situation Summariser** 節點(quick-thinking LLM)把 selected analyst reports 蒸餾成 ≤400-token 的結構化 snapshot。若某個 analyst 沒有被選取,缺少的 report 會被視為 unavailable,不能 invent。snapshot 寫進 `state.situation_summary`,並成為之後每一次 memory 查詢的 BM25 retrieval query — 取代原本 10-20 KB、太散漫無法 surface 出相關歷史 situation 的 `combined_reports` query。
 
 ### Phase 2 — 研究辯論
 

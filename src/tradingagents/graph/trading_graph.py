@@ -15,24 +15,8 @@ from langchain_core.callbacks import BaseCallbackHandler
 from tradingagents.llm import ChatModel, build_chat_model
 from tradingagents.config import TradingAgentsConfig, set_config
 from tradingagents.agents.utils.memory import FinancialSituationMemory
-from tradingagents.agents.utils.agent_utils import (
-    get_news,
-    get_cashflow,
-    get_indicators,
-    get_stock_data,
-    get_global_news,
-    get_fundamentals,
-    get_balance_sheet,
-    get_market_context,
-    get_short_interest,
-    get_analyst_ratings,
-    get_dividends_splits,
-    get_income_statement,
-    get_earnings_calendar,
-    get_insider_transactions,
-    get_institutional_holders,
-)
 from tradingagents.agents.utils.agent_states import AgentState
+from tradingagents.agents.utils.tool_registry import ANALYST_TOOL_REGISTRY
 
 from .setup import SUPPORTED_ANALYSTS, GraphSetup, MemoryComponents
 from .reflection import Reflector
@@ -220,34 +204,8 @@ class TradingAgentsGraph(BaseModel):
             dict[str, ToolNode]: A dictionary mapping data source names to ToolNodes.
         """
         return {
-            "market": ToolNode(
-                [get_stock_data, get_indicators, get_dividends_splits],
-                handle_tool_errors=_tool_error_handler,
-            ),
-            "social": ToolNode([get_news], handle_tool_errors=_tool_error_handler),
-            "news": ToolNode(
-                [
-                    get_news,
-                    get_global_news,
-                    get_insider_transactions,
-                    get_market_context,
-                    get_earnings_calendar,
-                ],
-                handle_tool_errors=_tool_error_handler,
-            ),
-            "fundamentals": ToolNode(
-                [
-                    get_fundamentals,
-                    get_balance_sheet,
-                    get_cashflow,
-                    get_income_statement,
-                    get_analyst_ratings,
-                    get_institutional_holders,
-                    get_short_interest,
-                    get_dividends_splits,
-                ],
-                handle_tool_errors=_tool_error_handler,
-            ),
+            analyst_type: ToolNode(list(tools), handle_tool_errors=_tool_error_handler)
+            for analyst_type, tools in ANALYST_TOOL_REGISTRY.items()
         }
 
     @computed_field

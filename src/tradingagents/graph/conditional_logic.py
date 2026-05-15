@@ -44,7 +44,7 @@ class ConditionalLogic(BaseModel):
     def should_continue_social(
         self, state: AgentState
     ) -> Literal["tools_social", "Msg Clear Social"]:
-        """Determine whether to continue social media analysis or clear messages.
+        """Determine whether to continue news sentiment analysis or clear messages.
 
         Args:
             state (AgentState): The current state of the agent.

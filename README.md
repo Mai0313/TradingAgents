@@ -205,7 +205,7 @@ TradingAgents orchestrates **12 LLM agents** plus **3 supporting components** th
 
 ### Phase 1 — Analyst Team (Data Collection)
 
-Four analysts run in sequence. Each analyst has its LLM bound to a specific set of `yfinance`-backed `@tool` functions, and loops with its own `ToolNode` until no more tool calls are emitted. Between analysts a `Msg Clear` node resets the conversation history (emitting `RemoveMessage` + a `HumanMessage("Continue")` placeholder for Anthropic compatibility).
+By default, four analysts run in sequence; `selected_analysts` can run a subset. Each analyst has its LLM bound to a specific set of `yfinance`-backed `@tool` functions from the central tool registry, and loops with its own `ToolNode` until no more tool calls are emitted. Between analysts a `Msg Clear` node resets the conversation history (emitting `RemoveMessage` + a `HumanMessage("Continue")` placeholder for Anthropic compatibility).
 
 | Analyst                    | LLM-bound tools                                                                                                                                                                   | Writes to state       |
 | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
@@ -220,7 +220,7 @@ Supported technical indicators (selected by the Market Analyst, **6 – 8 per ru
 
 ### Phase 1.5 — Situation Summariser
 
-After the last analyst's Msg Clear, a single **Situation Summariser** node (quick-thinking LLM) distils all four analyst reports into a compact ≤400-token structured snapshot. The summary populates `state.situation_summary` and becomes the BM25 retrieval query for every downstream memory lookup, replacing the previous 10-20 KB `combined_reports` query that was too lexically diffuse to surface relevant past situations.
+After the last selected analyst's Msg Clear, a single **Situation Summariser** node (quick-thinking LLM) distils the selected analyst reports into a compact ≤400-token structured snapshot. Missing reports from an analyst subset are marked unavailable rather than invented. The summary populates `state.situation_summary` and becomes the BM25 retrieval query for every downstream memory lookup, replacing the previous 10-20 KB `combined_reports` query that was too lexically diffuse to surface relevant past situations.
 
 ### Phase 2 — Research Debate
 

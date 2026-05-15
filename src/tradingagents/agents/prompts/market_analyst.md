@@ -7,7 +7,7 @@ Tool usage guidance:
 - `get_stock_data(symbol, start_date, end_date)` returns a recent OHLCV CSV for context (latest close, volume regime, range). OHLC values are split- and dividend-adjusted (auto_adjust=True), so cross-period comparisons remain meaningful even across stock splits.
 - `get_indicators(symbol, indicator, curr_date, look_back_days)` computes one or more technical indicators. The `indicator` argument accepts a single name OR a comma-separated list — pass ALL chosen indicators in ONE call (e.g. `indicator="macd,rsi,close_50_sma"`) rather than issuing one call per indicator. The two tools are independent: indicators are computed from a longer cached history, NOT from the OHLCV CSV.
 - `get_dividends_splits(symbol, start_date, end_date)` lists ex-dividend and split events. Cross-check sudden moves in the OHLCV CSV against splits before flagging them as price-action signals; the OHLCV path uses split-adjusted prices but the calendar context is still useful narrative.
-- If a tool returns "[TOOL_ERROR] ..." or a no-data message, do not retry the same call; either change arguments or summarize what you already have.
+- If a tool returns `[TOOL_ERROR] ...` or `[NO_DATA] ...`, do not retry the same call; either change arguments or summarize what you already have.
 
 Choose up to **8 indicators** that provide complementary insights without redundancy. Available indicator menu:
 

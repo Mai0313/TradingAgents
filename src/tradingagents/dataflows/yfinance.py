@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 _QUARTERLY_REPORTING_LAG_DAYS = 45
 _ANNUAL_REPORTING_LAG_DAYS = 90
+_NO_DATA_PREFIX = "[NO_DATA]"
 
 
 def _parse_yyyy_mm_dd(value: str, field_name: str) -> datetime:
@@ -396,7 +397,7 @@ def get_yfin_data_online(
     if sliced.empty:
         tried = describe_symbol_candidates(symbol, candidates)
         return (
-            f"No data found for symbol '{symbol}' (tried: {tried}) "
+            f"{_NO_DATA_PREFIX} No data found for symbol '{symbol}' (tried: {tried}) "
             f"between {start_date} and {end_date}"
         )
 
@@ -861,7 +862,9 @@ def get_fundamentals(
 
     if not info:
         tried = describe_symbol_candidates(ticker, candidates)
-        return f"No fundamentals data found for symbol '{ticker}' (tried: {tried})"
+        return (
+            f"{_NO_DATA_PREFIX} No fundamentals data found for symbol '{ticker}' (tried: {tried})"
+        )
 
     profile_fields = [
         ("Name", info.get("longName")),
@@ -1004,7 +1007,7 @@ def get_balance_sheet(
                 f"Failed to fetch balance sheet for symbol '{ticker}' (tried: {tried})"
             ) from last_error
         return (
-            f"No balance sheet data found for symbol '{ticker}' (tried: {tried}) "
+            f"{_NO_DATA_PREFIX} No balance sheet data found for symbol '{ticker}' (tried: {tried}) "
             f"as of {curr_date or 'latest'}"
         )
 
@@ -1069,7 +1072,7 @@ def get_cashflow(
                 f"Failed to fetch cash flow for symbol '{ticker}' (tried: {tried})"
             ) from last_error
         return (
-            f"No cash flow data found for symbol '{ticker}' (tried: {tried}) "
+            f"{_NO_DATA_PREFIX} No cash flow data found for symbol '{ticker}' (tried: {tried}) "
             f"as of {curr_date or 'latest'}"
         )
 
@@ -1134,7 +1137,7 @@ def get_income_statement(
                 f"Failed to fetch income statement for symbol '{ticker}' (tried: {tried})"
             ) from last_error
         return (
-            f"No income statement data found for symbol '{ticker}' (tried: {tried}) "
+            f"{_NO_DATA_PREFIX} No income statement data found for symbol '{ticker}' (tried: {tried}) "
             f"as of {curr_date or 'latest'}"
         )
 
@@ -1285,7 +1288,10 @@ def get_earnings_calendar(  # noqa: C901, PLR0912, PLR0915 -- yfinance returns m
         if isinstance(ed.index, pd.DatetimeIndex):
             ed_dates = ed.index.tz_localize(None) if ed.index.tz is not None else ed.index
             ed = ed.reset_index()
-            ed.iloc[:, 0] = ed_dates
+            first_col = ed.columns[0]
+            ed[first_col] = pd.Series(
+                pd.DatetimeIndex(ed_dates).to_numpy(dtype="datetime64[ns]"), index=ed.index
+            )
         cutoff = _as_of_datetime(curr_date)
         if cutoff is not None and len(ed.columns) >= 1:
             first_col = ed.columns[0]
@@ -1456,7 +1462,6 @@ def get_dividends_splits(
 
 
 _INSIDER_HISTORY_HORIZON_DAYS = 180
-_NO_DATA_PREFIX = "[NO_DATA]"
 
 
 def _insider_history_unavailable_message(ticker: str, curr_date: str | None) -> str | None:
@@ -1643,7 +1648,7 @@ def get_insider_transactions(
                 f"Failed to fetch insider transactions for symbol '{ticker}' (tried: {tried})"
             ) from last_error
         return (
-            f"No insider transactions data found for symbol '{ticker}' (tried: {tried}) "
+            f"{_NO_DATA_PREFIX} No insider transactions data found for symbol '{ticker}' (tried: {tried}) "
             f"as of {curr_date or 'latest'}"
         )
 
