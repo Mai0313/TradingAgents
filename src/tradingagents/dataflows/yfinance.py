@@ -575,8 +575,15 @@ def _get_stock_stats_bulk_multi(
     curr_date_dt = _parse_yyyy_mm_dd(curr_date, "curr_date")
     resolved_symbol, data, _ = _resolve_history_with_cache(symbol, curr_date_dt)
 
-    df = wrap(data.copy())
-    df["Date"] = pd.to_datetime(df["Date"])
+    data = data.copy()
+    data["Date"] = pd.to_datetime(data["Date"])
+    if data["Date"].dt.tz is not None:
+        data["Date"] = data["Date"].dt.tz_localize(None)
+    data = data.loc[data["Date"] <= pd.Timestamp(curr_date_dt)].copy()
+    if data.empty:
+        raise ValueError(f"No market data found for symbol '{symbol}' on or before {curr_date}.")
+
+    df = wrap(data)
     if df["Date"].dt.tz is not None:
         df["Date"] = df["Date"].dt.tz_localize(None)
     df["Date"] = df["Date"].dt.strftime("%Y-%m-%d")
@@ -725,17 +732,34 @@ _SHARES_ROW_KEYS: tuple[str, ...] = (
 )
 
 
+def _sort_statement_columns_by_period(statement: pd.DataFrame) -> pd.DataFrame:
+    """Return statement columns sorted by parsed period-end date ascending."""
+    if statement.empty:
+        return statement
+    parsed_columns = pd.to_datetime(statement.columns, errors="coerce")
+    sortable = [
+        (column, pd.Timestamp(parsed))
+        for column, parsed in zip(statement.columns, parsed_columns, strict=False)
+        if pd.notna(parsed)
+    ]
+    if not sortable:
+        return statement
+    columns = [column for column, _parsed in sorted(sortable, key=lambda item: item[1])]
+    return statement.loc[:, columns]
+
+
 def _last_n_quarter_sum(
     statement: pd.DataFrame, row_keys: tuple[str, ...], n: int
 ) -> float | None:
     """Return the sum of the latest ``n`` quarterly columns for the first matching row.
 
-    Statement columns are filtered point-in-time, sorted left-to-right by
-    period end date by yfinance. Picking the last ``n`` columns gives the
-    TTM-most approximation that respects the as-of cutoff.
+    Statement columns are filtered point-in-time, then sorted by parsed
+    period-end date. yfinance column order differs across endpoints and
+    versions, so TTM selection must never rely on the input order.
     """
     if statement.empty:
         return None
+    statement = _sort_statement_columns_by_period(statement)
     for key in row_keys:
         if key in statement.index:
             row = statement.loc[key].dropna()
@@ -756,6 +780,7 @@ def _latest_row_value(statement: pd.DataFrame, row_keys: tuple[str, ...]) -> flo
     """Return the most recent (rightmost) non-NaN value for the first matching row key."""
     if statement.empty:
         return None
+    statement = _sort_statement_columns_by_period(statement)
     for key in row_keys:
         if key in statement.index:
             row = statement.loc[key].dropna()
@@ -1247,36 +1272,48 @@ def get_earnings_calendar(  # noqa: C901, PLR0912, PLR0915 -- yfinance returns m
 
     Combines ``yf.Ticker.calendar`` (a snapshot of the next confirmed
     event) with ``yf.Ticker.earnings_dates`` (a rolling history /
-    forecast). For historical ``curr_date`` the rolling table is split
-    into past (<= curr_date) and forward (> curr_date) sections so the
-    News analyst can reason about catalyst proximity without leaking
-    the actual reported figure from a future filing.
+    forecast). For historical ``curr_date`` the current-only calendar
+    snapshot is deliberately omitted; the rolling table is split into
+    past and forward sections, and forward rows keep only date /
+    estimate columns with an explicit source-limitation note.
     """
     resolved_ticker, ticker_obj, _candidates = _resolved_ticker_obj(ticker)
+    is_historical = _is_historical_date(curr_date)
 
     pieces: list[str] = [f"# Earnings calendar for {resolved_ticker}"]
     if curr_date is not None:
         pieces.append(f"# Current trading date: {curr_date}")
     pieces.append(f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    has_point_in_time_data = False
 
     # Calendar snapshot. yfinance returns either a dict (newer releases) or a
     # pandas DataFrame (older releases); a bare `if cal:` check raises
     # `ValueError: The truth value of a DataFrame is ambiguous` on the
-    # DataFrame branch, so we dispatch on type explicitly instead.
+    # DataFrame branch, so we dispatch on type explicitly instead. The snapshot
+    # is current-only and must not be exposed to historical runs.
     try:
         cal = ticker_obj.calendar
     except Exception:
         cal = None
-    if isinstance(cal, dict) and cal:
+    if is_historical and (
+        (isinstance(cal, dict) and cal) or (isinstance(cal, pd.DataFrame) and not cal.empty)
+    ):
+        pieces.append(
+            "\n# Calendar snapshot omitted: yfinance.calendar is current-only "
+            "and is not point-in-time safe for historical runs."
+        )
+    elif isinstance(cal, dict) and cal:
         pieces.append("\n## Calendar snapshot (yfinance.calendar)")
         for key, value in cal.items():
             pieces.append(f"- {key}: {value}")
+        has_point_in_time_data = True
     elif isinstance(cal, pd.DataFrame) and not cal.empty:
         pieces.append("\n## Calendar snapshot (yfinance.calendar)")
         try:
             pieces.append(cal.to_csv())
         except Exception:
             pieces.append(str(cal))
+        has_point_in_time_data = True
 
     # Earnings dates table — split past vs forward when curr_date is set.
     try:
@@ -1306,23 +1343,36 @@ def get_earnings_calendar(  # noqa: C901, PLR0912, PLR0915 -- yfinance returns m
             if not past.empty:
                 pieces.append("\n## Past earnings dates (on/before curr_date)")
                 pieces.append(past.to_csv(index=False))
+                has_point_in_time_data = True
             if not future.empty:
-                pieces.append(
-                    "\n## Forward earnings dates (after curr_date, surprise columns redacted to avoid lookahead)"
-                )
-                surprise_cols = [
-                    c for c in future.columns if "Surprise" in str(c) or "Reported" in str(c)
-                ]
-                future_redacted = future.copy()
-                for col in surprise_cols:
-                    future_redacted[col] = "[REDACTED]"
-                pieces.append(future_redacted.to_csv(index=False))
+                if is_historical:
+                    estimate_cols = [c for c in future.columns if "estimate" in str(c).lower()]
+                    safe_cols = [first_col, *estimate_cols]
+                    future_limited = future.loc[:, list(dict.fromkeys(safe_cols))]
+                    pieces.append(
+                        "\n## Forward earnings dates (after curr_date, date / estimate fields only)"
+                    )
+                    pieces.append(
+                        "# Source limitation: yfinance earnings_dates is a rolling "
+                        "current feed, not a full historical archive. These rows keep "
+                        "only scheduled-date and estimate columns; do not treat them "
+                        "as confirmed point-in-time filings."
+                    )
+                    pieces.append(future_limited.to_csv(index=False))
+                else:
+                    pieces.append("\n## Forward earnings dates")
+                    pieces.append(future.to_csv(index=False))
+                has_point_in_time_data = True
         else:
             pieces.append("\n## Earnings dates")
             pieces.append(ed.to_csv(index=False))
+            has_point_in_time_data = True
 
-    if len(pieces) <= 3:
-        return f"[NO_DATA] No earnings calendar / dates available for {ticker}"
+    if not has_point_in_time_data:
+        return (
+            f"[NO_DATA] No point-in-time earnings calendar / dates available for {ticker} "
+            f"as of {curr_date or 'latest'}"
+        )
     return "\n".join(pieces)
 
 

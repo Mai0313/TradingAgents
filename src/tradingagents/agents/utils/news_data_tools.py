@@ -2,6 +2,7 @@ from typing import Annotated
 
 from langchain_core.tools import tool
 
+from tradingagents.runtime import reject_future_tool_dates
 from tradingagents.dataflows.news import fetch_news, get_global_news_yfinance
 from tradingagents.dataflows.yfinance import get_market_context as _get_market_context
 from tradingagents.dataflows.yfinance import get_earnings_calendar as _get_earnings_calendar
@@ -29,6 +30,9 @@ def get_news(
         str: A formatted news report, a ``[NO_DATA]`` message, or a
         ``[TOOL_ERROR]`` message.
     """
+    error = reject_future_tool_dates("get_news", start_date=start_date, end_date=end_date)
+    if error is not None:
+        return error
     return fetch_news(ticker, start_date, end_date)
 
 
@@ -50,6 +54,9 @@ def get_global_news(
     Returns:
         str: A formatted global news report, a no-data message, or an error message.
     """
+    error = reject_future_tool_dates("get_global_news", curr_date=curr_date)
+    if error is not None:
+        return error
     return get_global_news_yfinance(curr_date, look_back_days, limit)
 
 
@@ -69,6 +76,9 @@ def get_insider_transactions(
         str: CSV-formatted insider transaction data, a no-data message, or an
             error message.
     """
+    error = reject_future_tool_dates("get_insider_transactions", curr_date=curr_date)
+    if error is not None:
+        return error
     return _get_insider_transactions(ticker, curr_date)
 
 
@@ -93,6 +103,9 @@ def get_earnings_calendar(
     Returns:
         str: Formatted earnings-calendar report or ``[NO_DATA]`` message.
     """
+    error = reject_future_tool_dates("get_earnings_calendar", curr_date=curr_date)
+    if error is not None:
+        return error
     return _get_earnings_calendar(ticker, curr_date)
 
 
@@ -120,4 +133,7 @@ def get_market_context(
             ``[NO_DATA]`` / ``[TOOL_ERROR]`` sentinels so partial
             failures do not nullify the context.
     """
+    error = reject_future_tool_dates("get_market_context", curr_date=curr_date)
+    if error is not None:
+        return error
     return _get_market_context(ticker, curr_date, look_back_days)

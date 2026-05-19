@@ -5,6 +5,7 @@ from collections.abc import Callable
 
 from tradingagents.llm import ChatModel
 from tradingagents.agents.prompts import load_prompt
+from tradingagents.agents.utils.content import flatten_message_content
 from tradingagents.agents.utils.agent_states import AgentState, RiskDebateState
 
 _FIRST_TURN_SENTINEL = "(no response yet — you are the first speaker on this round)"
@@ -69,7 +70,7 @@ def make_debator_node(role: DebatorRole, llm: ChatModel) -> Callable[[AgentState
 
         prompt = load_prompt(prompt_name).format(**prompt_kwargs)
         response = llm.invoke(prompt)
-        argument = f"{role} Analyst: {response.content}"
+        argument = f"{role} Analyst: {flatten_message_content(response.content)}"
 
         own_history_attr = f"{role_lower}_history"
         update: dict[str, Any] = {

@@ -2,6 +2,7 @@ from typing import Annotated
 
 from langchain_core.tools import tool
 
+from tradingagents.runtime import reject_future_tool_dates
 from tradingagents.dataflows.yfinance import get_yfin_data_online
 
 
@@ -23,4 +24,7 @@ def get_stock_data(
         str: CSV-formatted OHLCV data with a short metadata header, or a
             no-data message if no Yahoo Finance candidate has price history.
     """
+    error = reject_future_tool_dates("get_stock_data", start_date=start_date, end_date=end_date)
+    if error is not None:
+        return error
     return get_yfin_data_online(symbol, start_date, end_date)

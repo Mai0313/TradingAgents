@@ -21,21 +21,25 @@ def test_memory_persists_loads_and_clears_jsonl(tmp_path: Path) -> None:
         {
             "situation": "AAPL earnings beat with strong services growth",
             "recommendation": "Favor BUY on pullbacks.",
+            "metadata": {},
         },
         {
             "situation": "Treasury yields spike and duration sells off",
             "recommendation": "Reduce long exposure.",
+            "metadata": {},
         },
     ]
 
     reloaded = FinancialSituationMemory(name="trader", storage_path=storage_path)
     assert reloaded.documents == memory.documents
     assert reloaded.recommendations == memory.recommendations
+    assert reloaded.metadata == memory.metadata
     assert reloaded.bm25 is not None
 
     reloaded.clear()
     assert reloaded.documents == []
     assert reloaded.recommendations == []
+    assert reloaded.metadata == []
     assert reloaded.bm25 is None
     assert not storage_path.exists()
 
@@ -54,6 +58,7 @@ def test_memory_load_skips_malformed_jsonl_lines(
 
     assert memory.documents == ["valid macro stress"]
     assert memory.recommendations == ["Prefer HOLD."]
+    assert memory.metadata == [{}]
     assert "Skipping malformed memory line" in caplog.text
 
 
@@ -67,7 +72,7 @@ def test_memory_get_memories_returns_ranked_bm25_matches() -> None:
 
     matches = memory.get_memories("services earnings iphone momentum", n_matches=2)
 
-    assert len(matches) == 2
+    assert len(matches) == 1
     assert matches[0]["matched_situation"] == "iphone services earnings beat margin expansion"
     assert matches[0]["recommendation"] == "Bull lesson"
     assert matches[0]["similarity_score"] == pytest.approx(1.0)
@@ -77,3 +82,36 @@ def test_memory_get_memories_returns_empty_when_uninitialized() -> None:
     memory = FinancialSituationMemory(name="empty")
 
     assert memory.get_memories("anything", n_matches=3) == []
+
+
+def test_memory_get_memories_omits_zero_overlap_matches() -> None:
+    memory = FinancialSituationMemory(name="risk")
+    memory.add_situations([
+        ("semiconductor earnings margin expansion", "Chip lesson"),
+        ("energy oil inventory drawdown", "Energy lesson"),
+    ])
+
+    assert memory.get_memories("bank credit duration curve", n_matches=2) == []
+
+
+def test_memory_persists_metadata(tmp_path: Path) -> None:
+    storage_path = tmp_path / "meta.jsonl"
+    memory = FinancialSituationMemory(name="meta", storage_path=storage_path)
+    metadata = {
+        "ticker": "AAPL",
+        "trade_date": "2024-01-05",
+        "signal": "BUY",
+        "realised_return": 0.03,
+        "component": "trader",
+        "prompt_version": "reflector-v1",
+    }
+
+    memory.add_situations([
+        ("situation unique alpha beta", "lesson", metadata),
+        ("other gamma delta", "other lesson"),
+        ("macro rates curve", "macro lesson"),
+    ])
+
+    reloaded = FinancialSituationMemory(name="meta", storage_path=storage_path)
+    assert reloaded.metadata[0] == metadata
+    assert reloaded.get_memories("unique alpha", n_matches=1)[0]["metadata"] == metadata

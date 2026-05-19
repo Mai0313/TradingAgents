@@ -18,6 +18,7 @@ from tradingagents.backtest import (
     _decision_grid,
     _signed_return,
     _entry_price_on,
+    _split_for_index,
     _aggregate_report,
     _exit_price_after_horizon,
 )
@@ -91,34 +92,62 @@ def test_signed_return_handles_each_signal() -> None:
     assert _signed_return("HOLD", 100.0, 200.0, 1.0, 1.0) == 0.0
 
 
+def test_signed_return_applies_costs_and_shorting_availability() -> None:
+    assert _signed_return(
+        "BUY", 100.0, 110.0, 0.5, 0.5, transaction_cost_bps=10, slippage_bps=5
+    ) == pytest.approx(0.0485)
+    assert _signed_return("SELL", 100.0, 90.0, 0.5, 0.5, allow_short=False) == 0.0
+
+
+def test_split_for_index_uses_chronological_fractions() -> None:
+    fractions = (0.5, 0.25, 0.25)
+
+    assert [_split_for_index(i, 8, fractions) for i in range(8)] == [
+        "train",
+        "train",
+        "train",
+        "train",
+        "validation",
+        "validation",
+        "test",
+        "test",
+    ]
+
+
 def test_aggregate_report_computes_metrics() -> None:
     trades = [
         TradeRecord(
             ticker="AAA",
             decision_date="2024-01-05",
+            dataset_split="train",
             recommendation=TradeRecommendation(signal="BUY"),
             entry_price=100.0,
             exit_date="2024-01-12",
             exit_price=105.0,
             realised_return=0.05,
+            benchmark_returns={"buy_and_hold": 0.05, "always_hold": 0.0},
         ),
         TradeRecord(
             ticker="AAA",
             decision_date="2024-01-12",
+            dataset_split="validation",
             recommendation=TradeRecommendation(signal="SELL"),
             entry_price=105.0,
             exit_date="2024-01-19",
             exit_price=110.0,
             realised_return=-0.05,
+            benchmark_returns={"buy_and_hold": 0.04, "always_hold": 0.0},
         ),
         TradeRecord(
             ticker="AAA",
             decision_date="2024-01-19",
-            recommendation=TradeRecommendation(signal="HOLD"),
+            dataset_split="test",
+            recommendation=TradeRecommendation(signal="HOLD", size_fraction=0.0),
             entry_price=110.0,
             exit_date="2024-01-26",
             exit_price=112.0,
             realised_return=0.0,
+            benchmark_returns={"buy_and_hold": 0.01, "always_hold": 0.0},
         ),
     ]
 
@@ -129,6 +158,12 @@ def test_aggregate_report_computes_metrics() -> None:
     assert report.n_hold == 1
     assert report.estimated_cost_usd == 1.5
     assert report.hit_rate == pytest.approx(1 / 3)
+    assert report.benchmarks["buy_and_hold"].total_return > 0
+    assert report.benchmarks["always_hold"].total_return == 0
+    assert set(report.split_reports) == {"train", "validation", "test"}
+    assert report.signal_distribution == {"BUY": 1, "SELL": 1, "HOLD": 1}
+    assert report.warning_rate == 0.0
+    assert report.prompt_versions["backtest_evaluation"] == "backtest-eval-v1"
     # Worst drawdown is negative or zero
     assert report.worst_drawdown <= 0.0
 
@@ -212,6 +247,74 @@ def test_backtester_dry_run_completes_grid(monkeypatch: pytest.MonkeyPatch) -> N
     assert report.avg_trade_return > 0
     assert report.n_buy == len(report.trades)
     assert report.n_hold == 0
+    assert {trade.dataset_split for trade in report.trades} <= {"train", "validation", "test"}
+    assert report.model_names["llm_provider"] == "google_genai"
+    assert report.signal_distribution["BUY"] == len(report.trades)
+    assert set(report.benchmarks) == {
+        "always_hold",
+        "buy_and_hold",
+        "random_baseline",
+        "sma_crossover",
+    }
+
+
+def test_backtester_reflects_only_after_all_tickers_for_same_date(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Walk-forward memory must not leak same-date or future ticker outcomes."""
+    events: list[tuple[str, str, str]] = []
+    fake_history = _fake_history(start="2024-01-01", n=30)
+    monkeypatch.setattr(
+        backtest_module,
+        "_resolve_history_with_cache",
+        lambda symbol, dt: (symbol, fake_history.copy(), [symbol]),
+    )
+
+    class FakeGraph:
+        def __init__(self, **kwargs: Any) -> None:  # noqa: ANN401
+            _ = kwargs
+
+        def propagate(
+            self, company_name: str, trade_date: str
+        ) -> tuple[AgentState, TradeRecommendation]:
+            events.append(("propagate", trade_date, company_name))
+            return (
+                AgentState(company_of_interest=company_name, trade_date=trade_date),
+                TradeRecommendation(signal="BUY", size_fraction=0.1),
+            )
+
+        def reflect_and_remember(
+            self, returns_losses: float, *, state: AgentState, outcome_context: object
+        ) -> dict[str, object]:
+            _ = (returns_losses, outcome_context)
+            events.append(("reflect", state.trade_date, state.company_of_interest))
+            return {}
+
+    monkeypatch.setattr(backtest_module, "TradingAgentsGraph", FakeGraph)
+
+    config = BacktestConfig(
+        tickers=["AAA", "BBB"],
+        start_date="2024-01-05",
+        end_date="2024-01-12",
+        frequency="weekly",
+        horizon_days=3,
+        reflect_after_each_trade=True,
+        walk_forward=True,
+        trading_config=_stub_trading_config(),
+    )
+
+    Backtester(config=config).run()
+
+    assert events == [
+        ("propagate", "2024-01-05", "AAA"),
+        ("propagate", "2024-01-05", "BBB"),
+        ("reflect", "2024-01-05", "AAA"),
+        ("reflect", "2024-01-05", "BBB"),
+        ("propagate", "2024-01-12", "AAA"),
+        ("propagate", "2024-01-12", "BBB"),
+        ("reflect", "2024-01-12", "AAA"),
+        ("reflect", "2024-01-12", "BBB"),
+    ]
 
 
 def test_backtester_uses_fresh_graph_per_ticker(monkeypatch: pytest.MonkeyPatch) -> None:

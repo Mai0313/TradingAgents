@@ -4,6 +4,7 @@ from collections.abc import Callable
 from tradingagents.llm import ChatModel
 from tradingagents.agents.prompts import load_prompt
 from tradingagents.agents.utils.memory import FinancialSituationMemory, format_memories_for_prompt
+from tradingagents.agents.utils.content import flatten_message_content
 from tradingagents.agents.utils.agent_states import AgentState, InvestDebateState
 
 
@@ -47,7 +48,7 @@ def create_bear_researcher(
         )
 
         response = llm.invoke(prompt)
-        argument = f"Bear Analyst: {response.content}"
+        argument = f"Bear Analyst: {flatten_message_content(response.content)}"
 
         new_debate_state = InvestDebateState(
             history=debate.history + "\n" + argument,

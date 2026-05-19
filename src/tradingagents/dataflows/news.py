@@ -2,6 +2,7 @@
 
 import logging
 from datetime import datetime
+from functools import lru_cache
 import contextlib
 from email.utils import parsedate_to_datetime
 import urllib.parse
@@ -15,6 +16,7 @@ from tradingagents.dataflows.tickers import (
     describe_symbol_candidates,
     get_yfinance_symbol_candidates,
 )
+from tradingagents.dataflows.providers import GOOGLE_NEWS_RSS_PROVIDER
 
 logger = logging.getLogger(__name__)
 
@@ -216,6 +218,67 @@ def _entry_pub_date(entry: object) -> datetime | None:
     return _parse_pub_date(raw) if raw else None
 
 
+@lru_cache(maxsize=256)
+def _resolve_company_name_for_news(ticker: str) -> str | None:
+    """Return a company-name query fallback for ambiguous ticker-only news search."""
+    candidates = set(get_yfinance_symbol_candidates(ticker))
+    try:
+        search = yf.Search(query=ticker, max_results=5, news_count=0, enable_fuzzy_query=True)
+    except Exception:
+        logger.debug("Failed to resolve company name for %s", ticker, exc_info=True)
+        return None
+
+    fallback_name: str | None = None
+    for quote in search.quotes[:5]:
+        symbol = str(quote.get("symbol") or "").upper()
+        name = quote.get("longname") or quote.get("shortname") or quote.get("name")
+        if not isinstance(name, str) or not name.strip():
+            continue
+        cleaned_name = name.strip()
+        if fallback_name is None:
+            fallback_name = cleaned_name
+        if symbol in candidates:
+            return cleaned_name
+    return fallback_name
+
+
+def _google_news_query_terms(ticker: str) -> list[str]:
+    """Return ticker-first, company-name-second Google News query terms."""
+    terms = [f"{ticker} stock"]
+    company_name = _resolve_company_name_for_news(ticker)
+    if company_name is not None:
+        name_term = f"{company_name} stock"
+        if name_term.lower() not in {term.lower() for term in terms}:
+            terms.append(name_term)
+    return terms
+
+
+def _format_google_news_entries(
+    entries: list[object], start_dt: datetime, end_dt: datetime, limit: int
+) -> tuple[str, int]:
+    """Format Google News RSS entries that fall inside the requested window."""
+    news_str = ""
+    kept = 0
+    for entry in entries:
+        pub_date = _entry_pub_date(entry)
+        if pub_date is None:
+            continue
+        if not (start_dt <= pub_date < end_dt + relativedelta(days=1)):
+            continue
+        title = getattr(entry, "title", "(no title)")
+        link = getattr(entry, "link", "")
+        publisher = _entry_publisher(entry)
+        news_str += f"### {title} (source: {publisher})\n"
+        news_str += f"Published: {pub_date.strftime('%Y-%m-%d %H:%M:%S')}\n"
+        if link:
+            news_str += f"Link: {link}\n"
+        news_str += "\n"
+        kept += 1
+        if kept >= limit:
+            break
+    return news_str, kept
+
+
 def get_news_google_rss(ticker: str, start_date: str, end_date: str, limit: int = 30) -> str:
     """Retrieve ticker news from Google News RSS within a date window.
 
@@ -242,45 +305,40 @@ def get_news_google_rss(ticker: str, start_date: str, end_date: str, limit: int 
                 f"start_date must be on or before end_date: {start_date} > {end_date}"
             )
 
-        query = urllib.parse.quote_plus(f"{ticker} stock")
         hl, gl, ceid = get_news_locale(ticker)
-        url = _GOOGLE_NEWS_RSS.format(query=query, hl=hl, gl=gl, ceid=ceid)
-        feed = feedparser.parse(url)
+        query_terms = _google_news_query_terms(ticker)
     except Exception as exc:
         logger.debug("Failed to fetch Google News RSS for %s", ticker, exc_info=True)
         return f"{_TOOL_ERROR_PREFIX} Google News RSS fetch failed for {ticker}: {exc!s}"
 
-    entries = list(getattr(feed, "entries", []) or [])
-    if not entries:
-        return f"{_NO_DATA_PREFIX} No Google News results for {ticker}"
+    tried_terms: list[str] = []
+    for term in query_terms:
+        tried_terms.append(term)
+        try:
+            query = urllib.parse.quote_plus(term)
+            url = _GOOGLE_NEWS_RSS.format(query=query, hl=hl, gl=gl, ceid=ceid)
+            feed = feedparser.parse(url)
+        except Exception as exc:
+            logger.debug(
+                "Failed to fetch Google News RSS for %s via %s", ticker, term, exc_info=True
+            )
+            return f"{_TOOL_ERROR_PREFIX} Google News RSS fetch failed for {ticker}: {exc!s}"
 
-    news_str = ""
-    kept = 0
-    for entry in entries:
-        pub_date = _entry_pub_date(entry)
-        if pub_date is None:
+        entries = list(getattr(feed, "entries", []) or [])
+        if not entries:
             continue
-        if not (start_dt <= pub_date < end_dt + relativedelta(days=1)):
-            continue
-        title = getattr(entry, "title", "(no title)")
-        link = getattr(entry, "link", "")
-        publisher = _entry_publisher(entry)
-        news_str += f"### {title} (source: {publisher})\n"
-        news_str += f"Published: {pub_date.strftime('%Y-%m-%d %H:%M:%S')}\n"
-        if link:
-            news_str += f"Link: {link}\n"
-        news_str += "\n"
-        kept += 1
-        if kept >= limit:
-            break
 
-    if kept == 0:
-        return (
-            f"{_NO_DATA_PREFIX} No Google News results for {ticker} between "
-            f"{start_date} and {end_date}"
-        )
+        news_str, kept = _format_google_news_entries(entries, start_dt, end_dt, limit)
+        if kept > 0:
+            return (
+                f"## {ticker} News ({GOOGLE_NEWS_RSS_PROVIDER.name}), "
+                f"query={term!r}, from {start_date} to {end_date}:\n\n{news_str}"
+            )
 
-    return f"## {ticker} News (Google News RSS), from {start_date} to {end_date}:\n\n{news_str}"
+    return (
+        f"{_NO_DATA_PREFIX} No Google News results for {ticker} between "
+        f"{start_date} and {end_date}. Queries tried: {', '.join(tried_terms)}"
+    )
 
 
 def fetch_news(ticker: str, start_date: str, end_date: str) -> str:

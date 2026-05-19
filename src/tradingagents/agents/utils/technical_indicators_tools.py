@@ -2,6 +2,7 @@ from typing import Annotated
 
 from langchain_core.tools import tool
 
+from tradingagents.runtime import reject_future_tool_dates
 from tradingagents.dataflows.yfinance import get_stock_stats_indicators_batch
 
 
@@ -47,5 +48,9 @@ def get_indicators(
 
     if not indicators:
         raise ValueError("At least one indicator must be provided.")
+
+    error = reject_future_tool_dates("get_indicators", curr_date=curr_date)
+    if error is not None:
+        return error
 
     return get_stock_stats_indicators_batch(symbol, indicators, curr_date, look_back_days)

@@ -2,10 +2,12 @@
 
 import re
 import json
-from typing import Any, Literal, cast
+from typing import Any, Self, Literal, cast
 import logging
 
-from pydantic import Field, BaseModel, ConfigDict, field_validator
+from pydantic import Field, BaseModel, ConfigDict, field_validator, model_validator
+
+from tradingagents.agents.utils.content import flatten_message_content
 
 logger = logging.getLogger(__name__)
 
@@ -36,11 +38,19 @@ class TradeRecommendation(BaseModel):
         ..., title="Signal", description="Canonical direction: BUY, SELL, or HOLD."
     )
     size_fraction: float = Field(
-        default=0.5,
+        default=0.25,
         ge=0.0,
         le=1.0,
         title="Size Fraction",
-        description="Position size as a fraction of the available capital (0.0-1.0).",
+        description=(
+            "Position size as a fraction of available capital (0.0-1.0). "
+            "HOLD is normalized to 0.0."
+        ),
+    )
+    entry_reference_price: float | None = Field(
+        default=None,
+        title="Entry Reference Price",
+        description="Latest available close on or before the trade date, when known.",
     )
     target_price: float | None = Field(
         default=None,
@@ -65,6 +75,11 @@ class TradeRecommendation(BaseModel):
         title="Confidence",
         description="Subjective confidence in this recommendation (0.0-1.0).",
     )
+    currency: str | None = Field(
+        default=None,
+        title="Currency",
+        description="Currency for entry_reference_price / target_price / stop_loss when known.",
+    )
     rationale: str = Field(
         default="",
         title="Rationale",
@@ -86,14 +101,26 @@ class TradeRecommendation(BaseModel):
             return value.strip().upper()
         return cast("str", value)
 
+    @model_validator(mode="after")
+    def _normalise_hold_size(self) -> Self:
+        """Force HOLD recommendations to have zero exposure."""
+        if self.signal != "HOLD" or self.size_fraction == 0.0:
+            return self
+
+        warning = (
+            "HOLD recommendation requires size_fraction=0.0; parsed nonzero "
+            f"size_fraction={self.size_fraction:.4f} was forced to 0.0."
+        )
+        if self.warning_message:
+            warning = f"{self.warning_message} {warning}"
+        self.size_fraction = 0.0
+        self.warning_message = warning
+        return self
+
 
 def _flatten_text(payload: str | list[str | dict[str, Any]] | None) -> str:
     """Flatten multi-modal LangChain content into a plain string for regex matching."""
-    if isinstance(payload, list):
-        return "\n".join(
-            item.get("text", "") if isinstance(item, dict) else str(item) for item in payload
-        )
-    return str(payload or "")
+    return flatten_message_content(payload)
 
 
 def extract_trade_signal(full_signal: str | list[str | dict[str, Any]] | None) -> TradeSignal:
@@ -161,7 +188,8 @@ def extract_trade_recommendation(
     2. The last fenced ``` ```json``` block in the response — fills in
        size, target, stop, horizon, confidence, rationale.
     3. When the JSON block is missing or malformed, default everything to
-       conservative midpoints (size 0.5, confidence 0.5) and surface a
+       conservative defaults (size 0.25 for BUY/SELL, 0.0 for HOLD,
+       confidence 0.5) and surface a
        ``warning_message`` so the CLI / backtester can flag the run.
 
     Never raises. The function is on the hot path of every paid LangGraph
@@ -171,13 +199,15 @@ def extract_trade_recommendation(
     text = _flatten_text(full_signal)
     canonical_signal = extract_trade_signal(text)
     json_payload = _parse_json_block(text)
+    fallback_size = 0.0 if canonical_signal == "HOLD" else 0.25
 
     if json_payload is None:
         return TradeRecommendation(
             signal=canonical_signal,
+            size_fraction=fallback_size,
             warning_message=(
                 "No parseable JSON block found in risk-judge output; "
-                "using defaults (size_fraction=0.5, confidence=0.5)."
+                f"using defaults (size_fraction={fallback_size}, confidence=0.5)."
             ),
         )
 
@@ -196,9 +226,10 @@ def extract_trade_recommendation(
         )
         return TradeRecommendation(
             signal=canonical_signal,
+            size_fraction=fallback_size,
             warning_message=(
                 f"JSON block parsed but failed schema validation ({exc!s}); "
-                "using defaults (size_fraction=0.5, confidence=0.5)."
+                f"using defaults (size_fraction={fallback_size}, confidence=0.5)."
             ),
         )
 
@@ -206,13 +237,14 @@ def extract_trade_recommendation(
     if isinstance(json_signal_raw, str):
         json_signal = json_signal_raw.strip().upper()
         if json_signal in {"BUY", "SELL", "HOLD"} and json_signal != canonical_signal:
+            mismatch_warning = (
+                f"JSON block signal ({json_signal}) disagreed with canonical "
+                f"FINAL TRANSACTION PROPOSAL ({canonical_signal}); canonical wins."
+            )
+            if recommendation.warning_message:
+                mismatch_warning = f"{recommendation.warning_message} {mismatch_warning}"
             recommendation = recommendation.model_copy(
-                update={
-                    "warning_message": (
-                        f"JSON block signal ({json_signal}) disagreed with canonical "
-                        f"FINAL TRANSACTION PROPOSAL ({canonical_signal}); canonical wins."
-                    )
-                }
+                update={"warning_message": mismatch_warning}
             )
 
     return recommendation

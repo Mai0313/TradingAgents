@@ -9,6 +9,12 @@ Tool usage guidance:
 - `get_dividends_splits(symbol, start_date, end_date)` lists ex-dividend and split events. Cross-check sudden moves in the OHLCV CSV against splits before flagging them as price-action signals; the OHLCV path uses split-adjusted prices but the calendar context is still useful narrative.
 - If a tool returns `[TOOL_ERROR] ...` or `[NO_DATA] ...`, do not retry the same call; either change arguments or summarize what you already have.
 
+Use this deterministic evidence window unless a tool error forces a narrower retry:
+
+- OHLCV: `start_date="{market_start_date}"`, `end_date="{current_date}"`.
+- Indicators: `curr_date="{current_date}"`, `look_back_days=90`.
+- Dividends / splits: `start_date="{dividends_start_date}"`, `end_date="{current_date}"`.
+
 Choose up to **8 indicators** that provide complementary insights without redundancy. Available indicator menu:
 
 Moving Averages:

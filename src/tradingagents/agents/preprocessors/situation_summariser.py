@@ -8,6 +8,7 @@ from collections.abc import Callable
 
 from tradingagents.llm import ChatModel
 from tradingagents.agents.prompts import load_prompt
+from tradingagents.agents.utils.content import flatten_message_content
 from tradingagents.agents.utils.agent_states import AgentState
 
 
@@ -38,11 +39,6 @@ def create_situation_summariser(llm: ChatModel) -> Callable[[AgentState], dict[s
             fundamentals_report=state.fundamentals_report,
         )
         response = llm.invoke(prompt)
-        content = response.content
-        if isinstance(content, list):
-            content = "\n".join(
-                item.get("text", "") if isinstance(item, dict) else str(item) for item in content
-            )
-        return {"situation_summary": str(content)}
+        return {"situation_summary": flatten_message_content(response.content)}
 
     return situation_summariser_node

@@ -112,7 +112,7 @@ def test_extract_trade_recommendation_falls_back_when_json_missing(
     text = "No JSON anywhere.\nFINAL TRANSACTION PROPOSAL: **HOLD**\n"
     rec = extract_trade_recommendation(text)
     assert rec.signal == "HOLD"
-    assert rec.size_fraction == 0.5
+    assert rec.size_fraction == 0.0
     assert rec.confidence == 0.5
     assert rec.warning_message is not None
     assert "no parseable json" in rec.warning_message.lower()
@@ -132,7 +132,7 @@ FINAL TRANSACTION PROPOSAL: **BUY**
     with caplog.at_level("WARNING"):
         rec = extract_trade_recommendation(text)
     assert rec.signal == "BUY"
-    assert rec.size_fraction == 0.5
+    assert rec.size_fraction == 0.25
     assert rec.warning_message is not None
     assert "no parseable json" in rec.warning_message.lower()
 
@@ -140,4 +140,37 @@ FINAL TRANSACTION PROPOSAL: **BUY**
 def test_extract_trade_recommendation_handles_empty_input() -> None:
     rec = extract_trade_recommendation(None)
     assert rec.signal == "HOLD"
+    assert rec.size_fraction == 0.0
     assert rec.warning_message is not None
+
+
+def test_hold_recommendation_forces_nonzero_json_size_to_zero() -> None:
+    text = """Reasoning...
+
+```json
+{
+  "signal": "HOLD",
+  "size_fraction": 0.7,
+  "target_price": null,
+  "stop_loss": null,
+  "time_horizon_days": null,
+  "confidence": 0.4,
+  "rationale": "Market report and Risk-debate transcript do not justify exposure."
+}
+```
+
+FINAL TRANSACTION PROPOSAL: **HOLD**
+"""
+    rec = extract_trade_recommendation(text)
+
+    assert rec.signal == "HOLD"
+    assert rec.size_fraction == 0.0
+    assert rec.warning_message is not None
+    assert "forced to 0.0" in rec.warning_message
+
+
+def test_buy_missing_json_uses_conservative_size() -> None:
+    rec = extract_trade_recommendation("FINAL TRANSACTION PROPOSAL: **BUY**")
+
+    assert rec.signal == "BUY"
+    assert rec.size_fraction == 0.25
