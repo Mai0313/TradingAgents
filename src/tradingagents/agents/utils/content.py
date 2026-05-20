@@ -34,7 +34,7 @@ def has_tool_evidence(messages: list[Any]) -> bool:
     return False
 
 
-def analyst_report_or_evidence_warning(
+def analyst_report_or_evidence_warning(  # noqa: PLR0913
     *,
     analyst_name: str,
     ticker: str,
