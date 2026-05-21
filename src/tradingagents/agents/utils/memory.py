@@ -31,6 +31,7 @@ class MemoryMatch(TypedDict):
 
 
 type MemoryInput = tuple[str, str] | tuple[str, str, dict[str, object]]
+type MemoryRow = tuple[str, str, dict[str, object]]
 
 
 _TOKEN_RE = re.compile(r"\b\w+\b")
@@ -39,6 +40,20 @@ _TOKEN_RE = re.compile(r"\b\w+\b")
 def _tokenize(text: str) -> list[str]:
     """Tokenize ``text`` into lowercased word tokens for BM25 indexing."""
     return _TOKEN_RE.findall(text.lower())
+
+
+def _dedupe_rows(rows: list[MemoryRow]) -> list[MemoryRow]:
+    """Return rows without duplicate situation / recommendation / metadata triples."""
+    deduped: list[MemoryRow] = []
+    seen: set[tuple[str, str, str]] = set()
+    for situation, recommendation, metadata in rows:
+        metadata_key = json.dumps(metadata, ensure_ascii=False, sort_keys=True, default=str)
+        key = (situation, recommendation, metadata_key)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append((situation, recommendation, metadata))
+    return deduped
 
 
 class FinancialSituationMemory(BaseModel):
@@ -96,7 +111,14 @@ class FinancialSituationMemory(BaseModel):
         path = self.storage_path
         if path is None or not path.exists():
             return
-        loaded = 0
+        rows = self._read_rows_from_disk(path)
+        if rows:
+            self._replace_rows(rows)
+            logger.info("Loaded %d memories from %s", len(rows), path)
+
+    def _read_rows_from_disk(self, path: Path) -> list[MemoryRow]:
+        """Return valid memory rows from a JSONL file."""
+        rows: list[MemoryRow] = []
         for raw_line in path.read_text(encoding="utf-8").splitlines():
             line = raw_line.strip()
             if not line:
@@ -106,15 +128,25 @@ class FinancialSituationMemory(BaseModel):
             except json.JSONDecodeError:
                 logger.warning("Skipping malformed memory line in %s", path)
                 continue
-            self.documents.append(str(record.get("situation", "")))
-            self.recommendations.append(str(record.get("recommendation", "")))
             metadata = record.get("metadata")
-            self.metadata.append(metadata if isinstance(metadata, dict) else {})
-            loaded += 1
-        if loaded:
-            self._align_metadata()
-            self._rebuild_index()
-            logger.info("Loaded %d memories from %s", loaded, path)
+            rows.append((
+                str(record.get("situation", "")),
+                str(record.get("recommendation", "")),
+                metadata if isinstance(metadata, dict) else {},
+            ))
+        return rows
+
+    def _memory_rows(self) -> list[MemoryRow]:
+        """Return in-memory rows after aligning legacy metadata."""
+        self._align_metadata()
+        return list(zip(self.documents, self.recommendations, self.metadata, strict=True))
+
+    def _replace_rows(self, rows: list[MemoryRow]) -> None:
+        """Replace in-memory rows and rebuild the BM25 index."""
+        self.documents = [situation for situation, _, _ in rows]
+        self.recommendations = [recommendation for _, recommendation, _ in rows]
+        self.metadata = [metadata for _, _, metadata in rows]
+        self._rebuild_index()
 
     def _save_to_disk(self) -> None:
         """Atomically rewrite ``storage_path`` from in-memory documents."""
@@ -161,16 +193,20 @@ class FinancialSituationMemory(BaseModel):
         Args:
             situations_and_advice: Situation and recommendation pairs to store.
         """
+        new_rows: list[MemoryRow] = []
         for item in situations_and_advice:
             situation = item[0]
             recommendation = item[1]
             metadata = item[2] if len(item) > 2 else {}
             if not isinstance(metadata, dict):
                 metadata = {}
-            self.documents.append(situation)
-            self.recommendations.append(recommendation)
-            self.metadata.append(metadata)
-        self._rebuild_index()
+            new_rows.append((situation, recommendation, metadata))
+        if not new_rows:
+            return
+        rows = self._memory_rows() + new_rows
+        if self.storage_path is not None and self.storage_path.exists():
+            rows = self._read_rows_from_disk(self.storage_path) + rows
+        self._replace_rows(_dedupe_rows(rows))
         self._save_to_disk()
 
     def get_memories(

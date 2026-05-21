@@ -115,3 +115,17 @@ def test_memory_persists_metadata(tmp_path: Path) -> None:
     reloaded = FinancialSituationMemory(name="meta", storage_path=storage_path)
     assert reloaded.metadata[0] == metadata
     assert reloaded.get_memories("unique alpha", n_matches=1)[0]["metadata"] == metadata
+
+
+def test_memory_add_situations_merges_existing_disk_rows(tmp_path: Path) -> None:
+    storage_path = tmp_path / "shared.jsonl"
+    first = FinancialSituationMemory(name="shared", storage_path=storage_path)
+    second = FinancialSituationMemory(name="shared", storage_path=storage_path)
+
+    first.add_situations([("alpha earnings setup", "first lesson", {"ticker": "AAA"})])
+    second.add_situations([("beta macro setup", "second lesson", {"ticker": "BBB"})])
+    first.add_situations([("gamma risk setup", "third lesson", {"ticker": "CCC"})])
+
+    reloaded = FinancialSituationMemory(name="shared", storage_path=storage_path)
+    assert reloaded.documents == ["alpha earnings setup", "beta macro setup", "gamma risk setup"]
+    assert reloaded.metadata == [{"ticker": "AAA"}, {"ticker": "BBB"}, {"ticker": "CCC"}]

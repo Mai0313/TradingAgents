@@ -23,6 +23,8 @@ from tradingagents.backtest import Backtester, BacktestConfig
 if TYPE_CHECKING:
     from tradingagents.backtest import BacktestReport
 
+type SplitFractionsArg = str | list[float | str] | tuple[float | str, ...]
+
 
 def _split_tickers(value: str | list[str] | tuple[str, ...]) -> list[str]:
     """Split a fire-friendly ``--tickers`` argument into a clean list."""
@@ -33,13 +35,14 @@ def _split_tickers(value: str | list[str] | tuple[str, ...]) -> list[str]:
     return cleaned
 
 
-def _parse_split_fractions(value: str | tuple[float, float, float]) -> tuple[float, float, float]:
+def _parse_split_fractions(value: SplitFractionsArg) -> tuple[float, float, float]:
     """Parse fire-friendly train / validation / test fractions."""
-    if isinstance(value, tuple):
-        return value
-    parts = [float(part.strip()) for part in str(value).split(",") if part.strip()]
+    if isinstance(value, (list, tuple)):
+        parts = [float(str(part).strip()) for part in value if str(part).strip()]
+    else:
+        parts = [float(part.strip()) for part in str(value).split(",") if part.strip()]
     if len(parts) != 3:
-        raise ValueError("--split_fractions must contain three comma-separated numbers.")
+        raise ValueError("--split_fractions must contain three numbers.")
     return (parts[0], parts[1], parts[2])
 
 
@@ -132,7 +135,7 @@ def run_backtest(  # noqa: PLR0913, D417 -- mirrors run_cli's full flag surface
     dry_run: bool = False,
     reflect_after_each_trade: bool = True,
     walk_forward: bool = True,
-    split_fractions: str | tuple[float, float, float] = "0.6,0.2,0.2",
+    split_fractions: SplitFractionsArg = "0.6,0.2,0.2",
     output: str | None = None,
     llm_provider: LLMProvider = "google_genai",
     deep_think_llm: str = "gemini-flash-latest",
@@ -171,8 +174,8 @@ def run_backtest(  # noqa: PLR0913, D417 -- mirrors run_cli's full flag surface
         walk_forward: When True, memory is updated only after each
             earlier scored trade. When False, reflection is skipped
             during the run.
-        split_fractions: Comma-separated train / validation / test
-            fractions used for chronological split reporting.
+        split_fractions: Comma-separated or list / tuple train / validation /
+            test fractions used for chronological split reporting.
         output: Optional path to write the JSON report dump to. The Rich
             summary is always printed regardless.
         llm_provider / deep_think_llm / quick_think_llm /

@@ -22,6 +22,7 @@ from tradingagents.backtest import (
     _aggregate_report,
     _exit_price_after_horizon,
 )
+from tradingagents.interface.backtest import _parse_split_fractions
 from tradingagents.graph.signal_processing import TradeRecommendation
 from tradingagents.agents.utils.agent_states import AgentState
 
@@ -112,6 +113,11 @@ def test_split_for_index_uses_chronological_fractions() -> None:
         "test",
         "test",
     ]
+
+
+def test_parse_split_fractions_accepts_fire_list_values() -> None:
+    assert _parse_split_fractions([0.6, "0.2", 0.2]) == (0.6, 0.2, 0.2)
+    assert _parse_split_fractions(("0.7", "0.2", "0.1")) == (0.7, 0.2, 0.1)
 
 
 def test_aggregate_report_computes_metrics() -> None:
@@ -318,21 +324,8 @@ def test_backtester_reflects_only_after_all_tickers_for_same_date(
 
 
 def test_backtester_uses_fresh_graph_per_ticker(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Regression: TradingAgentsGraph state (self.ticker, log_states_dict)
-    is mutable per-run; reusing one instance across tickers would cross-
-    contaminate per-ticker log files (Copilot review on PR #49).
-    """
+    """Each decision needs a fresh graph so persisted memory is reloaded chronologically."""
     instantiations: list[str] = []
-
-    real_init = trading_graph_module.TradingAgentsGraph.__init__
-
-    def counting_init(self: Any, **kwargs: Any) -> None:  # noqa: ANN401
-        real_init(self, **kwargs)
-        # The constructor does not yet know the ticker; record by id so the
-        # test asserts on the *number* of fresh instances rather than tickers.
-        instantiations.append(f"graph#{len(instantiations)}")
-
-    monkeypatch.setattr(trading_graph_module.TradingAgentsGraph, "__init__", counting_init)
 
     fake_history = _fake_history(start="2024-01-01", n=40)
     monkeypatch.setattr(
@@ -341,17 +334,19 @@ def test_backtester_uses_fresh_graph_per_ticker(monkeypatch: pytest.MonkeyPatch)
         lambda symbol, dt: (symbol, fake_history.copy(), [symbol]),
     )
 
-    def fake_propagate(
-        self: Any,  # noqa: ANN401
-        company_name: str,
-        trade_date: str,
-        **kwargs: Any,  # noqa: ANN401
-    ) -> tuple[AgentState, TradeRecommendation]:
-        state = AgentState(company_of_interest=company_name, trade_date=trade_date)
-        rec = TradeRecommendation(signal="BUY")
-        return state, rec
+    class FakeGraph:
+        def __init__(self, **kwargs: Any) -> None:  # noqa: ANN401
+            _ = kwargs
+            instantiations.append(f"graph#{len(instantiations)}")
 
-    monkeypatch.setattr(trading_graph_module.TradingAgentsGraph, "propagate", fake_propagate)
+        def propagate(
+            self, company_name: str, trade_date: str
+        ) -> tuple[AgentState, TradeRecommendation]:
+            state = AgentState(company_of_interest=company_name, trade_date=trade_date)
+            rec = TradeRecommendation(signal="BUY")
+            return state, rec
+
+    monkeypatch.setattr(backtest_module, "TradingAgentsGraph", FakeGraph)
 
     config = BacktestConfig(
         tickers=["AAA", "BBB", "CCC"],
@@ -366,7 +361,41 @@ def test_backtester_uses_fresh_graph_per_ticker(monkeypatch: pytest.MonkeyPatch)
 
     Backtester(config=config).run()
 
-    # One graph per ticker, regardless of how many decision dates each ticker has.
-    assert len(instantiations) == 3, (
-        f"Expected one TradingAgentsGraph instantiation per ticker, got {len(instantiations)}"
+    expected = len(config.tickers) * len(
+        _decision_grid(config.start_date, config.end_date, "weekly")
     )
+    assert len(instantiations) == expected
+
+
+def test_backtester_propagate_error_hold_does_not_count_as_parser_warning(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FailingGraph:
+        def __init__(self, **kwargs: Any) -> None:  # noqa: ANN401
+            _ = kwargs
+
+        def propagate(
+            self, company_name: str, trade_date: str
+        ) -> tuple[AgentState, TradeRecommendation]:
+            _ = (company_name, trade_date)
+            raise RuntimeError("boom")
+
+    monkeypatch.setattr(backtest_module, "TradingAgentsGraph", FailingGraph)
+
+    config = BacktestConfig(
+        tickers=["AAA"],
+        start_date="2024-01-05",
+        end_date="2024-01-05",
+        frequency="weekly",
+        dry_run=True,
+        reflect_after_each_trade=False,
+        trading_config=_stub_trading_config(),
+    )
+
+    report = Backtester(config=config).run()
+
+    assert report.trades[0].recommendation.signal == "HOLD"
+    assert report.trades[0].recommendation.size_fraction == 0.0
+    assert report.trades[0].recommendation.warning_message is None
+    assert report.warning_rate == 0.0
+    assert "propagate error: boom" in report.trades[0].notes

@@ -823,10 +823,6 @@ class Backtester(BaseModel):
         try:
             trades: list[TradeRecord] = []
             stop = False
-            graphs = {
-                ticker: TradingAgentsGraph(config=cfg.trading_config, callbacks=[cost_tracker])
-                for ticker in cfg.tickers
-            }
 
             for split_index, decision_date in enumerate(grid):
                 if stop:
@@ -839,7 +835,7 @@ class Backtester(BaseModel):
                 for ticker in cfg.tickers:
                     if stop:
                         break
-                    graph = graphs[ticker]
+                    graph = TradingAgentsGraph(config=cfg.trading_config, callbacks=[cost_tracker])
                     try:
                         state, recommendation = graph.propagate(ticker, decision_date)
                     except CostBudgetExceeded as exc:
@@ -853,7 +849,9 @@ class Backtester(BaseModel):
                                 ticker=ticker,
                                 decision_date=decision_date,
                                 dataset_split=dataset_split,
-                                recommendation=TradeRecommendation(signal="HOLD"),
+                                recommendation=TradeRecommendation(
+                                    signal="HOLD", size_fraction=0.0
+                                ),
                                 notes=f"propagate error: {exc!s}",
                             )
                         )
