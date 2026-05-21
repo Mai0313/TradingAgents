@@ -1176,10 +1176,39 @@ def _as_of_filter_dated_frame(
     if as_of is None or df is None or df.empty or date_column not in df.columns:
         return df
     try:
-        dates = pd.to_datetime(df[date_column], errors="coerce", utc=True).dt.tz_localize(None)
+        dates = pd.to_datetime(
+            df[date_column], errors="coerce", utc=True, format="ISO8601"
+        ).dt.tz_localize(None)
     except Exception:
         return df
+    if not dates.notna().any():
+        return df
     return df.loc[dates <= pd.Timestamp(as_of)]
+
+
+def _has_relative_recommendation_periods(recommendations: pd.DataFrame) -> bool:
+    """Return whether yfinance recommendation periods are relative month buckets."""
+    if "period" not in recommendations.columns:
+        return False
+    periods = recommendations["period"].dropna().astype(str).str.strip()
+    return not periods.empty and periods.str.fullmatch(r"[+-]?\d+m").all()
+
+
+def _filter_recommendations_as_of(
+    recommendations: pd.DataFrame, curr_date: str | None, ticker: str
+) -> pd.DataFrame | str:
+    """Filter date-indexed recommendation rows or return a no-data sentinel."""
+    if "period" not in recommendations.columns:
+        return recommendations
+    if not _has_relative_recommendation_periods(recommendations):
+        return _as_of_filter_dated_frame(recommendations, curr_date, "period")
+    if not _is_historical_date(curr_date):
+        return recommendations
+    return (
+        f"{_NO_DATA_PREFIX} Analyst ratings for {ticker}: yfinance recommendationTrend "
+        "uses relative month buckets (0m, -1m, ...), not historical as-of dates. "
+        "Returning no rows to avoid lookahead bias."
+    )
 
 
 def get_analyst_ratings(
@@ -1192,9 +1221,11 @@ def get_analyst_ratings(
     sell / strong-sell counts (``recommendations``) plus a snapshot
     summary (``recommendations_summary``); both are surfaced when
     ``curr_date`` is None or in the present. For historical
-    ``curr_date`` the snapshot is suppressed (current-only) but the
-    rolling history is filtered to keep only periods on or before
-    ``curr_date`` to avoid lookahead.
+    ``curr_date`` the snapshot is suppressed (current-only), while
+    truly date-indexed recommendation rows are filtered to keep only
+    periods on or before ``curr_date`` to avoid lookahead. yfinance's
+    relative buckets (``0m``, ``-1m``, ...) are current-only and return
+    ``[NO_DATA]`` for historical runs.
     """
     resolved_ticker, ticker_obj, candidates = _resolved_ticker_obj(ticker)
 
@@ -1212,8 +1243,10 @@ def get_analyst_ratings(
     # Some yfinance variants index by date instead of carrying a column.
     if isinstance(recs.index, pd.DatetimeIndex) and "period" not in recs.columns:
         recs = recs.reset_index().rename(columns={"index": "period"})
-    if "period" in recs.columns:
-        recs = _as_of_filter_dated_frame(recs, curr_date, "period")
+    filtered_recs = _filter_recommendations_as_of(recs, curr_date, ticker)
+    if isinstance(filtered_recs, str):
+        return filtered_recs
+    recs = filtered_recs
 
     header = f"# Analyst Ratings (rolling counts) for {resolved_ticker}\n"
     if curr_date is not None:

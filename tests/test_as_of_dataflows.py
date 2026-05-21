@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 from pathlib import Path
 from datetime import datetime, timedelta
+import warnings
 
 import pandas as pd
 import pytest
@@ -178,6 +179,71 @@ def test_statement_fetches_return_no_data_sentinel_when_empty(
     result = getattr(yfinance_data, function_name)("AAPL", curr_date="2024-01-03")
 
     assert result.startswith("[NO_DATA]")
+
+
+def test_analyst_ratings_keeps_current_relative_periods_without_pandas_warning(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    recommendations = pd.DataFrame({
+        "period": ["0m", "-1m", "-2m"],
+        "strongBuy": [1, 2, 3],
+        "buy": [4, 5, 6],
+        "hold": [7, 8, 9],
+        "sell": [0, 0, 1],
+        "strongSell": [0, 0, 0],
+    })
+
+    class FakeTicker:
+        @property
+        def recommendations(self) -> pd.DataFrame:
+            return recommendations
+
+        @property
+        def recommendations_summary(self) -> pd.DataFrame:
+            return pd.DataFrame()
+
+    monkeypatch.setattr(
+        yfinance_data, "_resolved_ticker_obj", lambda ticker: ("AAPL", FakeTicker(), ["AAPL"])
+    )
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        result = yfinance_data.get_analyst_ratings(
+            "AAPL", curr_date=datetime.now().strftime("%Y-%m-%d")
+        )
+
+    assert "0m" in result
+    assert not any("Could not infer format" in str(warning.message) for warning in caught)
+
+
+def test_analyst_ratings_rejects_historical_relative_periods(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    recommendations = pd.DataFrame({
+        "period": ["0m", "-1m", "-2m"],
+        "strongBuy": [1, 2, 3],
+        "buy": [4, 5, 6],
+        "hold": [7, 8, 9],
+        "sell": [0, 0, 1],
+        "strongSell": [0, 0, 0],
+    })
+
+    class FakeTicker:
+        @property
+        def recommendations(self) -> pd.DataFrame:
+            return recommendations
+
+    monkeypatch.setattr(
+        yfinance_data, "_resolved_ticker_obj", lambda ticker: ("AAPL", FakeTicker(), ["AAPL"])
+    )
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        result = yfinance_data.get_analyst_ratings("AAPL", curr_date="2024-01-03")
+
+    assert result.startswith("[NO_DATA]")
+    assert "relative month buckets" in result
+    assert not any("Could not infer format" in str(warning.message) for warning in caught)
 
 
 def test_insider_transactions_continue_after_candidate_exception(
