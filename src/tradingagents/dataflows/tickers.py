@@ -37,18 +37,18 @@ _DEFAULT_NEWS_LOCALE: tuple[str, str, str] = ("en-US", "US", "US:en")
 def get_news_locale(symbol: str) -> tuple[str, str, str]:
     """Resolve Google News (hl, gl, ceid) parameters for a Yahoo Finance symbol.
 
-    The Google News RSS endpoint accepts ``hl`` (host language),
-    ``gl`` (geographical location), and ``ceid`` (country edition id);
+    The Google News RSS endpoint accepts `hl` (host language),
+    `gl` (geographical location), and `ceid` (country edition id);
     keeping them aligned with the issuer's home exchange is what makes
     small-cap foreign issuers actually surface in the news feed instead
     of returning only US-targeted English coverage.
 
     Args:
         symbol: A yfinance-style ticker, optionally with a known
-            exchange suffix (``2330.TW``, ``7203.T``, ``ASML.AS``, ...).
+            exchange suffix (`2330.TW`, `7203.T`, `ASML.AS`, ...).
 
     Returns:
-        ``(hl, gl, ceid)``. Falls back to en-US for bare US-style
+        `(hl, gl, ceid)`. Falls back to en-US for bare US-style
         symbols, unsuffixed digits, or unrecognised suffixes.
     """
     cleaned = symbol.strip().upper()

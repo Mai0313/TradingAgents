@@ -40,7 +40,7 @@ def test_get_yfin_data_online_slices_from_shared_history_cache(
     """get_yfin_data_online now reads the shared 15-y cache and slices the requested window.
 
     The previous test verified the live yfinance call directly; the new
-    implementation goes through ``_resolve_history_with_cache`` so a single
+    implementation goes through `_resolve_history_with_cache` so a single
     download services both the OHLCV tool and the indicator pipeline.
     """
     seen: dict[str, object] = {}
@@ -296,7 +296,7 @@ def test_insider_transactions_returns_no_data_sentinel_when_empty(
 def test_stock_stats_bulk_multi_continues_after_candidate_load_exception(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """The single-indicator helper was replaced by ``_get_stock_stats_bulk_multi``
+    """The single-indicator helper was replaced by `_get_stock_stats_bulk_multi`
     in the indicator-batching refactor; this test now exercises the new helper.
     """
     calls: list[str] = []
@@ -349,7 +349,7 @@ def test_normalize_freq_rejects_unknown_values() -> None:
 def test_cache_covers_window_treats_last_required_dt_as_inclusive() -> None:
     """The cache covers up to and including curr_date; coverage check must accept that.
 
-    Previously the helper compared against the exclusive yfinance ``end=`` value
+    Previously the helper compared against the exclusive yfinance `end=` value
     (curr_date + 1d), so the cached window — which never contains curr_date+1d's
     bar — would always be flagged as insufficient and trigger a re-download.
     """
@@ -370,10 +370,10 @@ def test_cache_covers_window_rejects_short_cache() -> None:
 
 
 def test_get_earnings_calendar_handles_dataframe_calendar(monkeypatch: pytest.MonkeyPatch) -> None:
-    """yfinance.Ticker.calendar may return a DataFrame; bare ``if cal:`` raises.
+    """yfinance.Ticker.calendar may return a DataFrame; bare `if cal:` raises.
 
     Pins the type-dispatch fix so older yfinance releases (DataFrame shape)
-    no longer crash the tool with ``ValueError: The truth value of a DataFrame is ambiguous``.
+    no longer crash the tool with `ValueError: The truth value of a DataFrame is ambiguous`.
     """
     cal_df = pd.DataFrame({"Earnings Date": ["2024-04-25"], "EPS Estimate": [1.5]})
 
@@ -459,7 +459,7 @@ def test_get_news_yfinance_skips_undated_and_future_articles(
 
 
 def test_get_news_yfinance_returns_tool_error_sentinel(monkeypatch: pytest.MonkeyPatch) -> None:
-    """News fetch errors must surface a ``[TOOL_ERROR]`` sentinel that the prompt
+    """News fetch errors must surface a `[TOOL_ERROR]` sentinel that the prompt
     layer can react to deterministically (rather than treating the traceback
     string as ordinary text).
     """
@@ -479,7 +479,7 @@ def test_get_news_yfinance_returns_tool_error_sentinel(monkeypatch: pytest.Monke
 def test_get_global_news_yfinance_returns_tool_error_sentinel(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Same ``[TOOL_ERROR]`` sentinel contract on the global-news path."""
+    """Same `[TOOL_ERROR]` sentinel contract on the global-news path."""
 
     class FailingSearch:
         def __init__(self, **kwargs: object) -> None:

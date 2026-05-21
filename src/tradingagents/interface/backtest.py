@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 
 def _split_tickers(value: str | list[str] | tuple[str, ...]) -> list[str]:
-    """Split a fire-friendly ``--tickers`` argument into a clean list."""
+    """Split a fire-friendly `--tickers` argument into a clean list."""
     items = list(value) if isinstance(value, (list, tuple)) else str(value).split(",")
     cleaned = [str(item).strip() for item in items if str(item).strip()]
     if not cleaned:
@@ -110,8 +110,8 @@ def run_backtest(  # noqa: PLR0913, D417 -- mirrors run_cli's full flag surface
             Each is evaluated independently against the same date grid.
         start: Inclusive grid start date in YYYY-MM-DD format. Required.
         end: Inclusive grid end date in YYYY-MM-DD format. Required.
-        frequency: ``daily`` (every business day) or ``weekly`` (Fridays).
-            Defaults to ``weekly`` since per-day LLM cost adds up fast.
+        frequency: `daily` (every business day) or `weekly` (Fridays).
+            Defaults to `weekly` since per-day LLM cost adds up fast.
         horizon_days: Trading bars forward to mark-to-market each decision.
         initial_cash: Notional capital used only for drawdown framing.
         max_position_fraction: Upper bound applied to the LLM-provided
@@ -134,8 +134,8 @@ def run_backtest(  # noqa: PLR0913, D417 -- mirrors run_cli's full flag surface
 
     Returns:
         BacktestReport: The aggregate metrics. The same object is also
-        rendered to the console; pass ``output`` to additionally write
-        ``model_dump_json`` to disk.
+        rendered to the console; pass `output` to additionally write
+        `model_dump_json` to disk.
     """
     if start is None or end is None:
         raise ValueError("--start and --end are required (YYYY-MM-DD).")

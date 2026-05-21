@@ -17,10 +17,10 @@ _PEERS: dict[str, tuple[str, str]] = {
 
 
 def first_turn_or(text: str) -> str:
-    """Return ``text`` or an explicit first-speaker sentinel if it is empty.
+    """Return `text` or an explicit first-speaker sentinel if it is empty.
 
     Risk-debate prompts splice in peers' previous responses via
-    ``{current_*_response}`` placeholders. On the opening turn those values
+    `{current_*_response}` placeholders. On the opening turn those values
     are empty strings, and LLMs frequently respond by inventing rebuttals to
     nonexistent prior arguments unless explicitly told the debate has not
     started yet.
@@ -37,12 +37,12 @@ def make_debator_node(role: DebatorRole, llm: ChatModel) -> Callable[[AgentState
     or rewording a peer-response placeholder needs only one edit.
 
     Args:
-        role: ``"Aggressive"``, ``"Conservative"``, or ``"Neutral"``.
+        role: `"Aggressive"`, `"Conservative"`, or `"Neutral"`.
         llm: ChatModel used to generate the debate response.
 
     Returns:
         A LangGraph node callable conforming to
-        ``(state: AgentState) -> dict[str, Any]``.
+        `(state: AgentState) -> dict[str, Any]`.
     """
     role_lower = role.lower()
     if role_lower not in _PEERS:

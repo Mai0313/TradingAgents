@@ -121,7 +121,7 @@ class SetupScreen(Screen[None]):
 
         Returns:
             list[Any]: A single-element list containing the composed
-            Horizontal row, returned as a list so callers can ``yield from``.
+            Horizontal row, returned as a list so callers can `yield from`.
         """
         return [
             Horizontal(
@@ -140,7 +140,7 @@ class SetupScreen(Screen[None]):
             default (int): Pre-filled value.
 
         Returns:
-            list[Any]: A list with one Horizontal row, ready for ``yield from``.
+            list[Any]: A list with one Horizontal row, ready for `yield from`.
         """
         return [
             Horizontal(
@@ -162,7 +162,7 @@ class SetupScreen(Screen[None]):
             default (str): Preselected option.
 
         Returns:
-            list[Any]: A list with one Horizontal row, ready for ``yield from``.
+            list[Any]: A list with one Horizontal row, ready for `yield from`.
         """
         return [
             Horizontal(
@@ -237,7 +237,7 @@ class SetupScreen(Screen[None]):
         )
 
     def _select_value(self, field_id: str) -> str:
-        """Read a Select widget's current value, coerced to ``str``.
+        """Read a Select widget's current value, coerced to `str`.
 
         Args:
             field_id (str): DOM id of the Select widget.

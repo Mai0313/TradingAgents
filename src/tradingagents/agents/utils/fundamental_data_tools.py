@@ -104,7 +104,7 @@ def get_analyst_ratings(
     Returns the rolling strong-buy / buy / hold / sell / strong-sell
     distribution by period plus, for present-day runs only, the
     recommendation summary. Historical runs see the rolling history
-    filtered to periods on or before ``curr_date``.
+    filtered to periods on or before `curr_date`.
 
     Args:
         ticker (str): Ticker symbol.
@@ -112,8 +112,8 @@ def get_analyst_ratings(
             YYYY-MM-DD format.
 
     Returns:
-        str: Formatted ratings report, ``[NO_DATA]`` message, or
-            ``[TOOL_ERROR]`` message.
+        str: Formatted ratings report, `[NO_DATA]` message, or
+            `[TOOL_ERROR]` message.
     """
     return _get_analyst_ratings(ticker, curr_date)
 
@@ -126,7 +126,7 @@ def get_institutional_holders(
     """Retrieve institutional + major holders snapshots.
 
     yfinance only exposes the current snapshot; for back-dated
-    ``curr_date`` this tool deliberately returns ``[NO_DATA]`` to
+    `curr_date` this tool deliberately returns `[NO_DATA]` to
     avoid leaking present-day positioning into historical analysis.
 
     Args:
@@ -135,7 +135,7 @@ def get_institutional_holders(
             YYYY-MM-DD format.
 
     Returns:
-        str: Formatted holders snapshot or ``[NO_DATA]`` message.
+        str: Formatted holders snapshot or `[NO_DATA]` message.
     """
     return _get_institutional_holders(ticker, curr_date)
 
@@ -147,8 +147,8 @@ def get_short_interest(
 ) -> str:
     """Retrieve short interest, days-to-cover, and float percentage.
 
-    Sourced from current ``yfinance.info``; historical ``curr_date`` is
-    rejected with ``[NO_DATA]`` to keep back-tests lookahead-free.
+    Sourced from current `yfinance.info`; historical `curr_date` is
+    rejected with `[NO_DATA]` to keep back-tests lookahead-free.
 
     Args:
         ticker (str): Ticker symbol.
@@ -156,7 +156,7 @@ def get_short_interest(
             YYYY-MM-DD format.
 
     Returns:
-        str: Formatted short-interest report or ``[NO_DATA]`` message.
+        str: Formatted short-interest report or `[NO_DATA]` message.
     """
     return _get_short_interest(ticker, curr_date)
 
@@ -171,7 +171,7 @@ def get_dividends_splits(
 
     Both yfinance series are date-indexed history, so the returned
     rows are inherently point-in-time correct -- back-test cleanly by
-    passing ``end_date == curr_date``.
+    passing `end_date == curr_date`.
 
     Args:
         ticker (str): Ticker symbol.
@@ -179,6 +179,6 @@ def get_dividends_splits(
         end_date (str): Window end (inclusive) in YYYY-MM-DD format.
 
     Returns:
-        str: Formatted dividends / splits report or ``[NO_DATA]`` message.
+        str: Formatted dividends / splits report or `[NO_DATA]` message.
     """
     return _get_dividends_splits(ticker, start_date, end_date)

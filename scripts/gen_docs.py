@@ -36,7 +36,7 @@ def _nav_indent(level: int) -> str:
 
 
 def _build_nav_section(title: str, dir_path: Path, level: int, docs_root: Path) -> list[str]:
-    """Render YAML lines for a nav section rooted at ``dir_path``.
+    """Render YAML lines for a nav section rooted at `dir_path`.
 
     Subdirectories are emitted before sibling markdown files so packages
     appear above leaf modules. Returns an empty list if the directory has
@@ -65,7 +65,7 @@ def _build_nav_section(title: str, dir_path: Path, level: int, docs_root: Path) 
 def _rebuild_nav(
     docs_dir: str, config_path: str, sections: tuple[str, ...] | list[str] | str
 ) -> None:
-    """Rewrite the marker-bounded nav block in ``config_path`` from ``docs_dir``."""
+    """Rewrite the marker-bounded nav block in `config_path` from `docs_dir`."""
     docs_root = Path(docs_dir)
     config_file = Path(config_path)
 
@@ -103,7 +103,7 @@ class DocsGenerator(BaseModel):
             Generate per-module markdown pages from a Python or notebook source tree.
 
         build_nav() -> None:
-            Rewrite the auto-generated MkDocs nav block by scanning ``docs/``.
+            Rewrite the auto-generated MkDocs nav block by scanning `docs/`.
 
     Examples:
     === "Generate docs pages"
@@ -316,19 +316,19 @@ class DocsGenerator(BaseModel):
     ) -> None:
         """Rewrite the auto-generated MkDocs nav block by scanning the docs tree.
 
-        The script walks each requested top-level section under ``docs_dir`` and
+        The script walks each requested top-level section under `docs_dir` and
         emits a nested nav YAML structure so the sidebar shows every leaf module
         directly. It rewrites only the region delimited by the sentinel comments
-        in ``config_path``; everything outside the markers is preserved verbatim.
+        in `config_path`; everything outside the markers is preserved verbatim.
 
-        Exposed as a ``@staticmethod`` so Fire can dispatch
-        ``gen_docs.py build_nav`` without instantiating ``DocsGenerator`` (which
-        would require ``--source`` / ``--output`` that are irrelevant here).
+        Exposed as a `@staticmethod` so Fire can dispatch
+        `gen_docs.py build_nav` without instantiating `DocsGenerator` (which
+        would require `--source` / `--output` that are irrelevant here).
 
         Args:
-            docs_dir: Path to the MkDocs source directory (where ``index.md`` lives).
-            config_path: Path to the ``mkdocs.yml`` to update in-place.
-            sections: Top-level directory names under ``docs_dir`` to expose as
+            docs_dir: Path to the MkDocs source directory (where `index.md` lives).
+            config_path: Path to the `mkdocs.yml` to update in-place.
+            sections: Top-level directory names under `docs_dir` to expose as
                 expandable nav sections. Sections that do not exist on disk are
                 silently skipped.
         """

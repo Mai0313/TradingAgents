@@ -32,7 +32,7 @@ def test_get_news_locale_resolves_suffix(symbol: str, expected: tuple[str, str, 
 
 
 def test_google_news_rss_uses_locale_url(monkeypatch: pytest.MonkeyPatch) -> None:
-    """``get_news_google_rss`` must substitute the resolved (hl, gl, ceid) into the URL."""
+    """`get_news_google_rss` must substitute the resolved (hl, gl, ceid) into the URL."""
     captured: dict[str, Any] = {}
 
     def fake_feedparser_parse(url: str) -> SimpleNamespace:

@@ -48,7 +48,7 @@ ANALYST_TOOL_REGISTRY: dict[AnalystType, tuple[BaseTool, ...]] = {
 
 
 def get_analyst_tools(analyst_type: AnalystType) -> tuple[BaseTool, ...]:
-    """Return the registered tool tuple for ``analyst_type``."""
+    """Return the registered tool tuple for `analyst_type`."""
     return ANALYST_TOOL_REGISTRY[analyst_type]
 
 

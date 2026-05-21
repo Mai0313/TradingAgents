@@ -17,7 +17,7 @@ def get_news(
     """Retrieve news for a ticker from yfinance plus Google News RSS fallback.
 
     The combined report includes whichever sources returned articles. If
-    both sources are empty, a single combined ``[NO_DATA]`` message is
+    both sources are empty, a single combined `[NO_DATA]` message is
     returned so the calling LLM sees both diagnostic reasons.
 
     Args:
@@ -26,8 +26,8 @@ def get_news(
         end_date (str): End date in YYYY-MM-DD format.
 
     Returns:
-        str: A formatted news report, a ``[NO_DATA]`` message, or a
-        ``[TOOL_ERROR]`` message.
+        str: A formatted news report, a `[NO_DATA]` message, or a
+        `[TOOL_ERROR]` message.
     """
     return fetch_news(ticker, start_date, end_date)
 
@@ -79,7 +79,7 @@ def get_earnings_calendar(
 ) -> str:
     """Get next confirmed earnings event plus a rolling past/forward dates table.
 
-    For historical ``curr_date`` the rolling earnings_dates table is
+    For historical `curr_date` the rolling earnings_dates table is
     split into past (<= curr_date) and forward (> curr_date) sections,
     and any "Reported" / "Surprise" columns in the forward section are
     redacted so the News analyst cannot accidentally consume future
@@ -91,7 +91,7 @@ def get_earnings_calendar(
             YYYY-MM-DD format.
 
     Returns:
-        str: Formatted earnings-calendar report or ``[NO_DATA]`` message.
+        str: Formatted earnings-calendar report or `[NO_DATA]` message.
     """
     return _get_earnings_calendar(ticker, curr_date)
 
@@ -105,7 +105,7 @@ def get_market_context(
     """Get a compact regional macro snapshot (local index, US 10y yield, VIX).
 
     The local index is auto-resolved from the ticker suffix
-    (``.TW`` -> ``^TWII``, ``.DE`` -> ``^GDAXI``, ...) so Taiwan / HK /
+    (`.TW` -> `^TWII`, `.DE` -> `^GDAXI`, ...) so Taiwan / HK /
     JP / DE analysts get region-correct context without having to know
     the index ticker themselves.
 
@@ -117,7 +117,7 @@ def get_market_context(
 
     Returns:
         str: A formatted multi-section snapshot, with per-probe
-            ``[NO_DATA]`` / ``[TOOL_ERROR]`` sentinels so partial
+            `[NO_DATA]` / `[TOOL_ERROR]` sentinels so partial
             failures do not nullify the context.
     """
     return _get_market_context(ticker, curr_date, look_back_days)

@@ -2,9 +2,9 @@
 
 Exposes :func:`run_tui` as the entrypoint that
 :mod:`tradingagents.__main__` dispatches when the user invokes
-``tradingagents tui`` (or the ``poe tui`` alias). The app's return
+`tradingagents tui` (or the `poe tui` alias). The app's return
 value is the final BUY / SELL / HOLD decision string when a run
-completed, or ``None`` when the user cancelled before the pipeline
+completed, or `None` when the user cancelled before the pipeline
 finished.
 """
 
@@ -30,7 +30,7 @@ class TradingAgentsApp(App["TradeRecommendation | None"]):
     The app starts on :class:`SetupScreen` (parameter form). Submitting
     that screen pushes :class:`RunScreen`, which kicks off the live
     pipeline worker. Both screens call :meth:`App.exit` with the final
-    decision (or ``None``) when the user is done, so :func:`run_tui`
+    decision (or `None`) when the user is done, so :func:`run_tui`
     can return it to the calling shell command.
     """
 
@@ -58,12 +58,12 @@ def run_tui() -> TradeRecommendation | None:
        panels stream back into the log and the sidebar lights up the
        currently-running phase, all reflowing automatically on
        terminal resize (the original motivation for migrating off the
-       plain ``rich.console.Console.print`` path).
+       plain `rich.console.Console.print` path).
 
     Returns:
         TradeRecommendation | None: The structured Risk-Manager
         recommendation returned by
-        :meth:`TradingAgentsGraph.process_signal`, or ``None`` when the
+        :meth:`TradingAgentsGraph.process_signal`, or `None` when the
         user cancels at the setup screen or quits before the pipeline
         finishes.
     """

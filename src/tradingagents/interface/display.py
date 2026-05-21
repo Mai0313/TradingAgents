@@ -33,9 +33,9 @@ class MessageRenderer(BaseModel):
 
     Attributes:
         emit (Callable[[RenderableType], None]): Receives each rendered
-            Rich renderable. CLI passes ``Console.print``; TUI passes a
-            thread-safe ``RichLog.write`` wrapper that defers writes to
-            the Textual main thread via ``App.call_from_thread``.
+            Rich renderable. CLI passes `Console.print`; TUI passes a
+            thread-safe `RichLog.write` wrapper that defers writes to
+            the Textual main thread via `App.call_from_thread`.
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -58,7 +58,7 @@ class MessageRenderer(BaseModel):
                 to. Defaults to a new console bound to stdout.
 
         Returns:
-            MessageRenderer: A renderer whose ``emit`` is bound to the
+            MessageRenderer: A renderer whose `emit` is bound to the
             console's print method.
         """
         target = console or Console()
@@ -306,7 +306,7 @@ def make_final_decision_panel(recommendation: TradeRecommendation) -> Panel:
 
     Args:
         recommendation (TradeRecommendation): The structured recommendation
-            returned by ``SignalProcessor.process_signal``.
+            returned by `SignalProcessor.process_signal`.
 
     Returns:
         Panel: The composed Rich panel.
@@ -361,6 +361,6 @@ def print_final_decision(console: Console, recommendation: TradeRecommendation) 
     Args:
         console (Console): The Rich console to print on.
         recommendation (TradeRecommendation): The structured recommendation
-            returned by ``SignalProcessor.process_signal``.
+            returned by `SignalProcessor.process_signal`.
     """
     console.print(make_final_decision_panel(recommendation))

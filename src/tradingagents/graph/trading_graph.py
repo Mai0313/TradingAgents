@@ -42,7 +42,7 @@ def _safe_path_component(value: str) -> str:
 
 
 def _atomic_write_text(path: Path, content: str) -> None:
-    """Write ``content`` to ``path`` atomically and as UTF-8.
+    """Write `content` to `path` atomically and as UTF-8.
 
     A crash mid-write must never leave a half-written log on disk that
     a subsequent reflection step or downstream tool would silently
@@ -57,8 +57,8 @@ def _tool_error_handler(exc: Exception) -> str:
     """Return a non-retry message when a LangGraph tool raises.
 
     Without this handler, any yfinance hiccup produces a traceback inside
-    the tool's ``ToolMessage.content``; the analyst then re-invokes the
-    same call and can burn the entire ``max_recur_limit`` budget. This
+    the tool's `ToolMessage.content`; the analyst then re-invokes the
+    same call and can burn the entire `max_recur_limit` budget. This
     formatter instructs the LLM to stop retrying that exact call.
     """
     return (
@@ -158,7 +158,7 @@ class TradingAgentsGraph(BaseModel):
         return self._create_llm(self.config.quick_think_llm)
 
     def _memory_path(self, name: str) -> Path:
-        """Return the JSONL storage path for a memory ``name`` under data_cache_dir."""
+        """Return the JSONL storage path for a memory `name` under data_cache_dir."""
         return self.config.data_cache_dir / "memories" / f"{name}.jsonl"
 
     def _make_memory(self, name: str) -> FinancialSituationMemory:
@@ -168,31 +168,31 @@ class TradingAgentsGraph(BaseModel):
     @computed_field
     @cached_property
     def bull_memory(self) -> FinancialSituationMemory:
-        """Bull-researcher memory, persisted to ``<data_cache_dir>/memories/bull_memory.jsonl``."""
+        """Bull-researcher memory, persisted to `<data_cache_dir>/memories/bull_memory.jsonl`."""
         return self._make_memory("bull_memory")
 
     @computed_field
     @cached_property
     def bear_memory(self) -> FinancialSituationMemory:
-        """Bear-researcher memory, persisted to ``<data_cache_dir>/memories/bear_memory.jsonl``."""
+        """Bear-researcher memory, persisted to `<data_cache_dir>/memories/bear_memory.jsonl`."""
         return self._make_memory("bear_memory")
 
     @computed_field
     @cached_property
     def trader_memory(self) -> FinancialSituationMemory:
-        """Trader memory, persisted to ``<data_cache_dir>/memories/trader_memory.jsonl``."""
+        """Trader memory, persisted to `<data_cache_dir>/memories/trader_memory.jsonl`."""
         return self._make_memory("trader_memory")
 
     @computed_field
     @cached_property
     def invest_judge_memory(self) -> FinancialSituationMemory:
-        """Investment-judge memory, persisted under ``<data_cache_dir>/memories/``."""
+        """Investment-judge memory, persisted under `<data_cache_dir>/memories/`."""
         return self._make_memory("invest_judge_memory")
 
     @computed_field
     @cached_property
     def risk_manager_memory(self) -> FinancialSituationMemory:
-        """Risk-manager memory, persisted under ``<data_cache_dir>/memories/``."""
+        """Risk-manager memory, persisted under `<data_cache_dir>/memories/`."""
         return self._make_memory("risk_manager_memory")
 
     @computed_field
@@ -293,10 +293,10 @@ class TradingAgentsGraph(BaseModel):
 
         Returns:
             tuple[AgentState, TradeRecommendation]: The final agent state
-            (with ``final_trade_recommendation`` populated) and the
+            (with `final_trade_recommendation` populated) and the
             structured BUY / SELL / HOLD recommendation extracted from the
             Risk Judge output. Defaults to a HOLD recommendation with
-            ``warning_message`` set when the risk-judge output is empty or
+            `warning_message` set when the risk-judge output is empty or
             ambiguous; see :func:`extract_trade_recommendation`.
 
         Raises:
@@ -346,23 +346,23 @@ class TradingAgentsGraph(BaseModel):
     ) -> str | None:
         """Forward newly-arrived messages from one stream chunk.
 
-        Mutates ``collected`` so the eventual ``_log_state`` call sees
+        Mutates `collected` so the eventual `_log_state` call sees
         every message that ever flew past, even those wiped by Msg
         Clear nodes between analyst phases.
 
         Args:
-            chunk (Any): One snapshot from ``graph.stream`` -- either a
+            chunk (Any): One snapshot from `graph.stream` -- either a
                 dict (the common case) or an AgentState-like object.
             collected (dict[str, AnyMessage]): Per-run accumulator
                 mapping message ID to message; updated in-place.
             last_emitted_id (str | None): The ID of the last message
-                already forwarded to ``on_message`` / pretty_print.
+                already forwarded to `on_message` / pretty_print.
             on_message (Callable[[AnyMessage], None] | None): External
                 renderer callback. When None, falls back to
-                ``message.pretty_print`` if ``self.debug`` is set.
+                `message.pretty_print` if `self.debug` is set.
 
         Returns:
-            str | None: The new ``last_emitted_id`` after this chunk.
+            str | None: The new `last_emitted_id` after this chunk.
         """
         messages = (
             chunk.get("messages") if isinstance(chunk, dict) else getattr(chunk, "messages", None)
@@ -387,7 +387,7 @@ class TradingAgentsGraph(BaseModel):
         chunk: Any,  # noqa: ANN401  # langgraph stream chunk is dict|AgentState
         on_state: Callable[[AgentState], None],
     ) -> None:
-        """Validate ``chunk`` as :class:`AgentState` and invoke ``on_state``.
+        """Validate `chunk` as :class:`AgentState` and invoke `on_state`.
 
         The TUI's phase sidebar is a best-effort observer, so any
         validation or callback failure is logged at debug level and
@@ -414,7 +414,7 @@ class TradingAgentsGraph(BaseModel):
             final_state (AgentState): The final agent state to log.
             all_messages (list[AnyMessage]): Every message observed across the
                 graph run, in arrival order. Required because per-analyst Msg
-                Clear nodes wipe ``final_state.messages`` between rounds.
+                Clear nodes wipe `final_state.messages` between rounds.
         """
         invest = final_state.investment_debate_state
         risk = final_state.risk_debate_state
@@ -509,9 +509,9 @@ class TradingAgentsGraph(BaseModel):
     def reflect_and_remember(self, returns_losses: float, state: AgentState | None = None) -> None:
         """Reflect on the decision chain and append lessons to every memory.
 
-        When ``state`` is ``None`` the most recent ``self.curr_state`` from
+        When `state` is `None` the most recent `self.curr_state` from
         :meth:`propagate` is used; pass an explicit state when reflecting on a
-        run loaded from disk (e.g. via the ``reflect`` CLI subcommand).
+        run loaded from disk (e.g. via the `reflect` CLI subcommand).
 
         Args:
             returns_losses: Actual returns or losses from the trade.
@@ -541,7 +541,7 @@ class TradingAgentsGraph(BaseModel):
         Returns:
             TradeRecommendation: The structured decision (signal, size,
             target, stop, horizon, confidence, rationale), defaulting to a
-            HOLD recommendation with ``warning_message`` set when the input
+            HOLD recommendation with `warning_message` set when the input
             is empty or ambiguous.
         """
         return self.signal_processor.process_signal(full_signal)

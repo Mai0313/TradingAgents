@@ -11,14 +11,14 @@ otherwise it is undoing the work of an earlier change.
 
 Two modes:
 
-- **Real run** drives the live ``TradingAgentsGraph`` for each
+- **Real run** drives the live `TradingAgentsGraph` for each
   (ticker, decision_date) and accumulates LLM cost via
-  :class:`CostTracker`. The loop halts when ``budget_cap_usd`` is hit.
+  :class:`CostTracker`. The loop halts when `budget_cap_usd` is hit.
 - **Dry run** swaps in :class:`StubChatModel` so the harness itself can
   be validated in seconds without burning API budget. The stub always
   produces a parseable Risk Judge JSON + canonical line.
 
-Per-trade reflection is optional (``reflect_after_each_trade=True``):
+Per-trade reflection is optional (`reflect_after_each_trade=True`):
 the realised return is fed back through
 :meth:`TradingAgentsGraph.reflect_and_remember` so memory grows during
 the backtest just as it would in production.
@@ -72,7 +72,7 @@ _PRICING_USD_PER_MTOK: dict[str, tuple[float, float]] = {
 
 
 class CostBudgetExceeded(RuntimeError):  # noqa: N818 -- public API name, kept stable
-    """Raised when cumulative LLM spend exceeds ``budget_cap_usd``."""
+    """Raised when cumulative LLM spend exceeds `budget_cap_usd`."""
 
 
 class BacktestConfig(BaseModel):
@@ -195,10 +195,10 @@ class BacktestReport(BaseModel):
 class CostTracker(BaseCallbackHandler):
     """Best-effort LLM cost tracker; tallies tokens via callback events.
 
-    LangChain providers populate ``ChatResult.llm_output["token_usage"]``
+    LangChain providers populate `ChatResult.llm_output["token_usage"]`
     on completion. This handler reads that, multiplies by the pricing
     table, and raises :class:`CostBudgetExceeded` once the running
-    total exceeds ``budget_cap_usd`` (when set). The exception is the
+    total exceeds `budget_cap_usd` (when set). The exception is the
     cleanest way to abort an in-flight LangGraph run; the
     :meth:`Backtester.run` loop catches it and stops cleanly.
     """
@@ -231,7 +231,7 @@ class CostTracker(BaseCallbackHandler):
 
 
 def _extract_token_usage(response: Any) -> tuple[int, int, str] | None:  # noqa: ANN401
-    """Pull ``(input_tokens, output_tokens, model_name)`` out of an LLM response."""
+    """Pull `(input_tokens, output_tokens, model_name)` out of an LLM response."""
     llm_output = getattr(response, "llm_output", None) or {}
     model_name = ""
     if isinstance(llm_output, dict):
@@ -248,7 +248,7 @@ def _extract_token_usage(response: Any) -> tuple[int, int, str] | None:  # noqa:
             if input_tok or output_tok:
                 return input_tok, output_tok, model_name
     # Fall back to the per-generation usage_metadata that newer LangChain
-    # versions expose via ``AIMessage.usage_metadata``.
+    # versions expose via `AIMessage.usage_metadata`.
     generations = getattr(response, "generations", None) or []
     for gen_list in generations:
         for gen in gen_list:
@@ -316,10 +316,10 @@ def _stub_canned_response(prompt_text: str) -> str:
 
 
 class StubChatModel(BaseChatModel):
-    """In-memory chat-model stub used by ``BacktestConfig.dry_run=True``.
+    """In-memory chat-model stub used by `BacktestConfig.dry_run=True`.
 
     Implements :class:`BaseChatModel` minimally so it slots into every
-    place a real provider does, including ``llm.bind_tools(...)``. Tool
+    place a real provider does, including `llm.bind_tools(...)`. Tool
     calls are deliberately never produced so analyst loops short-circuit
     to a single response per analyst.
     """
@@ -353,7 +353,7 @@ class StubChatModel(BaseChatModel):
 
 
 def _decision_grid(start_date: str, end_date: str, frequency: Frequency) -> list[str]:
-    """Return decision-date strings (YYYY-MM-DD) inside ``[start_date, end_date]``."""
+    """Return decision-date strings (YYYY-MM-DD) inside `[start_date, end_date]`."""
     start_dt = pd.Timestamp(start_date)
     end_dt = pd.Timestamp(end_date)
     if start_dt > end_dt:
@@ -372,7 +372,7 @@ def _decision_grid(start_date: str, end_date: str, frequency: Frequency) -> list
 def _exit_price_after_horizon(
     history: pd.DataFrame, decision_date: str, horizon_days: int
 ) -> tuple[str | None, float | None]:
-    """Return ``(exit_date, exit_close)`` ``horizon_days`` bars after decision."""
+    """Return `(exit_date, exit_close)` `horizon_days` bars after decision."""
     if history.empty or "Date" not in history.columns or "Close" not in history.columns:
         return None, None
     dates = pd.to_datetime(history["Date"])
@@ -387,7 +387,7 @@ def _exit_price_after_horizon(
 
 
 def _entry_price_on(history: pd.DataFrame, decision_date: str) -> tuple[str | None, float | None]:
-    """Return ``(entry_date, entry_close)`` for the first trading bar >= decision_date.
+    """Return `(entry_date, entry_close)` for the first trading bar >= decision_date.
 
     Trades enter on the close of the decision date (or the next open trading day
     if decision_date itself is not a trading day -- weekend / holiday).
@@ -423,7 +423,7 @@ def _periods_per_year(frequency: Frequency) -> float:
 def _aggregate_report(
     trades: list[TradeRecord], frequency: Frequency, cost_usd: float
 ) -> BacktestReport:
-    """Compute the summary metrics over ``trades``."""
+    """Compute the summary metrics over `trades`."""
     if not trades:
         return BacktestReport(
             trades=[],
@@ -488,11 +488,11 @@ class Backtester(BaseModel):
     _stub_singleton: SkipValidation[StubChatModel | None] = None
 
     def _maybe_install_stub_llm(self) -> Callable[[], None] | None:
-        """Monkeypatch ``build_chat_model`` to the stub when ``dry_run`` is True.
+        """Monkeypatch `build_chat_model` to the stub when `dry_run` is True.
 
         Returns a teardown callable that restores the real factory. Done
         in-process via attribute replacement on the two import sites that
-        actually look up ``build_chat_model`` at runtime.
+        actually look up `build_chat_model` at runtime.
         """
         if not self.config.dry_run:
             return None

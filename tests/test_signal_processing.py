@@ -80,7 +80,7 @@ FINAL TRANSACTION PROPOSAL: **BUY**
 def test_extract_trade_recommendation_warns_on_signal_disagreement(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """If the JSON ``signal`` disagrees with the canonical line, canonical wins
+    """If the JSON `signal` disagrees with the canonical line, canonical wins
     and the recommendation carries a warning_message documenting the mismatch.
     """
     text = """Reasoning...

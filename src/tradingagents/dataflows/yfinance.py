@@ -183,14 +183,14 @@ def _download_history(candidate: str, start_date: str, end_date: str) -> pd.Data
 def _cache_covers_window(
     cached: pd.DataFrame, start_dt: datetime, last_required_dt: datetime
 ) -> bool:
-    """Return whether ``cached`` spans ``[start_dt, last_required_dt]`` inclusively.
+    """Return whether `cached` spans `[start_dt, last_required_dt]` inclusively.
 
     The cache key no longer encodes the date range (P1-8), so any reuse
     must first verify the on-disk file actually covers the window the
-    caller needs. ``last_required_dt`` is the latest *trading-day* the
-    caller needs — NOT the exclusive ``end=`` value passed to yfinance.
+    caller needs. `last_required_dt` is the latest *trading-day* the
+    caller needs — NOT the exclusive `end=` value passed to yfinance.
     Comparing against the exclusive end would always fail (yfinance never
-    returns a bar dated at ``end``), defeating the cache.
+    returns a bar dated at `end`), defeating the cache.
 
     A partial-coverage hit triggers a wider re-download rather than
     silently returning truncated history.
@@ -206,10 +206,10 @@ def _cache_covers_window(
 
 
 def _is_cache_fresh(data_file: Path, curr_date_dt: datetime) -> bool:
-    """Return whether the on-disk cache should be reused for ``curr_date``.
+    """Return whether the on-disk cache should be reused for `curr_date`.
 
     Historical (back-dated) runs always reuse the cache; today's run only
-    reuses it if the file was written within ``_CACHE_FRESH_HOURS`` hours.
+    reuses it if the file was written within `_CACHE_FRESH_HOURS` hours.
     Window coverage is checked separately by :func:`_cache_covers_window`,
     so a fresh-but-incomplete cache still triggers a re-download.
     """
@@ -235,8 +235,8 @@ def _load_history_candidate(  # noqa: PLR0913 -- mix of paths + dates + freshnes
 
     The cache filename is now ticker-only (P1-8) so adjacent run-dates
     reuse the same file. Each call verifies the cached window covers
-    ``[start_dt, last_required_dt]`` inclusively; partial coverage falls
-    back to a fresh download (using the exclusive ``end_date`` string
+    `[start_dt, last_required_dt]` inclusively; partial coverage falls
+    back to a fresh download (using the exclusive `end_date` string
     yfinance expects) that overwrites the file with the wider window.
     """
     candidate_data = pd.DataFrame()
@@ -265,15 +265,15 @@ def _load_history_candidate(  # noqa: PLR0913 -- mix of paths + dates + freshnes
 def _resolve_history_with_cache(
     symbol: str, curr_date_dt: datetime
 ) -> tuple[str, pd.DataFrame, list[str]]:
-    """Fetch (or load cached) 15-year OHLCV history for ``symbol``.
+    """Fetch (or load cached) 15-year OHLCV history for `symbol`.
 
     The resulting DataFrame is shared between :func:`get_yfin_data_online`
     (which slices it by request window) and :func:`_get_stock_stats_bulk`
     (which feeds it through stockstats), so a single download per ticker
     services every market-analyst tool call.
 
-    The cache filename is ticker-only (``<TICKER>-YFin-data.csv``); the
-    requested ``[curr_date - 15y, curr_date + 1d]`` window is verified at
+    The cache filename is ticker-only (`<TICKER>-YFin-data.csv`); the
+    requested `[curr_date - 15y, curr_date + 1d]` window is verified at
     read time so adjacent run dates reuse the same on-disk file. Without
     this, daily backtests would produce a new cache file per business day
     and never benefit from cache reuse.
@@ -284,7 +284,7 @@ def _resolve_history_with_cache(
             and decide whether the cache is still fresh.
 
     Returns:
-        ``(resolved_symbol, dataframe, candidate_list)``.
+        `(resolved_symbol, dataframe, candidate_list)`.
 
     Raises:
         ValueError: If no market data is found across all candidates.
@@ -554,7 +554,7 @@ _MIN_BARS_FOR_RELIABLE_INDICATORS = 50
 def _get_stock_stats_bulk_multi(
     symbol: str, indicators: list[str], curr_date: str
 ) -> tuple[str, dict[str, dict[str, str]], int]:
-    """Resolve history once and compute every indicator in ``indicators``.
+    """Resolve history once and compute every indicator in `indicators`.
 
     Args:
         symbol: User-supplied ticker.
@@ -563,8 +563,8 @@ def _get_stock_stats_bulk_multi(
         curr_date: Current trading date in YYYY-MM-DD format.
 
     Returns:
-        ``(resolved_symbol, {indicator: {YYYY-MM-DD: value_str}}, n_bars)``.
-        ``n_bars`` is the number of OHLCV rows actually fed through
+        `(resolved_symbol, {indicator: {YYYY-MM-DD: value_str}}, n_bars)`.
+        `n_bars` is the number of OHLCV rows actually fed through
         stockstats so the formatter can warn when the history is shorter
         than the long-window indicators (sma_200 etc.) need.
 
@@ -674,7 +674,7 @@ def get_stock_stats_indicators_window(
         Formatted string containing indicator values and a description.
 
     Raises:
-        ValueError: If the requested indicator is not supported, ``curr_date``
+        ValueError: If the requested indicator is not supported, `curr_date`
             does not match YYYY-MM-DD, the symbol is empty, or no market data
             is available.
     """
@@ -684,7 +684,7 @@ def get_stock_stats_indicators_window(
 def _resolve_ticker_info(ticker: str) -> tuple[str, dict[str, object], list[str]]:
     """Iterate ticker candidates and return the first with meaningful info.
 
-    Returns ``(resolved_ticker, info_dict, candidates)`` where ``info_dict``
+    Returns `(resolved_ticker, info_dict, candidates)` where `info_dict`
     is empty if every candidate failed.
 
     Raises:
@@ -728,10 +728,10 @@ _SHARES_ROW_KEYS: tuple[str, ...] = (
 def _last_n_quarter_sum(
     statement: pd.DataFrame, row_keys: tuple[str, ...], n: int
 ) -> float | None:
-    """Return the sum of the latest ``n`` quarterly columns for the first matching row.
+    """Return the sum of the latest `n` quarterly columns for the first matching row.
 
     Statement columns are filtered point-in-time, sorted left-to-right by
-    period end date by yfinance. Picking the last ``n`` columns gives the
+    period end date by yfinance. Picking the last `n` columns gives the
     TTM-most approximation that respects the as-of cutoff.
     """
     if statement.empty:
@@ -769,7 +769,7 @@ def _latest_row_value(statement: pd.DataFrame, row_keys: tuple[str, ...]) -> flo
 
 
 def _close_on_or_before(symbol: str, curr_date_dt: datetime) -> float | None:
-    """Return the latest cached close price at or before ``curr_date_dt``."""
+    """Return the latest cached close price at or before `curr_date_dt`."""
     try:
         _, data, _ = _resolve_history_with_cache(symbol, curr_date_dt)
     except Exception:
@@ -839,11 +839,11 @@ def get_fundamentals(
 ) -> str:
     """Get company fundamentals overview from yfinance.
 
-    For current-date runs the standard ``yfinance.info`` snapshot is
-    returned. For back-dated ``curr_date`` (point-in-time analysis)
-    ``yfinance.info`` is current-only and would leak future data, so the
+    For current-date runs the standard `yfinance.info` snapshot is
+    returned. For back-dated `curr_date` (point-in-time analysis)
+    `yfinance.info` is current-only and would leak future data, so the
     function falls back to a computed-locally block: close price at or
-    before ``curr_date`` from the 15-y OHLCV cache, TTM diluted EPS from
+    before `curr_date` from the 15-y OHLCV cache, TTM diluted EPS from
     the as-of-filtered income statement, and book value per share from
     the as-of-filtered balance sheet — giving Historical P/E and P/B
     multiples without lookahead bias.
@@ -1152,7 +1152,7 @@ def get_income_statement(
 
 
 def _resolved_ticker_obj(ticker: str) -> tuple[str, "yf.Ticker", list[str]]:
-    """Return the first yf.Ticker candidate whose ``.info`` carries identity fields.
+    """Return the first yf.Ticker candidate whose `.info` carries identity fields.
 
     Reuses :func:`_resolve_ticker_info` so every new yfinance-backed
     tool (analyst ratings, earnings calendar, holders, short interest,
@@ -1166,9 +1166,9 @@ def _resolved_ticker_obj(ticker: str) -> tuple[str, "yf.Ticker", list[str]]:
 def _as_of_filter_dated_frame(
     df: pd.DataFrame, curr_date: str | None, date_column: str
 ) -> pd.DataFrame:
-    """Return rows whose ``date_column`` is on or before ``curr_date``.
+    """Return rows whose `date_column` is on or before `curr_date`.
 
-    Falls back to the input frame untouched when ``curr_date`` is None or
+    Falls back to the input frame untouched when `curr_date` is None or
     the column is missing / unparsable, so callers can safely chain
     this past best-effort yfinance shapes.
     """
@@ -1215,17 +1215,17 @@ def get_analyst_ratings(
     ticker: Annotated[str, "ticker symbol of the company"],
     curr_date: Annotated[str | None, "current trading date in YYYY-MM-DD format"] = None,
 ) -> str:
-    """Retrieve analyst rating history for ``ticker``.
+    """Retrieve analyst rating history for `ticker`.
 
     yfinance exposes a quarterly rollup of strong-buy / buy / hold /
-    sell / strong-sell counts (``recommendations``) plus a snapshot
-    summary (``recommendations_summary``); both are surfaced when
-    ``curr_date`` is None or in the present. For historical
-    ``curr_date`` the snapshot is suppressed (current-only), while
+    sell / strong-sell counts (`recommendations`) plus a snapshot
+    summary (`recommendations_summary`); both are surfaced when
+    `curr_date` is None or in the present. For historical
+    `curr_date` the snapshot is suppressed (current-only), while
     truly date-indexed recommendation rows are filtered to keep only
-    periods on or before ``curr_date`` to avoid lookahead. yfinance's
-    relative buckets (``0m``, ``-1m``, ...) are current-only and return
-    ``[NO_DATA]`` for historical runs.
+    periods on or before `curr_date` to avoid lookahead. yfinance's
+    relative buckets (`0m`, `-1m`, ...) are current-only and return
+    `[NO_DATA]` for historical runs.
     """
     resolved_ticker, ticker_obj, candidates = _resolved_ticker_obj(ticker)
 
@@ -1278,9 +1278,9 @@ def get_earnings_calendar(  # noqa: C901, PLR0912, PLR0915 -- yfinance returns m
 ) -> str:
     """Retrieve upcoming + recent earnings dates and the calendar summary.
 
-    Combines ``yf.Ticker.calendar`` (a snapshot of the next confirmed
-    event) with ``yf.Ticker.earnings_dates`` (a rolling history /
-    forecast). For historical ``curr_date`` the rolling table is split
+    Combines `yf.Ticker.calendar` (a snapshot of the next confirmed
+    event) with `yf.Ticker.earnings_dates` (a rolling history /
+    forecast). For historical `curr_date` the rolling table is split
     into past (<= curr_date) and forward (> curr_date) sections so the
     News analyst can reason about catalyst proximity without leaking
     the actual reported figure from a future filing.
@@ -1366,8 +1366,8 @@ def get_institutional_holders(
     """Retrieve institutional + major holders snapshots.
 
     yfinance only exposes the *current* holders snapshot; there is no
-    historical archive, so for back-dated ``curr_date`` the function
-    returns a clearly-flagged ``[NO_DATA]`` note instead of leaking
+    historical archive, so for back-dated `curr_date` the function
+    returns a clearly-flagged `[NO_DATA]` note instead of leaking
     present-day positioning into a back-test.
     """
     if _is_historical_date(curr_date):
@@ -1413,8 +1413,8 @@ def get_short_interest(
 ) -> str:
     """Retrieve short interest, days-to-cover, and float-percentage metrics.
 
-    Sourced from ``yfinance.info`` which is current-only; for
-    back-dated ``curr_date`` the function returns a ``[NO_DATA]`` note
+    Sourced from `yfinance.info` which is current-only; for
+    back-dated `curr_date` the function returns a `[NO_DATA]` note
     to keep historical decisions free of forward-looking positioning.
     """
     if _is_historical_date(curr_date):
@@ -1454,11 +1454,11 @@ def get_dividends_splits(
     start_date: Annotated[str, "start date in YYYY-MM-DD format"],
     end_date: Annotated[str, "end date in YYYY-MM-DD format"],
 ) -> str:
-    """Retrieve dividends and stock-split events within ``[start_date, end_date]``.
+    """Retrieve dividends and stock-split events within `[start_date, end_date]`.
 
-    Both ``yf.Ticker.dividends`` and ``.splits`` are date-indexed
+    Both `yf.Ticker.dividends` and `.splits` are date-indexed
     historical Series, so this tool is point-in-time correct without
-    further filtering: pass ``end_date == curr_date`` to back-test
+    further filtering: pass `end_date == curr_date` to back-test
     cleanly.
     """
     start_dt, end_dt = _validate_date_range(start_date, end_date)
@@ -1500,7 +1500,7 @@ _INSIDER_HISTORY_HORIZON_DAYS = 180
 def _insider_history_unavailable_message(ticker: str, curr_date: str | None) -> str | None:
     """Return a no-data message if curr_date is older than yfinance's horizon.
 
-    The message is prefixed with ``[NO_DATA]`` to match the sentinel used by
+    The message is prefixed with `[NO_DATA]` to match the sentinel used by
     the news / RSS fallback path in :mod:`tradingagents.dataflows.news`, so
     LLM prompts can deterministically distinguish "no data available" from
     a real partial result.
@@ -1553,7 +1553,7 @@ _GLOBAL_PROBES: tuple[tuple[str, str], ...] = (
 
 
 def _probe_market_index(symbol: str, label: str, start_dt: datetime, end_dt: datetime) -> str:
-    """Render a one-paragraph snapshot of an index over ``[start_dt, end_dt]``."""
+    """Render a one-paragraph snapshot of an index over `[start_dt, end_dt]`."""
     try:
         hist = yf.Ticker(symbol).history(
             start=start_dt, end=end_dt + timedelta(days=1), auto_adjust=False
@@ -1588,23 +1588,23 @@ def get_market_context(
 ) -> str:
     """Return a compact regional macro snapshot for the News Analyst.
 
-    Surfaces: the local exchange index (derived from ``ticker``'s suffix
+    Surfaces: the local exchange index (derived from `ticker`'s suffix
     via :func:`tradingagents.dataflows.tickers.get_news_locale`), the US
-    10-year Treasury yield (``^TNX``), and the CBOE VIX. This gives
+    10-year Treasury yield (`^TNX`), and the CBOE VIX. This gives
     Taiwan / HK / JP / DE analysts the regional context they need instead
     of forcing them to infer it from headlines.
 
     Args:
         ticker: User-supplied ticker. Suffix decides the local index
-            (e.g. ``.TW`` -> ``^TWII``, ``.DE`` -> ``^GDAXI``); falls
-            back to ``^GSPC`` for US / unsuffixed tickers.
+            (e.g. `.TW` -> `^TWII`, `.DE` -> `^GDAXI`); falls
+            back to `^GSPC` for US / unsuffixed tickers.
         curr_date: As-of date in YYYY-MM-DD format.
         look_back_days: Window for the change / high-low summary.
 
     Returns:
         Formatted multi-section string with index, 10y yield, and VIX
-        snapshots. Each section reports ``[NO_DATA]`` or
-        ``[TOOL_ERROR]`` independently so a single failed probe does not
+        snapshots. Each section reports `[NO_DATA]` or
+        `[TOOL_ERROR]` independently so a single failed probe does not
         nullify the entire context.
     """
     curr_dt = _parse_yyyy_mm_dd(curr_date, "curr_date")
@@ -1633,7 +1633,7 @@ def get_insider_transactions(
     """Get insider transactions data from yfinance.
 
     Yahoo Finance only exposes the most recent ~6 months of insider activity;
-    it does **not** archive older transactions. For ``curr_date`` more than 6
+    it does **not** archive older transactions. For `curr_date` more than 6
     months in the past, this tool refuses rather than risk leaking present-day
     insider rows into a back-dated run.
 
