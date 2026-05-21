@@ -117,7 +117,7 @@ def run_reflect(  # noqa: PLR0913
     returns: float,
     llm_provider: LLMProvider = "google_genai",
     deep_think_llm: str = "gemini-3.1-pro-preview",
-    quick_think_llm: str = "gemini-3-flash-preview",
+    quick_think_llm: str = "gemini-3.5-flash",
     reasoning_effort: ReasoningEffort = "high",
     response_language: ResponseLanguage = "zh-TW",
     max_debate_rounds: int = 10,
@@ -148,7 +148,7 @@ def run_reflect(  # noqa: PLR0913
         deep_think_llm (str, optional): Deep-thinking model identifier.
             Defaults to gemini-3.1-pro-preview.
         quick_think_llm (str, optional): Quick-thinking model identifier
-            (this is the reflector's LLM). Defaults to gemini-3-flash-preview.
+            (this is the reflector's LLM). Defaults to gemini-3.5-flash.
         reasoning_effort (ReasoningEffort, optional): Unified reasoning
             level. Defaults to high.
         response_language (ResponseLanguage, optional): BCP 47 language

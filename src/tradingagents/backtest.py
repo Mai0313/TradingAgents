@@ -66,7 +66,7 @@ _PRICING_USD_PER_MTOK: dict[str, tuple[float, float]] = {
     # (input, output) per 1,000,000 tokens
     "gemini-flash-latest": (0.075, 0.30),
     "gemini-2.5-flash": (0.075, 0.30),
-    "gemini-3-flash-preview": (0.10, 0.40),
+    "gemini-3.5-flash": (0.10, 0.40),
     "gemini-pro-latest": (1.25, 5.00),
     "gemini-3.1-pro-preview": (2.50, 10.00),
     "gpt-5-mini": (0.50, 4.00),

@@ -45,7 +45,7 @@ class SetupParams(BaseModel):
         description="Model name for the Research Manager and Risk Manager.",
     )
     quick_think_llm: str = Field(
-        default="gemini-3-flash-preview",
+        default="gemini-3.5-flash",
         title="Quick Think LLM",
         description="Model name for analysts, researchers, trader and debaters.",
     )
