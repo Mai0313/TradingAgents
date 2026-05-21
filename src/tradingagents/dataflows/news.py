@@ -1,5 +1,3 @@
-"""News-fetching functions with yfinance + Google News RSS fallback."""
-
 import logging
 from datetime import datetime
 import contextlib

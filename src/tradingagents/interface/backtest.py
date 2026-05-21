@@ -1,11 +1,3 @@
-"""Flag-driven CLI entrypoint for the TradingAgents backtest harness.
-
-Exposes :func:`run_backtest` as the ``backtest`` subcommand of the
-``tradingagents`` console script. Mirrors :func:`run_cli` for the LLM /
-debate / risk-round flags so a backtest reuses the same
-:class:`TradingAgentsConfig` knobs the live CLI exposes.
-"""
-
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

@@ -1,5 +1,3 @@
-# TradingAgents/graph/signal_processing.py
-
 import re
 import json
 from typing import Any, Literal, cast

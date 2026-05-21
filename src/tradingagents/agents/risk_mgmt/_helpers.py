@@ -1,5 +1,3 @@
-"""Shared helpers and the factory used by the three risk-debator nodes."""
-
 from typing import Any, Literal
 from collections.abc import Callable
 

@@ -1,10 +1,3 @@
-"""Central registry for analyst tool ownership.
-
-The graph ToolNodes, analyst LLM ``bind_tools(...)`` calls, and prompt
-``tool_names`` partials must all agree on the same tool set. Keeping the
-mapping here prevents prompt / graph / node drift.
-"""
-
 from typing import Literal
 
 from langchain_core.tools import BaseTool

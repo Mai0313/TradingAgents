@@ -1,16 +1,3 @@
-"""Chat model construction for the TradingAgents framework.
-
-Wraps `langchain.chat_models.init_chat_model` so the project can specify
-LLMs via an explicit `provider` (one of `LLMProvider`) plus a model name
-(e.g. `gpt-5.4`, `claude-sonnet-4-6`, `gemini-3.1-pro-preview`) while still
-mapping a unified `reasoning_effort` knob onto each provider's native
-parameter.
-
-The concrete provider classes are imported explicitly so `ChatModel` is a
-visible union of what the project actually supports, instead of leaning on
-`BaseChatModel` everywhere.
-"""
-
 from typing import Any, Literal, cast
 
 from langchain_xai import ChatXAI

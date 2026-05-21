@@ -1,5 +1,3 @@
-"""Ticker normalization helpers for Yahoo Finance backed dataflows."""
-
 import logging
 from functools import lru_cache
 

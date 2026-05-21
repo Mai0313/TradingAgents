@@ -1,19 +1,3 @@
-"""Rich-based renderers for the TradingAgents CLI / TUI.
-
-Replaces langchain_core.messages.BaseMessage.pretty_print (the
-"=== Ai Message ===" text blocks streamed during a graph run) with
-Rich panels: colour-coded by message type, Markdown-rendered for agent
-prose, JSON-pretty-printed for structured tool output, and truncated
-when the underlying content would otherwise spam the terminal (raw
-stock data tool responses can be thousands of lines).
-
-The renderer is target-agnostic: ``MessageRenderer.emit`` receives a
-Rich renderable (Panel, Markdown, Text, ...). The CLI passes
-``Console.print`` so panels go to stdout; the TUI passes a thread-safe
-``RichLog.write`` wrapper so the same panels are appended to a
-reflow-aware scrollable widget instead.
-"""
-
 from __future__ import annotations
 
 import json

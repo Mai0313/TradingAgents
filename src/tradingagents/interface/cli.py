@@ -1,10 +1,3 @@
-"""Flag-driven runner for the TradingAgents pipeline.
-
-Exposes :func:`run_cli` as the cli subcommand of the tradingagents
-console script. Each parameter is a fire-friendly flag, with defaults
-matching the previous hard-coded values from the legacy cli.py.
-"""
-
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

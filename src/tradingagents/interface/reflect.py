@@ -1,5 +1,3 @@
-"""Post-trade reflection runner for the ``tradingagents reflect`` CLI."""
-
 from __future__ import annotations
 
 import re

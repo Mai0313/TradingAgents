@@ -1,5 +1,3 @@
-# TradingAgents/graph/setup.py
-
 from typing import Any
 
 from pydantic import Field, BaseModel, ConfigDict, SkipValidation

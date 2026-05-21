@@ -1,5 +1,3 @@
-# TradingAgents/graph/reflection.py
-
 from pydantic import Field, BaseModel, ConfigDict, SkipValidation
 from langchain_core.messages import HumanMessage, SystemMessage
 

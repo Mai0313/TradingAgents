@@ -1,14 +1,3 @@
-"""Financial situation memory using BM25 for lexical similarity matching.
-
-Uses BM25 (Best Matching 25) algorithm for retrieval — no API calls,
-no token limits, works offline with any LLM provider.
-
-When ``storage_path`` is set on construction, the memory is loaded from
-disk (JSONL, one ``{"situation", "recommendation"}`` record per line)
-and rewritten after every :meth:`add_situations` call so reflections
-persist across runs.
-"""
-
 import re
 import json
 from typing import TypedDict
