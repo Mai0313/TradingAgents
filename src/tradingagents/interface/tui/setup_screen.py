@@ -1,13 +1,3 @@
-"""Form-style setup screen for the TradingAgents TUI.
-
-Replaces the legacy questionary prompt sequence with a single Textual
-screen whose widgets cover every parameter that
-:func:`tradingagents.interface.cli.run_cli` accepts. Defaults match the
-documented "all defaults" CLI invocation, so a user can press Start
-without editing anything to reproduce
-``tradingagents cli`` with no flags.
-"""
-
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, ClassVar, get_args

@@ -1,12 +1,3 @@
-"""Setup parameters shared between the Setup and Run screens.
-
-Mirrors the keyword arguments of
-:func:`tradingagents.interface.cli.run_cli` so the worker thread can
-splat ``params.model_dump()`` straight into the construction of
-:class:`tradingagents.config.TradingAgentsConfig` and
-:class:`tradingagents.graph.trading_graph.TradingAgentsGraph`.
-"""
-
 from __future__ import annotations
 
 import datetime

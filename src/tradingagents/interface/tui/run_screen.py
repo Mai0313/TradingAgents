@@ -1,22 +1,3 @@
-"""Live pipeline screen for the TradingAgents TUI.
-
-Shows the running graph in three regions:
-
-- A docked header rendering the resolved run configuration via the
-  same Rich panel the CLI prints (so reflow on resize works the way
-  ``rich.console.Console.print`` could not).
-- A horizontal body split into a phase sidebar (Market analyst,
-  Bull/Bear debate, Trader, Risk debate, Final) and a scrollable
-  :class:`textual.widgets.RichLog` carrying every message Rich panel
-  emitted by :class:`MessageRenderer`.
-- A docked footer with run status (initialising, running, done, error).
-
-The blocking :meth:`TradingAgentsGraph.propagate` call is dispatched to
-a worker thread; both panel writes and sidebar updates are funnelled
-back to the Textual event loop via :meth:`App.call_from_thread`, the
-only thread-safe path into Textual widgets.
-"""
-
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar

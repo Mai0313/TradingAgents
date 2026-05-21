@@ -1,13 +1,3 @@
-"""Derive run-phase progress from a streaming :class:`AgentState`.
-
-The TUI's left sidebar lights up phases (Market Analyst, Bull/Bear
-debate, Trader, Risk debate, ...) as the LangGraph pipeline produces
-them. Rather than hooking into individual graph nodes, this module
-infers the running / done state from which AgentState fields the
-streamed snapshots have populated. Every :func:`derive_phases` call is
-pure: same state -> same phase list, no hidden mutation.
-"""
-
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal
