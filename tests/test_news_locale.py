@@ -44,17 +44,27 @@ def test_get_news_locale_resolves_bare_digit_symbol_to_taiwan(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "tradingagents.dataflows.tickers.get_yfinance_symbol_candidates",
+        "tradingagents.dataflows.tickers._search_yfinance_symbols",
         lambda symbol: ["2330.TW", "2330"],
     )
 
     assert get_news_locale("2330") == ("zh-TW", "TW", "TW:zh-Hant")
 
 
+def test_get_news_locale_defaults_for_unresolved_bare_digit_symbol(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "tradingagents.dataflows.tickers._search_yfinance_symbols", lambda symbol: []
+    )
+
+    assert get_news_locale("0700") == ("en-US", "US", "US:en")
+
+
 def test_market_context_uses_resolved_bare_digit_locale(monkeypatch: pytest.MonkeyPatch) -> None:
     probed: list[tuple[str, str]] = []
     monkeypatch.setattr(
-        "tradingagents.dataflows.tickers.get_yfinance_symbol_candidates",
+        "tradingagents.dataflows.tickers._search_yfinance_symbols",
         lambda symbol: ["2330.TW", "2330"],
     )
 

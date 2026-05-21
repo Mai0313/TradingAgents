@@ -56,7 +56,7 @@ def get_news_locale(symbol: str) -> tuple[str, str, str]:
     cleaned = symbol.strip().upper()
     if "." not in cleaned:
         if cleaned.isdigit():
-            for candidate in get_yfinance_symbol_candidates(cleaned):
+            for candidate in _search_yfinance_symbols(cleaned):
                 if "." not in candidate:
                     continue
                 suffix = "." + candidate.rsplit(".", 1)[-1]
