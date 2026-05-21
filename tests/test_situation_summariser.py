@@ -72,7 +72,7 @@ def test_situation_summariser_flattens_list_content() -> None:
     node = create_situation_summariser(llm)
     result = node(_make_state())
 
-    assert result["situation_summary"] == "chunk-1 \nchunk-2"
+    assert result["situation_summary"] == "chunk-1 chunk-2"
 
 
 def test_graph_topology_contains_situation_summariser_between_analysts_and_bull(

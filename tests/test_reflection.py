@@ -4,7 +4,13 @@ from unittest.mock import MagicMock
 import pytest
 
 from tradingagents.graph import reflection as reflection_module
-from tradingagents.graph.reflection import Reflector, _flatten_content
+from tradingagents.graph.reflection import (
+    Reflector,
+    ReflectionOutcomeContext,
+    _flatten_content,
+    parse_reflection_scores,
+)
+from tradingagents.graph.signal_processing import TradeRecommendation
 from tradingagents.agents.utils.agent_states import AgentState, RiskDebateState, InvestDebateState
 
 
@@ -38,8 +44,31 @@ def test_reflect_on_component_formats_prompt_and_flattens_response(
     messages = fake_llm.invoke.call_args.args[0]
     assert messages[0].content == "prompt:reflector"
     assert "Returns: 0.12" in messages[1].content
+    assert "# Structured outcome" not in messages[1].content
     assert "Analysis/Decision: decision report" in messages[1].content
     assert "Objective Market Reports for Reference: market situation" in messages[1].content
+
+
+def test_parse_reflection_scores_returns_structured_rubric() -> None:
+    scores = parse_reflection_scores(
+        """Lesson prose.
+
+### Reflection scores
+- macro: 4
+- technicals: 3
+- price_action: 4
+- news_flow: 2
+- sentiment: 3
+- fundamentals: 5
+- overall_reasoning: 4
+- outcome_quality: 2
+- lesson_category: bad_luck
+"""
+    )
+
+    assert scores is not None
+    assert scores.macro == 4
+    assert scores.lesson_category == "bad_luck"
 
 
 def test_reflector_stores_situation_summary_when_available(
@@ -57,11 +86,36 @@ def test_reflector_stores_situation_summary_when_available(
         fundamentals_report="fundamentals",
         situation_summary="compact summary",
         trader_investment_plan="trader plan",
+        company_of_interest="AAPL",
+        trade_date="2024-01-05",
+        final_trade_recommendation=TradeRecommendation(signal="BUY"),
     )
 
-    Reflector(quick_thinking_llm=fake_llm).reflect_trader(state, 0.05, fake_memory)
+    scores = Reflector(quick_thinking_llm=fake_llm).reflect_trader(
+        state,
+        0.05,
+        fake_memory,
+        ReflectionOutcomeContext(
+            entry_price=100.0,
+            exit_price=105.0,
+            exit_date="2024-01-12",
+            horizon_days=5,
+            benchmark_returns={"buy_and_hold": 0.03},
+        ),
+    )
 
-    fake_memory.add_situations.assert_called_once_with([("compact summary", "stored lesson")])
+    stored = fake_memory.add_situations.call_args.args[0][0]
+    assert stored[0] == "compact summary"
+    assert stored[1] == "stored lesson"
+    assert stored[2]["ticker"] == "AAPL"
+    assert stored[2]["trade_date"] == "2024-01-05"
+    assert stored[2]["signal"] == "BUY"
+    assert stored[2]["component"] == "trader"
+    assert scores is None
+    prompt = fake_llm.invoke.call_args.args[0][1].content
+    assert "- entry_price: 100.0" in prompt
+    assert "- exit_price: 105.0" in prompt
+    assert "- benchmark_returns: {'buy_and_hold': 0.03}" in prompt
 
 
 def test_reflector_falls_back_to_combined_reports_when_summary_missing(
@@ -83,4 +137,7 @@ def test_reflector_falls_back_to_combined_reports_when_summary_missing(
 
     Reflector(quick_thinking_llm=fake_llm).reflect_risk_manager(state, -0.03, fake_memory)
 
-    fake_memory.add_situations.assert_called_once_with([(state.combined_reports, "risk lesson")])
+    stored = fake_memory.add_situations.call_args.args[0][0]
+    assert stored[0] == state.combined_reports
+    assert stored[1] == "risk lesson"
+    assert stored[2]["component"] == "risk_manager"

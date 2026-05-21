@@ -6,6 +6,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from tradingagents.llm import ChatModel
 from tradingagents.agents.prompts import load_prompt
 from tradingagents.agents.utils.memory import FinancialSituationMemory, format_memories_for_prompt
+from tradingagents.agents.utils.content import flatten_message_content
 from tradingagents.agents.utils.agent_states import AgentState
 
 
@@ -48,7 +49,8 @@ def create_trader(
         ]
 
         result = llm.invoke(messages)
+        result_content = flatten_message_content(result.content)
 
-        return {"messages": [result], "trader_investment_plan": result.content}
+        return {"messages": [result], "trader_investment_plan": result_content}
 
     return trader_node

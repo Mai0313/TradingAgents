@@ -2,6 +2,7 @@ from typing import Annotated
 
 from langchain_core.tools import tool
 
+from tradingagents.runtime import reject_future_tool_dates
 from tradingagents.dataflows.yfinance import get_cashflow as _get_cashflow
 from tradingagents.dataflows.yfinance import get_fundamentals as _get_fundamentals
 from tradingagents.dataflows.yfinance import get_balance_sheet as _get_balance_sheet
@@ -28,6 +29,9 @@ def get_fundamentals(
     Returns:
         str: A formatted report containing comprehensive fundamental data.
     """
+    error = reject_future_tool_dates("get_fundamentals", curr_date=curr_date)
+    if error is not None:
+        return error
     return _get_fundamentals(ticker, curr_date)
 
 
@@ -49,6 +53,9 @@ def get_balance_sheet(
     Returns:
         str: A formatted report containing balance sheet data.
     """
+    error = reject_future_tool_dates("get_balance_sheet", curr_date=curr_date)
+    if error is not None:
+        return error
     return _get_balance_sheet(ticker, freq, curr_date)
 
 
@@ -70,6 +77,9 @@ def get_cashflow(
     Returns:
         str: A formatted report containing cash flow statement data.
     """
+    error = reject_future_tool_dates("get_cashflow", curr_date=curr_date)
+    if error is not None:
+        return error
     return _get_cashflow(ticker, freq, curr_date)
 
 
@@ -91,6 +101,9 @@ def get_income_statement(
     Returns:
         str: A formatted report containing income statement data.
     """
+    error = reject_future_tool_dates("get_income_statement", curr_date=curr_date)
+    if error is not None:
+        return error
     return _get_income_statement(ticker, freq, curr_date)
 
 
@@ -115,6 +128,9 @@ def get_analyst_ratings(
         str: Formatted ratings report, ``[NO_DATA]`` message, or
             ``[TOOL_ERROR]`` message.
     """
+    error = reject_future_tool_dates("get_analyst_ratings", curr_date=curr_date)
+    if error is not None:
+        return error
     return _get_analyst_ratings(ticker, curr_date)
 
 
@@ -137,6 +153,9 @@ def get_institutional_holders(
     Returns:
         str: Formatted holders snapshot or ``[NO_DATA]`` message.
     """
+    error = reject_future_tool_dates("get_institutional_holders", curr_date=curr_date)
+    if error is not None:
+        return error
     return _get_institutional_holders(ticker, curr_date)
 
 
@@ -158,6 +177,9 @@ def get_short_interest(
     Returns:
         str: Formatted short-interest report or ``[NO_DATA]`` message.
     """
+    error = reject_future_tool_dates("get_short_interest", curr_date=curr_date)
+    if error is not None:
+        return error
     return _get_short_interest(ticker, curr_date)
 
 
@@ -181,4 +203,9 @@ def get_dividends_splits(
     Returns:
         str: Formatted dividends / splits report or ``[NO_DATA]`` message.
     """
+    error = reject_future_tool_dates(
+        "get_dividends_splits", start_date=start_date, end_date=end_date
+    )
+    if error is not None:
+        return error
     return _get_dividends_splits(ticker, start_date, end_date)

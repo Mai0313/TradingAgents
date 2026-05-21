@@ -5,6 +5,8 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 from tradingagents.llm import ChatModel
 from tradingagents.agents.prompts import load_prompt
+from tradingagents.agents.utils.dates import days_before
+from tradingagents.agents.utils.content import analyst_report_or_evidence_warning
 from tradingagents.agents.utils.agent_states import AgentState
 from tradingagents.agents.utils.tool_registry import get_analyst_tools, get_analyst_tool_names
 
@@ -38,12 +40,21 @@ def create_market_analyst(llm: ChatModel) -> Callable[[AgentState], dict[str, An
         prompt = prompt.partial(tool_names=get_analyst_tool_names("market"))
         prompt = prompt.partial(current_date=state.trade_date)
         prompt = prompt.partial(ticker=state.company_of_interest)
+        prompt = prompt.partial(market_start_date=days_before(state.trade_date, 90))
+        prompt = prompt.partial(dividends_start_date=days_before(state.trade_date, 365))
 
         chain = prompt | llm.bind_tools(list(tools))
 
         result = chain.invoke(state.messages)
 
-        report = "" if result.tool_calls else result.content
+        report = analyst_report_or_evidence_warning(
+            analyst_name="Market Analyst",
+            ticker=state.company_of_interest,
+            trade_date=state.trade_date,
+            messages=state.messages,
+            tool_calls=result.tool_calls,
+            content=result.content,
+        )
 
         return {"messages": [result], "market_report": report}
 

@@ -9,6 +9,7 @@ from tradingagents.dataflows import news
 import tradingagents.dataflows.yfinance as yfinance_data
 from tradingagents.dataflows.yfinance import (
     _normalize_freq,
+    _last_n_quarter_sum,
     _cache_covers_window,
     get_earnings_calendar,
     _filter_statement_as_of,
@@ -275,6 +276,48 @@ def test_stock_stats_bulk_multi_continues_after_candidate_load_exception(
     assert n_bars == 2
 
 
+def test_stock_stats_bulk_multi_slices_future_cache_rows_before_wrap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_history = pd.DataFrame({
+        "Date": pd.to_datetime(["2024-01-02", "2024-01-03", "2024-01-04"]),
+        "Open": [1.0, 1.2, 99.0],
+        "High": [1.5, 1.6, 100.0],
+        "Low": [0.9, 1.1, 98.0],
+        "Close": [1.3, 1.4, 99.0],
+        "Volume": [100, 120, 10_000],
+    })
+
+    monkeypatch.setattr(
+        yfinance_data,
+        "_resolve_history_with_cache",
+        lambda symbol, curr_date_dt: ("AAPL", fake_history.copy(), ["AAPL"]),
+    )
+
+    _resolved, data_map, n_bars = yfinance_data._get_stock_stats_bulk_multi(
+        "AAPL", ["close_10_ema"], "2024-01-03"
+    )
+
+    assert n_bars == 2
+    assert "2024-01-03" in data_map["close_10_ema"]
+    assert "2024-01-04" not in data_map["close_10_ema"]
+
+
+def test_last_n_quarter_sum_sorts_statement_columns_before_ttm_selection() -> None:
+    statement = pd.DataFrame(
+        {
+            pd.Timestamp("2024-06-30"): [2.0],
+            pd.Timestamp("2024-03-31"): [1.0],
+            pd.Timestamp("2023-09-30"): [100.0],
+            pd.Timestamp("2024-09-30"): [3.0],
+            pd.Timestamp("2023-12-31"): [4.0],
+        },
+        index=["Diluted EPS"],
+    )
+
+    assert _last_n_quarter_sum(statement, ("Diluted EPS",), 4) == pytest.approx(10.0)
+
+
 def test_normalize_freq_rejects_unknown_values() -> None:
     with pytest.raises(ValueError, match="quarterly"):
         _normalize_freq("monthly")
@@ -323,11 +366,34 @@ def test_get_earnings_calendar_handles_dataframe_calendar(monkeypatch: pytest.Mo
     monkeypatch.setattr(yfinance_data, "_resolve_ticker_info", lambda t: (t, {"foo": 1}, [t]))
     monkeypatch.setattr(yfinance_data.yf, "Ticker", lambda _t: FakeTicker())
 
-    result = get_earnings_calendar("AAPL", "2024-01-01")
+    result = get_earnings_calendar("AAPL", None)
 
     assert "Calendar snapshot" in result
     assert "Earnings Date" in result  # DataFrame's CSV rendering preserved column names
     assert "2024-04-25" in result
+
+
+def test_get_earnings_calendar_omits_current_calendar_for_historical_date(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cal_df = pd.DataFrame({"Earnings Date": ["2024-04-25"], "EPS Estimate": [1.5]})
+
+    class FakeTicker:
+        @property
+        def calendar(self) -> pd.DataFrame:
+            return cal_df
+
+        @property
+        def earnings_dates(self) -> None:
+            return None
+
+    monkeypatch.setattr(yfinance_data, "_resolve_ticker_info", lambda t: (t, {"foo": 1}, [t]))
+    monkeypatch.setattr(yfinance_data.yf, "Ticker", lambda _t: FakeTicker())
+
+    result = get_earnings_calendar("AAPL", "2024-01-01")
+
+    assert result.startswith("[NO_DATA]")
+    assert "2024-04-25" not in result
 
 
 def test_get_earnings_calendar_handles_timezone_aware_earnings_index(
@@ -357,7 +423,8 @@ def test_get_earnings_calendar_handles_timezone_aware_earnings_index(
     assert "[TOOL_ERROR]" not in result
     assert "Past earnings dates" in result
     assert "Forward earnings dates" in result
-    assert "[REDACTED]" in result
+    assert "Source limitation" in result
+    assert "[REDACTED]" not in result
 
 
 def test_extract_article_data_parses_flat_provider_publish_time() -> None:

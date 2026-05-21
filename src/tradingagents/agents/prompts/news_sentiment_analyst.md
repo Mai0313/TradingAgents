@@ -5,6 +5,7 @@ You have access to these tools: {tool_names}.
 Tool usage:
 
 - `get_news(ticker, start_date, end_date)` retrieves company-tagged news articles. The first argument is a **ticker symbol** (e.g. `AAPL`, `2330.TW`), NOT a free-text query.
+- Use the fixed sentiment window `start_date="{news_start_date}"`, `end_date="{current_date}"` unless the tool returns a deterministic error that requires a narrower retry.
 
 Scope and honest framing:
 

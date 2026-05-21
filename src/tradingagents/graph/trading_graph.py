@@ -3,6 +3,7 @@ import json
 from typing import Any
 import logging
 from pathlib import Path
+from datetime import datetime
 from functools import cached_property
 from collections.abc import Callable
 
@@ -14,12 +15,14 @@ from langchain_core.callbacks import BaseCallbackHandler
 
 from tradingagents.llm import ChatModel, build_chat_model
 from tradingagents.config import TradingAgentsConfig, set_config
+from tradingagents.runtime import RunContext, set_run_context, reset_run_context
+from tradingagents.dataflows.yfinance import _close_on_or_before
 from tradingagents.agents.utils.memory import FinancialSituationMemory
 from tradingagents.agents.utils.agent_states import AgentState
 from tradingagents.agents.utils.tool_registry import ANALYST_TOOL_REGISTRY
 
 from .setup import SUPPORTED_ANALYSTS, GraphSetup, MemoryComponents
-from .reflection import Reflector
+from .reflection import Reflector, ReflectionScores, ReflectionOutcomeContext
 from .propagation import Propagator
 from .conditional_logic import ConditionalLogic
 from .signal_processing import SignalProcessor, TradeRecommendation
@@ -33,6 +36,10 @@ _SAFE_PATH_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
 # helper in :mod:`tradingagents.interface.reflect` rather than expecting v2
 # directly.
 _STATE_LOG_SCHEMA_VERSION = 2
+_CURRENCY_PATTERNS = (
+    re.compile(r"# Reporting currency \(info\.financialCurrency\):\s*([A-Z]{3}|UNKNOWN)"),
+    re.compile(r"# Reported currency:\s*([A-Z]{3}|UNKNOWN)"),
+)
 
 
 def _safe_path_component(value: str) -> str:
@@ -51,6 +58,16 @@ def _atomic_write_text(path: Path, content: str) -> None:
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(content, encoding="utf-8")
     tmp.replace(path)
+
+
+def _extract_currency_from_report(report: str) -> str | None:
+    """Return the first currency marker found in a fundamentals report."""
+    for pattern in _CURRENCY_PATTERNS:
+        match = pattern.search(report)
+        if match:
+            currency = match.group(1)
+            return None if currency == "UNKNOWN" else currency
+    return None
 
 
 def _tool_error_handler(exc: Exception) -> str:
@@ -306,6 +323,13 @@ class TradingAgentsGraph(BaseModel):
 
         init_agent_state = self.propagator.create_initial_state(company_name, trade_date)
         args = self.propagator.get_graph_args(callbacks=self.callbacks or None)
+        run_context_token = set_run_context(
+            RunContext(
+                ticker=company_name,
+                trade_date=init_agent_state.trade_date,
+                response_language=self.config.response_language,
+            )
+        )
 
         # Stream in "values" mode (set by Propagator.get_graph_args) so each chunk
         # is the full state snapshot after a node runs. The graph clears
@@ -315,13 +339,16 @@ class TradingAgentsGraph(BaseModel):
         raw_state = None
         last_emitted_id = None
         collected: dict[str, AnyMessage] = {}
-        for chunk in self.graph.stream(init_agent_state, **args):
-            last_emitted_id = self._dispatch_messages(
-                chunk, collected, last_emitted_id, on_message
-            )
-            if on_state is not None:
-                self._dispatch_state(chunk, on_state)
-            raw_state = chunk
+        try:
+            for chunk in self.graph.stream(init_agent_state, **args):
+                last_emitted_id = self._dispatch_messages(
+                    chunk, collected, last_emitted_id, on_message
+                )
+                if on_state is not None:
+                    self._dispatch_state(chunk, on_state)
+                raw_state = chunk
+        finally:
+            reset_run_context(run_context_token)
 
         if raw_state is None:
             raise RuntimeError("Graph produced no output")
@@ -330,7 +357,9 @@ class TradingAgentsGraph(BaseModel):
             AgentState.model_validate(raw_state) if isinstance(raw_state, dict) else raw_state
         )
 
-        recommendation = self.process_signal(final_state.final_trade_decision)
+        recommendation = self._enrich_recommendation(
+            self.process_signal(final_state.final_trade_decision), final_state
+        )
         final_state = final_state.model_copy(update={"final_trade_recommendation": recommendation})
 
         self.curr_state = final_state
@@ -506,7 +535,12 @@ class TradingAgentsGraph(BaseModel):
         except Exception:
             logger.warning("Failed to save conversation JSON log", exc_info=True)
 
-    def reflect_and_remember(self, returns_losses: float, state: AgentState | None = None) -> None:
+    def reflect_and_remember(
+        self,
+        returns_losses: float,
+        state: AgentState | None = None,
+        outcome_context: ReflectionOutcomeContext | None = None,
+    ) -> dict[str, ReflectionScores | None]:
         """Reflect on the decision chain and append lessons to every memory.
 
         When ``state`` is ``None`` the most recent ``self.curr_state`` from
@@ -517,20 +551,39 @@ class TradingAgentsGraph(BaseModel):
             returns_losses: Actual returns or losses from the trade.
             state: Optional explicit AgentState. When omitted, falls back to
                 the most recent run-state cached on the graph instance.
+            outcome_context: Optional structured entry / exit / benchmark
+                context for reflection and later backtest aggregation.
 
         Raises:
             RuntimeError: If no state is available to reflect on.
+
+        Returns:
+            Mapping of memory component to parsed reflection scores. Values
+            are ``None`` when the reflector response omitted or malformed the
+            required score block.
         """
         target = state if state is not None else self.curr_state
         if target is None:
             raise RuntimeError(
                 "No state available to reflect on. Run propagate() first or pass state=..."
             )
-        self.reflector.reflect_bull_researcher(target, returns_losses, self.bull_memory)
-        self.reflector.reflect_bear_researcher(target, returns_losses, self.bear_memory)
-        self.reflector.reflect_trader(target, returns_losses, self.trader_memory)
-        self.reflector.reflect_invest_judge(target, returns_losses, self.invest_judge_memory)
-        self.reflector.reflect_risk_manager(target, returns_losses, self.risk_manager_memory)
+        return {
+            "bull_researcher": self.reflector.reflect_bull_researcher(
+                target, returns_losses, self.bull_memory, outcome_context
+            ),
+            "bear_researcher": self.reflector.reflect_bear_researcher(
+                target, returns_losses, self.bear_memory, outcome_context
+            ),
+            "trader": self.reflector.reflect_trader(
+                target, returns_losses, self.trader_memory, outcome_context
+            ),
+            "investment_judge": self.reflector.reflect_invest_judge(
+                target, returns_losses, self.invest_judge_memory, outcome_context
+            ),
+            "risk_manager": self.reflector.reflect_risk_manager(
+                target, returns_losses, self.risk_manager_memory, outcome_context
+            ),
+        }
 
     def process_signal(self, full_signal: str) -> TradeRecommendation:
         """Process a Risk-Judge text payload into a structured recommendation.
@@ -545,3 +598,25 @@ class TradingAgentsGraph(BaseModel):
             is empty or ambiguous.
         """
         return self.signal_processor.process_signal(full_signal)
+
+    def _enrich_recommendation(
+        self, recommendation: TradeRecommendation, state: AgentState
+    ) -> TradeRecommendation:
+        """Attach deterministic price / currency context to a parsed recommendation."""
+        updates: dict[str, Any] = {}
+
+        currency = _extract_currency_from_report(state.fundamentals_report)
+        if currency is not None and recommendation.currency is None:
+            updates["currency"] = currency
+
+        if recommendation.entry_reference_price is None:
+            try:
+                trade_dt = datetime.strptime(state.trade_date, "%Y-%m-%d")
+                price = _close_on_or_before(state.company_of_interest, trade_dt)
+            except Exception:
+                logger.debug("Failed to enrich recommendation with entry price", exc_info=True)
+                price = None
+            if price is not None:
+                updates["entry_reference_price"] = price
+
+        return recommendation.model_copy(update=updates) if updates else recommendation

@@ -23,6 +23,8 @@ from tradingagents.backtest import Backtester, BacktestConfig
 if TYPE_CHECKING:
     from tradingagents.backtest import BacktestReport
 
+type SplitFractionsArg = str | list[float | str] | tuple[float | str, ...]
+
 
 def _split_tickers(value: str | list[str] | tuple[str, ...]) -> list[str]:
     """Split a fire-friendly ``--tickers`` argument into a clean list."""
@@ -31,6 +33,17 @@ def _split_tickers(value: str | list[str] | tuple[str, ...]) -> list[str]:
     if not cleaned:
         raise ValueError("--tickers must contain at least one symbol.")
     return cleaned
+
+
+def _parse_split_fractions(value: SplitFractionsArg) -> tuple[float, float, float]:
+    """Parse fire-friendly train / validation / test fractions."""
+    if isinstance(value, (list, tuple)):
+        parts = [float(str(part).strip()) for part in value if str(part).strip()]
+    else:
+        parts = [float(part.strip()) for part in str(value).split(",") if part.strip()]
+    if len(parts) != 3:
+        raise ValueError("--split_fractions must contain three numbers.")
+    return (parts[0], parts[1], parts[2])
 
 
 def _print_report(console: Console, report: BacktestReport) -> None:
@@ -50,7 +63,22 @@ def _print_report(console: Console, report: BacktestReport) -> None:
     summary.add_row("Avg trade return", f"{report.avg_trade_return:+.4f}")
     summary.add_row("Total compounded return", f"{report.total_return:+.4f}")
     summary.add_row("Worst drawdown", f"{report.worst_drawdown:+.4f}")
+    summary.add_row("Warning rate", f"{report.warning_rate:.2%}")
     summary.add_row("Estimated LLM cost (USD)", f"{report.estimated_cost_usd:.4f}")
+    if report.benchmarks:
+        summary.add_row(
+            "Benchmarks",
+            ", ".join(
+                f"{name} {bench.total_return:+.4f}" for name, bench in report.benchmarks.items()
+            ),
+        )
+    if report.split_reports:
+        summary.add_row(
+            "Splits",
+            ", ".join(
+                f"{name} {split.total_return:+.4f}" for name, split in report.split_reports.items()
+            ),
+        )
     console.print(
         Panel(
             summary,
@@ -67,6 +95,7 @@ def _print_report(console: Console, report: BacktestReport) -> None:
     table = Table(title="Trades", title_style="bold cyan", header_style="bold")
     table.add_column("Date", no_wrap=True)
     table.add_column("Ticker", no_wrap=True)
+    table.add_column("Split", no_wrap=True)
     table.add_column("Signal", no_wrap=True)
     table.add_column("Size", justify="right")
     table.add_column("Entry", justify="right")
@@ -80,6 +109,7 @@ def _print_report(console: Console, report: BacktestReport) -> None:
         table.add_row(
             trade.decision_date,
             trade.ticker,
+            trade.dataset_split,
             Text(trade.recommendation.signal, style=signal_style),
             f"{trade.recommendation.size_fraction:.2f}",
             f"{trade.entry_price:.2f}" if trade.entry_price is not None else "-",
@@ -98,9 +128,14 @@ def run_backtest(  # noqa: PLR0913, D417 -- mirrors run_cli's full flag surface
     horizon_days: int = 5,
     initial_cash: float = 100_000.0,
     max_position_fraction: float = 0.2,
+    transaction_cost_bps: float = 10.0,
+    slippage_bps: float = 0.0,
+    allow_short: bool | None = None,
     budget_cap_usd: float | None = None,
     dry_run: bool = False,
     reflect_after_each_trade: bool = True,
+    walk_forward: bool = True,
+    split_fractions: SplitFractionsArg = "0.6,0.2,0.2",
     output: str | None = None,
     llm_provider: LLMProvider = "google_genai",
     deep_think_llm: str = "gemini-flash-latest",
@@ -124,6 +159,10 @@ def run_backtest(  # noqa: PLR0913, D417 -- mirrors run_cli's full flag surface
         initial_cash: Notional capital used only for drawdown framing.
         max_position_fraction: Upper bound applied to the LLM-provided
             size_fraction before scoring; safer than trusting size=1.0.
+        transaction_cost_bps: Per-side transaction cost applied to BUY / SELL.
+        slippage_bps: Per-side slippage applied to BUY / SELL.
+        allow_short: Whether SELL can be scored as a short. None uses
+            market-aware defaults (Taiwan-style tickers disable shorts).
         budget_cap_usd: Halt the run once estimated LLM spend exceeds
             this many USD. None disables enforcement.
         dry_run: When True the harness swaps :class:`StubChatModel` in
@@ -132,6 +171,11 @@ def run_backtest(  # noqa: PLR0913, D417 -- mirrors run_cli's full flag surface
         reflect_after_each_trade: When True, feeds realised returns
             through :meth:`TradingAgentsGraph.reflect_and_remember` so
             memory updates as the backtest progresses (production-like).
+        walk_forward: When True, memory is updated only after each
+            earlier scored trade. When False, reflection is skipped
+            during the run.
+        split_fractions: Comma-separated or list / tuple train / validation /
+            test fractions used for chronological split reporting.
         output: Optional path to write the JSON report dump to. The Rich
             summary is always printed regardless.
         llm_provider / deep_think_llm / quick_think_llm /
@@ -149,6 +193,7 @@ def run_backtest(  # noqa: PLR0913, D417 -- mirrors run_cli's full flag surface
         raise ValueError("--start and --end are required (YYYY-MM-DD).")
 
     ticker_list = _split_tickers(tickers)
+    parsed_split_fractions = _parse_split_fractions(split_fractions)
     if frequency not in {"daily", "weekly"}:
         raise ValueError(f"frequency must be 'daily' or 'weekly', got {frequency!r}.")
 
@@ -170,9 +215,14 @@ def run_backtest(  # noqa: PLR0913, D417 -- mirrors run_cli's full flag surface
         horizon_days=horizon_days,
         initial_cash=initial_cash,
         max_position_fraction=max_position_fraction,
+        transaction_cost_bps=transaction_cost_bps,
+        slippage_bps=slippage_bps,
+        allow_short=allow_short,
         budget_cap_usd=budget_cap_usd,
         dry_run=dry_run,
         reflect_after_each_trade=reflect_after_each_trade,
+        walk_forward=walk_forward,
+        split_fractions=parsed_split_fractions,
         trading_config=trading_config,
     )
 
@@ -183,7 +233,8 @@ def run_backtest(  # noqa: PLR0913, D417 -- mirrors run_cli's full flag surface
                 f"Tickers: [bold]{', '.join(ticker_list)}[/]\n"
                 f"Window:  [bold]{start} -> {end}[/]\n"
                 f"Frequency: [bold]{frequency}[/], horizon: [bold]{horizon_days}d[/]\n"
-                f"Dry run: [bold]{dry_run}[/], reflect: [bold]{reflect_after_each_trade}[/]\n"
+                f"Dry run: [bold]{dry_run}[/], reflect: [bold]{reflect_after_each_trade}[/], "
+                f"walk-forward: [bold]{walk_forward}[/]\n"
                 f"Budget cap: [bold]{budget_cap_usd}[/]"
             ),
             title="[bold blue]TradingAgents Backtest[/]",

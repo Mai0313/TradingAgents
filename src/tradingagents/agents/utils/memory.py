@@ -11,7 +11,7 @@ persist across runs.
 
 import re
 import json
-from typing import TypedDict
+from typing import TypedDict, NotRequired
 import logging
 from pathlib import Path
 
@@ -27,6 +27,11 @@ class MemoryMatch(TypedDict):
     matched_situation: str
     recommendation: str
     similarity_score: float
+    metadata: NotRequired[dict[str, object]]
+
+
+type MemoryInput = tuple[str, str] | tuple[str, str, dict[str, object]]
+type MemoryRow = tuple[str, str, dict[str, object]]
 
 
 _TOKEN_RE = re.compile(r"\b\w+\b")
@@ -35,6 +40,20 @@ _TOKEN_RE = re.compile(r"\b\w+\b")
 def _tokenize(text: str) -> list[str]:
     """Tokenize ``text`` into lowercased word tokens for BM25 indexing."""
     return _TOKEN_RE.findall(text.lower())
+
+
+def _dedupe_rows(rows: list[MemoryRow]) -> list[MemoryRow]:
+    """Return rows without duplicate situation / recommendation / metadata triples."""
+    deduped: list[MemoryRow] = []
+    seen: set[tuple[str, str, str]] = set()
+    for situation, recommendation, metadata in rows:
+        metadata_key = json.dumps(metadata, ensure_ascii=False, sort_keys=True, default=str)
+        key = (situation, recommendation, metadata_key)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append((situation, recommendation, metadata))
+    return deduped
 
 
 class FinancialSituationMemory(BaseModel):
@@ -66,6 +85,11 @@ class FinancialSituationMemory(BaseModel):
         title="Recommendations",
         description="Stored recommendations aligned 1:1 with ``documents``.",
     )
+    metadata: list[dict[str, object]] = Field(
+        default_factory=list,
+        title="Metadata",
+        description="Stored metadata dictionaries aligned 1:1 with ``documents``.",
+    )
     bm25: SkipValidation[BM25Okapi | None] = Field(
         default=None,
         title="BM25 Index",
@@ -87,7 +111,14 @@ class FinancialSituationMemory(BaseModel):
         path = self.storage_path
         if path is None or not path.exists():
             return
-        loaded = 0
+        rows = self._read_rows_from_disk(path)
+        if rows:
+            self._replace_rows(rows)
+            logger.info("Loaded %d memories from %s", len(rows), path)
+
+    def _read_rows_from_disk(self, path: Path) -> list[MemoryRow]:
+        """Return valid memory rows from a JSONL file."""
+        rows: list[MemoryRow] = []
         for raw_line in path.read_text(encoding="utf-8").splitlines():
             line = raw_line.strip()
             if not line:
@@ -97,12 +128,25 @@ class FinancialSituationMemory(BaseModel):
             except json.JSONDecodeError:
                 logger.warning("Skipping malformed memory line in %s", path)
                 continue
-            self.documents.append(str(record.get("situation", "")))
-            self.recommendations.append(str(record.get("recommendation", "")))
-            loaded += 1
-        if loaded:
-            self._rebuild_index()
-            logger.info("Loaded %d memories from %s", loaded, path)
+            metadata = record.get("metadata")
+            rows.append((
+                str(record.get("situation", "")),
+                str(record.get("recommendation", "")),
+                metadata if isinstance(metadata, dict) else {},
+            ))
+        return rows
+
+    def _memory_rows(self) -> list[MemoryRow]:
+        """Return in-memory rows after aligning legacy metadata."""
+        self._align_metadata()
+        return list(zip(self.documents, self.recommendations, self.metadata, strict=True))
+
+    def _replace_rows(self, rows: list[MemoryRow]) -> None:
+        """Replace in-memory rows and rebuild the BM25 index."""
+        self.documents = [situation for situation, _, _ in rows]
+        self.recommendations = [recommendation for _, recommendation, _ in rows]
+        self.metadata = [metadata for _, _, metadata in rows]
+        self._rebuild_index()
 
     def _save_to_disk(self) -> None:
         """Atomically rewrite ``storage_path`` from in-memory documents."""
@@ -112,17 +156,29 @@ class FinancialSituationMemory(BaseModel):
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(path.suffix + ".tmp")
         with tmp.open("w", encoding="utf-8") as fp:
-            for situation, recommendation in zip(
-                self.documents, self.recommendations, strict=True
+            self._align_metadata()
+            for situation, recommendation, metadata in zip(
+                self.documents, self.recommendations, self.metadata, strict=True
             ):
                 fp.write(
                     json.dumps(
-                        {"situation": situation, "recommendation": recommendation},
+                        {
+                            "situation": situation,
+                            "recommendation": recommendation,
+                            "metadata": metadata,
+                        },
                         ensure_ascii=False,
                     )
                     + "\n"
                 )
         tmp.replace(path)
+
+    def _align_metadata(self) -> None:
+        """Pad metadata so it stays aligned with legacy two-field records."""
+        while len(self.metadata) < len(self.documents):
+            self.metadata.append({})
+        if len(self.metadata) > len(self.documents):
+            self.metadata = self.metadata[: len(self.documents)]
 
     def _rebuild_index(self) -> None:
         """Rebuild the BM25 index after adding documents."""
@@ -131,41 +187,59 @@ class FinancialSituationMemory(BaseModel):
         else:
             self.bm25 = None
 
-    def add_situations(self, situations_and_advice: list[tuple[str, str]]) -> None:
+    def add_situations(self, situations_and_advice: list[MemoryInput]) -> None:
         """Append ``(situation, recommendation)`` pairs and persist to disk.
 
         Args:
             situations_and_advice: Situation and recommendation pairs to store.
         """
-        for situation, recommendation in situations_and_advice:
-            self.documents.append(situation)
-            self.recommendations.append(recommendation)
-        self._rebuild_index()
+        new_rows: list[MemoryRow] = []
+        for item in situations_and_advice:
+            situation = item[0]
+            recommendation = item[1]
+            metadata = item[2] if len(item) > 2 else {}
+            if not isinstance(metadata, dict):
+                metadata = {}
+            new_rows.append((situation, recommendation, metadata))
+        if not new_rows:
+            return
+        rows = self._memory_rows() + new_rows
+        if self.storage_path is not None and self.storage_path.exists():
+            rows = self._read_rows_from_disk(self.storage_path) + rows
+        self._replace_rows(_dedupe_rows(rows))
         self._save_to_disk()
 
-    def get_memories(self, current_situation: str, n_matches: int = 1) -> list[MemoryMatch]:
+    def get_memories(
+        self, current_situation: str, n_matches: int = 1, min_similarity: float = 0.0
+    ) -> list[MemoryMatch]:
         """Return the top ``n_matches`` recommendations by BM25 lexical similarity.
 
         Args:
             current_situation: Free-text description of the present situation.
             n_matches: Number of top matches to return.
+            min_similarity: Strict lower bound for raw BM25 score. The default
+                excludes zero-overlap matches.
 
         Returns:
             Match rows ordered by descending similarity. Empty when no
-            documents have been added yet.
+            documents have been added yet or every raw score is zero.
         """
         if not self.documents or self.bm25 is None:
             return []
 
         scores = self.bm25.get_scores(_tokenize(current_situation))
-        peak = max(scores)
+        eligible_indices = [idx for idx, score in enumerate(scores) if score > min_similarity]
+        if not eligible_indices:
+            return []
+        peak = max(scores[idx] for idx in eligible_indices)
         max_score = peak if peak > 0 else 1.0
-        top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:n_matches]
+        top_indices = sorted(eligible_indices, key=lambda i: scores[i], reverse=True)[:n_matches]
         return [
             MemoryMatch(
                 matched_situation=self.documents[idx],
                 recommendation=self.recommendations[idx],
                 similarity_score=scores[idx] / max_score,
+                metadata=self.metadata[idx] if idx < len(self.metadata) else {},
             )
             for idx in top_indices
         ]
@@ -174,6 +248,7 @@ class FinancialSituationMemory(BaseModel):
         """Drop every stored situation, recommendation, the BM25 index, and the on-disk file."""
         self.documents.clear()
         self.recommendations.clear()
+        self.metadata.clear()
         self.bm25 = None
         if self.storage_path is not None and self.storage_path.exists():
             self.storage_path.unlink()

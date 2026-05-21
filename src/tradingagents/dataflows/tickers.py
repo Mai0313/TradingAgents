@@ -55,6 +55,14 @@ def get_news_locale(symbol: str) -> tuple[str, str, str]:
     """
     cleaned = symbol.strip().upper()
     if "." not in cleaned:
+        if cleaned.isdigit():
+            for candidate in _search_yfinance_symbols(cleaned):
+                if "." not in candidate:
+                    continue
+                suffix = "." + candidate.rsplit(".", 1)[-1]
+                locale = _REGION_BY_SUFFIX.get(suffix)
+                if locale is not None:
+                    return locale
         return _DEFAULT_NEWS_LOCALE
     suffix = "." + cleaned.rsplit(".", 1)[-1]
     return _REGION_BY_SUFFIX.get(suffix, _DEFAULT_NEWS_LOCALE)

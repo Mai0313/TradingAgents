@@ -13,6 +13,8 @@ Tool usage:
 - `get_short_interest(ticker, curr_date)` — shares short, days-to-cover, float percentage. Current-snapshot only; historical `curr_date` returns `[NO_DATA]`.
 - `get_dividends_splits(ticker, start_date, end_date)` — dividends and split events in the window; point-in-time-safe.
 
+Use `curr_date="{current_date}"` for all fundamentals tools that accept `curr_date`. Use dividends / splits window `start_date="{dividends_start_date}"`, `end_date="{current_date}"`.
+
 Pay attention to the `# Reported currency:` line in each statement header. Foreign issuers (TWSE, Tokyo, XETRA, etc.) report in their local currency — do NOT compare those numbers against US-denominated peers without converting.
 
 If a tool returns `[TOOL_ERROR] ...` or `[NO_DATA] ...`, explicitly note the gap rather than fabricating numbers.

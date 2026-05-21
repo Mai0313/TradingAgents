@@ -24,13 +24,13 @@
 
 - 基於 **LangGraph** 建構，提供穩健的多 Agent 編排機制
 - 多 Agent 架構：分析師團隊 → **Situation Summariser** → 研究團隊 → 交易員 → 風險管理 → 投資組合管理
-- **結構化交易建議** — Risk Judge 輸出強型別 `TradeRecommendation`(signal、size、target、stop、horizon、confidence、rationale),由一段 JSON 區塊加上 canonical `FINAL TRANSACTION PROPOSAL` 行解析得到
-- **Backtest 工具** — `tradingagents backtest` 在日期 grid 上驅動 `propagate()`,依 cache 過的 OHLCV 算實際 return,回報 Sharpe / hit-rate / drawdown,並支援 `--dry-run` stub-LLM 模式做 harness 驗證
+- **結構化交易建議** — Risk Judge 輸出強型別 `TradeRecommendation`(signal、size、entry reference、target、stop、horizon、confidence、currency、rationale),由一段 JSON 區塊加上 canonical `FINAL TRANSACTION PROPOSAL` 行解析得到
+- **Backtest 工具** — `tradingagents backtest` 在日期 grid 上驅動 `propagate()`,依 cache 過的 OHLCV 算實際 return,回報 Sharpe / hit-rate / drawdown,另外提供 buy-and-hold / HOLD / SMA / random benchmark、train / validation / test split metrics、signal distribution、warning rate,並支援 `--dry-run` stub-LLM 模式做 harness 驗證
 - 透過 `langchain.chat_models.init_chat_model` 建構 LLM，使用獨立的 `llm_provider` 欄位加上 model name 指定模型,支援 OpenAI、Anthropic、Google Gemini、xAI (Grok)、OpenRouter、Ollama、HuggingFace、LiteLLM
 - 統一的 `reasoning_effort` 旋鈕（`low / medium / high / xhigh / max`）會 map 到各 provider 的 native 參數（Anthropic `effort`、OpenAI `reasoning_effort`、Google `thinking_level`）
 - 市場數據全由 `yfinance` 提供:OHLCV、基本面、技術指標、新聞、內部人交易、analyst ratings、earnings calendar、institutional holders、short interest、dividends / splits,以及區域 macro 上下文(local index、^TNX、^VIX)
-- Google News 路由依地區自動選擇 — exchange suffix(`.TW`、`.HK`、`.T`、`.DE`、...)決定 `hl` / `gl` / `ceid`,非美股標的可以拿到當地語言的新聞覆蓋
-- 所有歷史 tool 都做 point-in-time 過濾 — 帶 reporting-lag 調整後的 `as_of` 日期,back-test 不會洩漏未來財報
+- Google News 路由依地區自動選擇:exchange suffix(`.TW`、`.HK`、`.T`、`.DE`、...)以及解析後的 bare digit ticker(`2330`、`8069`)會決定 `hl` / `gl` / `ceid`;ticker-only RSS search 沒結果時會 fallback 到解析出的 company name query,降低 ambiguous results
+- Point-in-time-safe data fetchers — graph run 會安裝 `RunContext`,tool wrapper 若收到 future `curr_date` / `start_date` / `end_date` 會直接回 `[TOOL_ERROR]`;historical dataflow 仍會依 reporting-lag 調整後的 `as_of` 過濾
 - 基於 Pydantic 的設定系統，提供嚴格型別檢查與驗證
 - 分析結果自動儲存至 `results/` 目錄並依團隊分資料夾(state log schema 帶版本號,reflect CLI 內建 v1 → v2 migration)
 - 現代 `src/` 佈局，完整型別註解
@@ -84,7 +84,7 @@ uv run tradingagents --help                  # rich 渲染的 top-level help
 uv run tradingagents cli --help              # rich 渲染的 per-command flag 列表
 ```
 
-`tradingagents tui` 會用一連串 questionary prompt 帶你走完所有參數(ticker、日期、provider、models、辯論輪數、analyst 選擇等);`tradingagents cli` 是同一條流程,但完全用 command-line flag 驅動,方便寫進 shell script 或 CI。`tradingagents reflect` 會把過去 run 的 state log 重新跑 post-trade reflector,把學到的教訓寫進 BM25 memory。`tradingagents backtest` 會在日期 grid 上反覆呼叫 `propagate()`,用下一個 bar 的 close 做 mark-to-market,回報 Sharpe / hit rate / expectancy / drawdown,並依 token-aware cost tracker 強制 `--budget-cap-usd`。加 `--dry-run` 會切到 in-memory stub LLM,直接回 canned 的 `TradeRecommendation` payload — 拿來在不燒 API 預算的情況下驗證 harness 對真實 cached OHLCV 的處理。兩條互動路徑跑 graph 時都會把 LangGraph 的 agent 訊息透過 Rich panel 串流出來(prose 用 Markdown 渲染、tool 輸出做 JSON pretty-print、payload 過長會自動截斷)。`python -m tradingagents <subcommand>` 也走同一條 dispatcher。
+`tradingagents tui` 會用一連串 questionary prompt 帶你走完所有參數(ticker、日期、provider、models、辯論輪數、analyst 選擇等);`tradingagents cli` 是同一條流程,但完全用 command-line flag 驅動,方便寫進 shell script 或 CI。`tradingagents reflect` 會把過去 run 的 state log 重新跑 post-trade reflector,把學到的教訓寫進 BM25 memory。`tradingagents backtest` 會在日期 grid 上反覆呼叫 `propagate()`,用下一個 bar 的 close 做 mark-to-market,回報 Sharpe / hit rate / expectancy / drawdown,記錄 split metrics / signal distribution / warning rate,並依 token-aware cost tracker 強制 `--budget-cap-usd`。加 `--dry-run` 會切到 in-memory stub LLM,直接回 canned 的 `TradeRecommendation` payload — 拿來在不燒 API 預算的情況下驗證 harness 對真實 cached OHLCV 的處理。兩條互動路徑跑 graph 時都會把 LangGraph 的 agent 訊息透過 Rich panel 串流出來(prose 用 Markdown 渲染、tool 輸出做 JSON pretty-print、payload 過長會自動截斷)。`python -m tradingagents <subcommand>` 也走同一條 dispatcher。
 
 #### 程式呼叫
 
@@ -112,9 +112,9 @@ print(recommendation.rationale)
 `propagate()` 回傳 `(AgentState, TradeRecommendation)`。`TradeRecommendation` 是一個 Pydantic model:
 
 - `signal: Literal["BUY", "SELL", "HOLD"]` — 標準方向
-- `size_fraction: float`(0.0 – 1.0)— 部位大小占可用資金的比例
-- `target_price: float | None`、`stop_loss: float | None`、`time_horizon_days: int | None` — 交易計畫
-- `confidence: float`(0.0 – 1.0)、`rationale: str`、`warning_message: str | None`(parser 走 fallback 路徑時會填)
+- `size_fraction: float`(0.0 – 1.0)— 部位大小占可用資金的比例;`HOLD` 會正規化成 `0.0`
+- `entry_reference_price: float | None`、`target_price: float | None`、`stop_loss: float | None`、`time_horizon_days: int | None` — 交易計畫與 as-of price anchor
+- `confidence: float`(0.0 – 1.0)、`currency: str | None`、`rationale: str`、`warning_message: str | None`(parser 走 fallback 或修正不一致輸出時會填)
 
 結構化結果同時會寫進 `AgentState.final_trade_recommendation` 與 state log JSON,讓 `reflect` 與 `backtest` subcommand 之後能重新組回來。
 
@@ -156,15 +156,21 @@ cfg = BacktestConfig(
     end_date="2024-06-30",
     frequency="weekly",  # 或 "daily"
     horizon_days=5,  # 每個 decision 的 mark-to-market 視窗
+    transaction_cost_bps=10.0,  # per-side cost
+    slippage_bps=0.0,  # per-side slippage
+    allow_short=None,  # None 使用 market-aware default
     budget_cap_usd=25.0,  # 達上限會 raise CostBudgetExceeded 並停 loop
     reflect_after_each_trade=True,
+    walk_forward=True,
+    split_fractions=(0.6, 0.2, 0.2),
     trading_config=config,
 )
 report = Backtester(config=cfg).run()
-print(report.sharpe, report.hit_rate, report.estimated_cost_usd)
+print(report.sharpe, report.hit_rate, report.warning_rate, report.estimated_cost_usd)
+print(report.benchmarks["buy_and_hold"].total_return)
 ```
 
-Harness 對每個 ticker 各建一個全新的 `TradingAgentsGraph`(per-run state 是 mutable),共用同一個 `CostTracker` callback 讓 budget 跨 ticker 累計,把每個 decision 對應到 15 年 OHLCV cache 的下一個 bar 算實際 return,並可選擇把 realised return 餵回 `reflect_and_remember`,讓 memory 像在 production 一樣在 backtest 期間長出來。傳 `dry_run=True` 會切到 in-memory `StubChatModel` 做 harness 驗證。
+Harness 對每個 ticker 各建一個全新的 `TradingAgentsGraph`(per-run state 是 mutable),共用同一個 `CostTracker` callback 讓 budget 跨 ticker 累計,把每個 decision 對應到 15 年 OHLCV cache 的下一個 bar 算實際 return,套用 transaction cost / slippage / shorting rules,並記錄 buy-and-hold、always-HOLD、simple SMA crossover、deterministic random baseline 的 benchmark returns。`walk_forward=True` 時,memory 只會在較早 trade 完成 scoring 後才更新。`BacktestReport` 也會記錄 train / validation / test split reports、`signal_distribution`、`warning_rate`、`prompt_versions` 和 model names。傳 `dry_run=True` 會切到 in-memory `StubChatModel` 做 harness 驗證。
 
 ## 📁 專案結構
 
@@ -180,7 +186,7 @@ src/
     │   ├── trader/       # 交易員 Agent
     │   ├── prompts/      # 所有 agent prompt(.md 模板)
     │   └── utils/        # 共用 Agent 工具(memory、tools、state)
-    ├── dataflows/        # yfinance + Google News RSS 數據擷取
+    ├── dataflows/        # yfinance + Google News RSS 數據擷取與 provider adapters
     ├── graph/            # LangGraph 交易圖設定
     │   ├── trading_graph.py    # 主要的 TradingAgentsGraph orchestrator
     │   ├── signal_processing.py# TradeRecommendation 解析(JSON / canonical-line 優先序)
@@ -214,7 +220,9 @@ TradingAgents 透過 LangGraph `StateGraph` 編排 **12 個 LLM agent** 加上 *
 | **News Analyst**           | `get_news`, `get_global_news`, `get_insider_transactions`, `get_market_context`, `get_earnings_calendar`                                                                          | `news_report`         |
 | **Fundamentals Analyst**   | `get_fundamentals`, `get_balance_sheet`, `get_cashflow`, `get_income_statement`, `get_analyst_ratings`, `get_institutional_holders`, `get_short_interest`, `get_dividends_splits` | `fundamentals_report` |
 
-所有歷史 tool 都會依 reporting-lag 調整後的 `as_of` 日期做 point-in-time 過濾,確保 back-test 不會洩漏未來財報。yfinance 沒有歷史檔案的 tool(`get_institutional_holders`、`get_short_interest`)在 back-dated `curr_date` 會故意回 `[NO_DATA]` sentinel,而不是默默把當下 snapshot 漏出去。
+`propagate()` 執行期間會用 run-level `RunContext` 記錄 active ticker、trade date 與 response language。Tool wrapper 若收到 future `curr_date`、`start_date` 或 `end_date`,會直接回 `[TOOL_ERROR]`,不會 silent clamp。Historical dataflow 仍會依 reporting-lag 調整後的 `as_of` 日期做 point-in-time 過濾,確保 back-test 不會洩漏未來財報。yfinance 沒有歷史檔案的 tool(`get_institutional_holders`、`get_short_interest`)在 back-dated `curr_date` 會故意回 `[NO_DATA]` sentinel,而不是默默把當下 snapshot 漏出去。Historical `get_earnings_calendar` 也會省略 current-only 的 `yfinance.calendar` snapshot;forward rows 只保留 date / estimate 欄位並加上 source-limitation note。
+
+Analyst report 有 evidence gate:如果 analyst 在看到任何 tool result 之前就輸出 final report,node 會寫入 `[TOOL_ERROR]` warning report,而不是把沒有 evidence 的 prose 當成 report。Prompt 也固定 default windows:Market OHLCV / indicators 用 90 天,news / sentiment 用 14 天,dividends / splits 用截至 trade date 的 365 天。
 
 Market Analyst 可挑選的 technical indicator(**一次選 6 – 8 個**):`close_50_sma`、`close_200_sma`、`close_10_ema`、`macd`、`macds`、`macdh`、`rsi`、`mfi`、`cci`、`wr`、`kdjk`、`kdjd`、`stochrsi`、`adx`、`pdi`、`boll`、`boll_ub`、`boll_lb`、`atr`、`supertrend`、`supertrend_ub`、`supertrend_lb`、`vwma`、`obv`。Market Analyst 被要求挑均衡的趨勢 / 動能 / 波動 / 成交量訊號;當底層 history 少於 50 bar 時,輸出會帶 `DATA WARNING` 前言(長週期指標不可靠的提醒)。
 
@@ -233,13 +241,13 @@ Market Analyst 可挑選的 technical indicator(**一次選 6 – 8 個**):`clos
 
 ### Phase 4 — 風險辯論
 
-三位 risk debator 以固定順序輪流發言:**Aggressive → Conservative → Neutral → Aggressive → …**,循環 `max_risk_discuss_rounds` 輪(預設為 1,代表每種立場各發言一次)。終止條件:當 `count >= 3 * max_risk_discuss_rounds` 時,graph route 到 **Risk Judge**(由 `create_risk_manager` 建立的 deep-thinking LLM),由它寫入 `final_trade_decision`。Risk Judge 的 prompt 要求輸出一個 fenced ```` ```json ```` 區塊包含 `TradeRecommendation` schema(signal、size_fraction、target_price、stop_loss、time_horizon_days、confidence、rationale、warning_message),加上 canonical 的 `FINAL TRANSACTION PROPOSAL: **<signal>**` 行。決定性的 `SignalProcessor` 會解析這兩個輸出 — 當兩者不一致時 canonical line 優先,JSON 不完整或解析失敗時會優雅 fallback 並填上保守預設值(size 0.5、confidence 0.5)。
+三位 risk debator 以固定順序輪流發言:**Aggressive → Conservative → Neutral → Aggressive → …**,循環 `max_risk_discuss_rounds` 輪(預設為 1,代表每種立場各發言一次)。終止條件:當 `count >= 3 * max_risk_discuss_rounds` 時,graph route 到 **Risk Judge**(由 `create_risk_manager` 建立的 deep-thinking LLM),由它寫入 `final_trade_decision`。Risk Judge 的 prompt 要求輸出一個 fenced ```` ```json ```` 區塊包含 `TradeRecommendation` schema(signal、size_fraction、entry_reference_price、target_price、stop_loss、time_horizon_days、confidence、currency、rationale、warning_message),加上 canonical 的 `FINAL TRANSACTION PROPOSAL: **<signal>**` 行。決定性的 `SignalProcessor` 會解析這兩個輸出 — 當兩者不一致時 canonical line 優先,`HOLD` size 會強制歸零,JSON 不完整或解析失敗時會優雅 fallback 並填上保守預設值(BUY/SELL size 0.25、HOLD size 0.0、confidence 0.5)。
 
 ### 支援元件
 
 - **Situation Summariser** — 把 analyst reports 蒸餾成 BM25 retrieval query,讓 memory lookup 在 lexical 上保持精準。
-- **FinancialSituationMemory** — 採 BM25Okapi 做 retrieval,整個流程共有 5 個 instance(bull、bear、trader、invest_judge、risk_manager)。純 lexical 相似度,不需要任何 embedding API。每筆 match 同時 surface 過去 situation snapshot 與 lesson — agent 自己判斷類比是否成立再決定要不要套用 lesson。
-- **Reflector** — 交易結果出爐之後,呼叫 `TradingAgentsGraph.reflect_and_remember(returns_losses)` 會針對 5 個 memory 各跑一輪 post-trade reflection。reflector 輸出結構化 rubric(每個 factor 1 – 5 分 + 整體 reasoning + outcome quality + lesson category enum),讓 backtest 工具可以聚合 reasoning 軌跡。
+- **FinancialSituationMemory** — 採 BM25Okapi 做 retrieval,整個流程共有 5 個 instance(bull、bear、trader、invest_judge、risk_manager)。純 lexical 相似度,不需要任何 embedding API。Zero-overlap BM25 match 會被濾掉;每筆 match 同時 surface 過去 situation snapshot 與 lesson,讓 agent 自己判斷類比是否成立再決定要不要套用 lesson。
+- **Reflector** — 交易結果出爐之後,呼叫 `TradingAgentsGraph.reflect_and_remember(returns_losses)` 會針對 5 個 memory 各跑一輪 post-trade reflection。Memory JSONL rows 會在 situation / lesson 之外保存 metadata(`ticker`、`trade_date`、`signal`、`realised_return`、`component`、`prompt_version`)。Backtest outcome context 可用時,prompt 會包含 entry / exit prices、horizon、benchmarks 與 final recommendation;reflection rubric 會被 parse 成 structured scores,方便之後看 reasoning quality trend。
 
 ### 流程示意
 

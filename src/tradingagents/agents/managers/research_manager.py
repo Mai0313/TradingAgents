@@ -4,6 +4,7 @@ from collections.abc import Callable
 from tradingagents.llm import ChatModel
 from tradingagents.agents.prompts import load_prompt
 from tradingagents.agents.utils.memory import FinancialSituationMemory, format_memories_for_prompt
+from tradingagents.agents.utils.content import flatten_message_content
 from tradingagents.agents.utils.agent_states import AgentState, InvestDebateState
 
 
@@ -45,16 +46,17 @@ def create_research_manager(
             history=debate.history,
         )
         response = llm.invoke(prompt)
+        response_content = flatten_message_content(response.content)
 
         new_debate_state = InvestDebateState(
-            judge_decision=response.content,
+            judge_decision=response_content,
             history=debate.history,
             bear_history=debate.bear_history,
             bull_history=debate.bull_history,
-            current_response=response.content,
+            current_response=response_content,
             count=debate.count,
         )
 
-        return {"investment_debate_state": new_debate_state, "investment_plan": response.content}
+        return {"investment_debate_state": new_debate_state, "investment_plan": response_content}
 
     return research_manager_node

@@ -4,6 +4,7 @@ from collections.abc import Callable
 from tradingagents.llm import ChatModel
 from tradingagents.agents.prompts import load_prompt
 from tradingagents.agents.utils.memory import FinancialSituationMemory, format_memories_for_prompt
+from tradingagents.agents.utils.content import flatten_message_content
 from tradingagents.agents.utils.agent_states import AgentState, RiskDebateState
 
 
@@ -47,9 +48,10 @@ def create_risk_manager(
         )
 
         response = llm.invoke(prompt)
+        response_content = flatten_message_content(response.content)
 
         new_risk_state = RiskDebateState(
-            judge_decision=response.content,
+            judge_decision=response_content,
             history=risk.history,
             aggressive_history=risk.aggressive_history,
             conservative_history=risk.conservative_history,
@@ -61,6 +63,6 @@ def create_risk_manager(
             count=risk.count,
         )
 
-        return {"risk_debate_state": new_risk_state, "final_trade_decision": response.content}
+        return {"risk_debate_state": new_risk_state, "final_trade_decision": response_content}
 
     return risk_manager_node

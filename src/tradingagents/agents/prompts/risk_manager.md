@@ -8,6 +8,7 @@ Hold is acceptable when the evidence genuinely does not favour either direction;
 2. **Summarize key arguments.** Extract the strongest points from each of the three risk analysts.
 3. **Refine the trader's plan.** Start with the trader's plan, **{trader_plan}**, and adjust direction or sizing as the strongest arguments warrant.
 4. **Learn from past mistakes.** Each past-situation block below shows the original snapshot, its similarity score, and the lesson recorded after the trade outcome was known. First judge whether the past situation is truly analogous to today's setup (similar regime, ticker profile, catalyst); only then apply the lesson. A high similarity score is informative but not a guarantee. If the past-memory block is the sentinel "(no relevant past situations found.)", do not invent prior lessons.
+5. **Cite evidence sections.** The JSON `rationale` must explicitly reference at least two source sections by name, such as "Market report", "News sentiment report", "News report", "Fundamentals report", or "Risk-debate transcript".
 
 Past situations and lessons learned:
 
@@ -41,10 +42,12 @@ Provide, in this order:
     {{
       "signal": "BUY" | "SELL" | "HOLD",
       "size_fraction": <number between 0.0 and 1.0>,
+      "entry_reference_price": <number or null>,
       "target_price": <number or null>,
       "stop_loss": <number or null>,
       "time_horizon_days": <integer or null>,
       "confidence": <number between 0.0 and 1.0>,
+      "currency": <string or null>,
       "rationale": "<one or two sentences, plain string>",
       "warning_message": <string or null>
     }}

@@ -27,13 +27,14 @@ the backtest just as it would in production.
 from __future__ import annotations
 
 import math
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
+import hashlib
 import logging
 from datetime import datetime, timedelta
 from collections.abc import Callable  # noqa: TC003  # runtime needed for Backtester.run signature
 
 import pandas as pd
-from pydantic import Field, BaseModel, ConfigDict, SkipValidation
+from pydantic import Field, BaseModel, ConfigDict, SkipValidation, field_validator
 from langchain_core.outputs import ChatResult, ChatGeneration
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.callbacks import BaseCallbackHandler
@@ -42,13 +43,19 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from tradingagents.config import (
     TradingAgentsConfig,  # noqa: TC001  # Pydantic field annotation needs runtime resolution
 )
+from tradingagents.graph.reflection import ReflectionScores, ReflectionOutcomeContext
 from tradingagents.dataflows.yfinance import _resolve_history_with_cache
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 from tradingagents.graph.signal_processing import TradeRecommendation
 
+if TYPE_CHECKING:
+    from tradingagents.agents.utils.agent_states import AgentState
+
 logger = logging.getLogger(__name__)
 
 Frequency = Literal["daily", "weekly"]
+BacktestSplit = Literal["train", "validation", "test"]
+_BACKTEST_EVALUATION_VERSION = "backtest-eval-v1"
 
 # Approximate per-million-token costs in USD. The exact numbers move
 # constantly; this table is intentionally conservative so the budget
@@ -59,7 +66,7 @@ _PRICING_USD_PER_MTOK: dict[str, tuple[float, float]] = {
     # (input, output) per 1,000,000 tokens
     "gemini-flash-latest": (0.075, 0.30),
     "gemini-2.5-flash": (0.075, 0.30),
-    "gemini-3-flash-preview": (0.10, 0.40),
+    "gemini-3.5-flash": (0.10, 0.40),
     "gemini-pro-latest": (1.25, 5.00),
     "gemini-3.1-pro-preview": (2.50, 10.00),
     "gpt-5-mini": (0.50, 4.00),
@@ -128,6 +135,26 @@ class BacktestConfig(BaseModel):
             "realised return; safer than trusting the LLM not to size at 1.0."
         ),
     )
+    transaction_cost_bps: float = Field(
+        default=10.0,
+        ge=0.0,
+        title="Transaction Cost (bps)",
+        description="Per-side transaction cost in basis points applied to BUY / SELL trades.",
+    )
+    slippage_bps: float = Field(
+        default=0.0,
+        ge=0.0,
+        title="Slippage (bps)",
+        description="Per-side slippage in basis points applied to BUY / SELL trades.",
+    )
+    allow_short: bool | None = Field(
+        default=None,
+        title="Allow Short Selling",
+        description=(
+            "Whether SELL can be scored as a short. None enables shorts for most "
+            "markets but disables them for Taiwan-style tickers by default."
+        ),
+    )
     budget_cap_usd: float | None = Field(
         default=None,
         ge=0,
@@ -153,6 +180,23 @@ class BacktestConfig(BaseModel):
             "decision so memory grows just as it would in production."
         ),
     )
+    walk_forward: bool = Field(
+        default=True,
+        title="Walk Forward",
+        description=(
+            "When True, the date grid runs chronologically and memory is updated "
+            "only after each earlier trade has been scored. When False, reflection "
+            "is skipped during the run so evaluation decisions do not mutate memory."
+        ),
+    )
+    split_fractions: tuple[float, float, float] = Field(
+        default=(0.6, 0.2, 0.2),
+        title="Train / Validation / Test Fractions",
+        description=(
+            "Chronological fractions used to label each decision as train, "
+            "validation, or test for walk-forward reporting."
+        ),
+    )
     trading_config: TradingAgentsConfig = Field(
         ...,
         title="Trading Config",
@@ -162,18 +206,64 @@ class BacktestConfig(BaseModel):
         ),
     )
 
+    @field_validator("split_fractions")
+    @classmethod
+    def _validate_split_fractions(
+        cls, value: tuple[float, float, float]
+    ) -> tuple[float, float, float]:
+        """Validate chronological train / validation / test split fractions."""
+        if any(part < 0 for part in value):
+            raise ValueError("split_fractions values must be non-negative.")
+        total = sum(value)
+        if not math.isclose(total, 1.0, rel_tol=1e-9, abs_tol=1e-9):
+            raise ValueError("split_fractions must sum to 1.0.")
+        return value
+
 
 class TradeRecord(BaseModel):
     """One (ticker, decision_date) outcome row."""
 
     ticker: str
     decision_date: str
+    dataset_split: BacktestSplit = Field(
+        default="test",
+        title="Dataset Split",
+        description="Chronological train / validation / test label for this decision.",
+    )
     recommendation: TradeRecommendation
     entry_price: float | None = None
     exit_date: str | None = None
     exit_price: float | None = None
     realised_return: float = 0.0
+    benchmark_returns: dict[str, float] = Field(
+        default_factory=dict,
+        title="Benchmark Returns",
+        description="Per-baseline returns scored over the same entry / exit window.",
+    )
+    reflection_scores: dict[str, ReflectionScores] = Field(
+        default_factory=dict,
+        title="Reflection Scores",
+        description="Parsed reflection rubric by component, when reflection ran.",
+    )
     notes: str = ""
+
+
+class BenchmarkReport(BaseModel):
+    """Aggregate metrics for one benchmark baseline."""
+
+    total_return: float = Field(
+        ..., title="Total Return", description="Compounded return for this benchmark."
+    )
+    avg_return: float = Field(..., title="Average Return", description="Mean per-trade return.")
+    hit_rate: float = Field(
+        ..., title="Hit Rate", description="Fraction of benchmark periods with positive returns."
+    )
+    sharpe: float = Field(
+        ..., title="Sharpe", description="Annualised Sharpe ratio for benchmark returns."
+    )
+    worst_drawdown: float = Field(
+        ..., title="Worst Drawdown", description="Worst peak-to-trough drawdown."
+    )
 
 
 class BacktestReport(BaseModel):
@@ -190,6 +280,38 @@ class BacktestReport(BaseModel):
     n_sell: int
     n_hold: int
     estimated_cost_usd: float
+    benchmarks: dict[str, BenchmarkReport] = Field(
+        default_factory=dict,
+        title="Benchmarks",
+        description="Buy-and-hold, always-HOLD, SMA-crossover, and random baselines.",
+    )
+    split_reports: dict[BacktestSplit, BenchmarkReport] = Field(
+        default_factory=dict,
+        title="Split Reports",
+        description="Strategy metrics grouped by chronological train / validation / test split.",
+    )
+    signal_distribution: dict[str, int] = Field(
+        default_factory=dict,
+        title="Signal Distribution",
+        description="Count of BUY / SELL / HOLD recommendations across the run.",
+    )
+    warning_rate: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        title="Warning Rate",
+        description="Fraction of recommendations carrying parser warning_message.",
+    )
+    prompt_versions: dict[str, str] = Field(
+        default_factory=dict,
+        title="Prompt Versions",
+        description="Prompt / evaluation contract versions recorded with the report.",
+    )
+    model_names: dict[str, str] = Field(
+        default_factory=dict,
+        title="Model Names",
+        description="Provider and model identifiers used by the backtest.",
+    )
 
 
 class CostTracker(BaseCallbackHandler):
@@ -403,16 +525,38 @@ def _entry_price_on(history: pd.DataFrame, decision_date: str) -> tuple[str | No
     return pd.Timestamp(row["Date"]).strftime("%Y-%m-%d"), float(row["Close"])
 
 
-def _signed_return(
-    signal: str, entry: float, exit_close: float, size_fraction: float, cap: float
+def _shorting_allowed(ticker: str, allow_short: bool | None) -> bool:
+    """Return whether SELL may be scored as a short for ``ticker``."""
+    if allow_short is not None:
+        return allow_short
+    cleaned = ticker.strip().upper()
+    return not (cleaned.isdigit() or cleaned.endswith((".TW", ".TWO")))
+
+
+def _round_trip_cost(size: float, transaction_cost_bps: float, slippage_bps: float) -> float:
+    """Return round-trip cost drag as a fractional return."""
+    return size * 2.0 * (transaction_cost_bps + slippage_bps) / 10_000.0
+
+
+def _signed_return(  # noqa: PLR0913 -- formula inputs are clearer kept explicit in tests.
+    signal: str,
+    entry: float,
+    exit_close: float,
+    size_fraction: float,
+    cap: float,
+    transaction_cost_bps: float = 0.0,
+    slippage_bps: float = 0.0,
+    allow_short: bool = True,
 ) -> float:
     """Convert (signal, entry, exit, size) into a signed realised return."""
     raw = (exit_close / entry - 1.0) if entry > 0 else 0.0
     size = max(0.0, min(size_fraction, cap))
     if signal == "BUY":
-        return raw * size
+        return raw * size - _round_trip_cost(size, transaction_cost_bps, slippage_bps)
     if signal == "SELL":
-        return -raw * size
+        if not allow_short:
+            return 0.0
+        return -raw * size - _round_trip_cost(size, transaction_cost_bps, slippage_bps)
     return 0.0
 
 
@@ -420,10 +564,147 @@ def _periods_per_year(frequency: Frequency) -> float:
     return 252.0 if frequency == "daily" else 52.0
 
 
+def _series_metrics(returns: list[float], frequency: Frequency) -> BenchmarkReport:
+    """Compute aggregate metrics for a return series."""
+    if not returns:
+        return BenchmarkReport(
+            total_return=0.0,
+            avg_return=0.0,
+            hit_rate=float("nan"),
+            sharpe=float("nan"),
+            worst_drawdown=0.0,
+        )
+
+    mean = sum(returns) / len(returns)
+    variance = sum((r - mean) ** 2 for r in returns) / max(len(returns) - 1, 1)
+    stdev = math.sqrt(variance) if variance > 0 else 0.0
+    sharpe = (
+        (mean / stdev) * math.sqrt(_periods_per_year(frequency)) if stdev > 0 else float("nan")
+    )
+    hit_rate = sum(1 for r in returns if r > 0) / len(returns)
+
+    cumulative = 1.0
+    peak = 1.0
+    worst_dd = 0.0
+    for value in returns:
+        cumulative *= 1.0 + value
+        peak = max(peak, cumulative)
+        if peak > 0:
+            worst_dd = min(worst_dd, cumulative / peak - 1.0)
+
+    return BenchmarkReport(
+        total_return=cumulative - 1.0,
+        avg_return=mean,
+        hit_rate=hit_rate,
+        sharpe=sharpe,
+        worst_drawdown=worst_dd,
+    )
+
+
+def _aggregate_benchmarks(
+    trades: list[TradeRecord], frequency: Frequency
+) -> dict[str, BenchmarkReport]:
+    """Aggregate per-trade benchmark return columns."""
+    names = sorted({name for trade in trades for name in trade.benchmark_returns})
+    return {
+        name: _series_metrics(
+            [trade.benchmark_returns.get(name, 0.0) for trade in trades], frequency
+        )
+        for name in names
+    }
+
+
+def _split_for_index(
+    index: int, total: int, fractions: tuple[float, float, float]
+) -> BacktestSplit:
+    """Return chronological train / validation / test label for one row."""
+    if total <= 0:
+        return "test"
+    train_end = int(total * fractions[0])
+    validation_end = train_end + int(total * fractions[1])
+    if index < train_end:
+        return "train"
+    if index < validation_end:
+        return "validation"
+    return "test"
+
+
+def _aggregate_split_reports(
+    trades: list[TradeRecord], frequency: Frequency
+) -> dict[BacktestSplit, BenchmarkReport]:
+    """Aggregate strategy returns by chronological dataset split."""
+    reports: dict[BacktestSplit, BenchmarkReport] = {}
+    for split in ("train", "validation", "test"):
+        split_returns = [trade.realised_return for trade in trades if trade.dataset_split == split]
+        if split_returns:
+            reports[split] = _series_metrics(split_returns, frequency)
+    return reports
+
+
+def _signal_distribution(trades: list[TradeRecord]) -> dict[str, int]:
+    """Return BUY / SELL / HOLD counts for the run."""
+    return {
+        "BUY": sum(1 for trade in trades if trade.recommendation.signal == "BUY"),
+        "SELL": sum(1 for trade in trades if trade.recommendation.signal == "SELL"),
+        "HOLD": sum(1 for trade in trades if trade.recommendation.signal == "HOLD"),
+    }
+
+
+def _warning_rate(trades: list[TradeRecord]) -> float:
+    """Return fraction of recommendations carrying parser warnings."""
+    return (
+        sum(1 for trade in trades if trade.recommendation.warning_message) / len(trades)
+        if trades
+        else 0.0
+    )
+
+
+def _prompt_versions() -> dict[str, str]:
+    """Return prompt / evaluation contract versions captured in reports."""
+    return {"backtest_evaluation": _BACKTEST_EVALUATION_VERSION, "reflection": "reflector-v1"}
+
+
+def _model_names(config: TradingAgentsConfig) -> dict[str, str]:
+    """Return model identifiers used for this backtest run."""
+    return {
+        "llm_provider": config.llm_provider,
+        "deep_think_llm": config.deep_think_llm,
+        "quick_think_llm": config.quick_think_llm,
+    }
+
+
+def _sma_crossover_signal(history: pd.DataFrame, decision_date: str) -> str:
+    """Return BUY/SELL/HOLD from a simple 50/200 close SMA crossover."""
+    if history.empty or "Date" not in history.columns or "Close" not in history.columns:
+        return "HOLD"
+    dates = pd.to_datetime(history["Date"])
+    eligible = history.loc[dates <= pd.Timestamp(decision_date), "Close"].dropna()
+    if len(eligible) < 200:
+        return "HOLD"
+    fast = float(eligible.tail(50).mean())
+    slow = float(eligible.tail(200).mean())
+    if fast > slow:
+        return "BUY"
+    if fast < slow:
+        return "SELL"
+    return "HOLD"
+
+
+def _deterministic_random_signal(ticker: str, decision_date: str, allow_short: bool) -> str:
+    """Return a stable pseudo-random baseline signal for one decision row."""
+    choices = ("BUY", "SELL", "HOLD") if allow_short else ("BUY", "HOLD")
+    digest = hashlib.sha256(f"{ticker}|{decision_date}".encode()).digest()
+    return choices[int.from_bytes(digest[:2], "big") % len(choices)]
+
+
 def _aggregate_report(
-    trades: list[TradeRecord], frequency: Frequency, cost_usd: float
+    trades: list[TradeRecord],
+    frequency: Frequency,
+    cost_usd: float,
+    trading_config: TradingAgentsConfig | None = None,
 ) -> BacktestReport:
     """Compute the summary metrics over ``trades``."""
+    model_names = _model_names(trading_config) if trading_config is not None else {}
     if not trades:
         return BacktestReport(
             trades=[],
@@ -437,6 +718,12 @@ def _aggregate_report(
             n_sell=0,
             n_hold=0,
             estimated_cost_usd=cost_usd,
+            benchmarks={},
+            split_reports={},
+            signal_distribution={"BUY": 0, "SELL": 0, "HOLD": 0},
+            warning_rate=0.0,
+            prompt_versions=_prompt_versions(),
+            model_names=model_names,
         )
 
     returns = [t.realised_return for t in trades]
@@ -476,6 +763,12 @@ def _aggregate_report(
         n_sell=sum(1 for t in trades if t.recommendation.signal == "SELL"),
         n_hold=sum(1 for t in trades if t.recommendation.signal == "HOLD"),
         estimated_cost_usd=cost_usd,
+        benchmarks=_aggregate_benchmarks(trades, frequency),
+        split_reports=_aggregate_split_reports(trades, frequency),
+        signal_distribution=_signal_distribution(trades),
+        warning_rate=_warning_rate(trades),
+        prompt_versions=_prompt_versions(),
+        model_names=model_names,
     )
 
 
@@ -516,14 +809,14 @@ class Backtester(BaseModel):
 
         return restore
 
-    def run(  # noqa: C901 -- the loop is one cohesive workflow; splitting hurts readability
+    def run(  # noqa: C901, PLR0912 -- the loop is one cohesive workflow; splitting hurts readability
         self, on_trade: Callable[[TradeRecord], None] | None = None
     ) -> BacktestReport:
         """Execute the backtest and return a :class:`BacktestReport`."""
         cfg = self.config
         grid = _decision_grid(cfg.start_date, cfg.end_date, cfg.frequency)
         if not grid:
-            return _aggregate_report([], cfg.frequency, 0.0)
+            return _aggregate_report([], cfg.frequency, 0.0, cfg.trading_config)
 
         cost_tracker = CostTracker(budget_cap_usd=cfg.budget_cap_usd)
         restore = self._maybe_install_stub_llm()
@@ -531,20 +824,18 @@ class Backtester(BaseModel):
             trades: list[TradeRecord] = []
             stop = False
 
-            for ticker in cfg.tickers:
+            for split_index, decision_date in enumerate(grid):
                 if stop:
                     break
-                # New TradingAgentsGraph per ticker: it carries mutable
-                # per-run state (`self.ticker`, `self.log_states_dict`
-                # keyed only by date), and reusing one instance would let
-                # ticker A's state leak into ticker B's on-disk log file
-                # when both runs land on the same decision_date. Memory
-                # JSONLs are shared via disk regardless, so per-ticker
-                # construction is cheap and isolation-safe.
-                graph = TradingAgentsGraph(config=cfg.trading_config, callbacks=[cost_tracker])
-                for decision_date in grid:
+                dataset_split = _split_for_index(split_index, len(grid), cfg.split_fractions)
+                pending_reflections: list[
+                    tuple[str, TradingAgentsGraph, AgentState, TradeRecord]
+                ] = []
+
+                for ticker in cfg.tickers:
                     if stop:
                         break
+                    graph = TradingAgentsGraph(config=cfg.trading_config, callbacks=[cost_tracker])
                     try:
                         state, recommendation = graph.propagate(ticker, decision_date)
                     except CostBudgetExceeded as exc:
@@ -557,16 +848,44 @@ class Backtester(BaseModel):
                             TradeRecord(
                                 ticker=ticker,
                                 decision_date=decision_date,
-                                recommendation=TradeRecommendation(signal="HOLD"),
+                                dataset_split=dataset_split,
+                                recommendation=TradeRecommendation(
+                                    signal="HOLD", size_fraction=0.0
+                                ),
                                 notes=f"propagate error: {exc!s}",
                             )
                         )
                         continue
 
-                    record = self._score_trade(ticker, decision_date, recommendation)
-                    if cfg.reflect_after_each_trade and not cfg.dry_run:
+                    record = self._score_trade(
+                        ticker, decision_date, dataset_split, recommendation
+                    )
+                    pending_reflections.append((ticker, graph, state, record))
+
+                for ticker, graph, state, pending_record in pending_reflections:
+                    record_to_store = pending_record
+                    if cfg.reflect_after_each_trade and cfg.walk_forward and not cfg.dry_run:
                         try:
-                            graph.reflect_and_remember(record.realised_return, state=state)
+                            score_map = graph.reflect_and_remember(
+                                pending_record.realised_return,
+                                state=state,
+                                outcome_context=ReflectionOutcomeContext(
+                                    entry_price=pending_record.entry_price,
+                                    exit_price=pending_record.exit_price,
+                                    exit_date=pending_record.exit_date,
+                                    horizon_days=cfg.horizon_days,
+                                    benchmark_returns=pending_record.benchmark_returns,
+                                ),
+                            )
+                            record_to_store = pending_record.model_copy(
+                                update={
+                                    "reflection_scores": {
+                                        key: value
+                                        for key, value in score_map.items()
+                                        if value is not None
+                                    }
+                                }
+                            )
                         except Exception:
                             logger.warning(
                                 "reflect_and_remember failed for %s %s",
@@ -574,17 +893,23 @@ class Backtester(BaseModel):
                                 decision_date,
                                 exc_info=True,
                             )
-                    trades.append(record)
+                    trades.append(record_to_store)
                     if on_trade is not None:
-                        on_trade(record)
+                        on_trade(record_to_store)
         finally:
             if restore is not None:
                 restore()
 
-        return _aggregate_report(trades, cfg.frequency, cost_tracker.total_cost_usd)
+        return _aggregate_report(
+            trades, cfg.frequency, cost_tracker.total_cost_usd, cfg.trading_config
+        )
 
     def _score_trade(
-        self, ticker: str, decision_date: str, recommendation: TradeRecommendation
+        self,
+        ticker: str,
+        decision_date: str,
+        dataset_split: BacktestSplit,
+        recommendation: TradeRecommendation,
     ) -> TradeRecord:
         """Compute entry / exit / realised return for one decision."""
         cfg = self.config
@@ -601,6 +926,7 @@ class Backtester(BaseModel):
             return TradeRecord(
                 ticker=ticker,
                 decision_date=decision_date,
+                dataset_split=dataset_split,
                 recommendation=recommendation,
                 notes=f"history error: {exc!s}",
             )
@@ -611,6 +937,7 @@ class Backtester(BaseModel):
             return TradeRecord(
                 ticker=ticker,
                 decision_date=decision_date,
+                dataset_split=dataset_split,
                 recommendation=recommendation,
                 entry_price=entry_price,
                 exit_date=exit_date,
@@ -618,28 +945,76 @@ class Backtester(BaseModel):
                 notes="incomplete price data; realised_return defaulted to 0",
             )
 
+        allow_short = _shorting_allowed(ticker, cfg.allow_short)
         realised = _signed_return(
             recommendation.signal,
             entry_price,
             exit_price,
             recommendation.size_fraction,
             cfg.max_position_fraction,
+            cfg.transaction_cost_bps,
+            cfg.slippage_bps,
+            allow_short,
+        )
+        notes = ""
+        if recommendation.signal == "SELL" and not allow_short:
+            notes = "shorting disabled for this ticker; SELL scored as HOLD"
+
+        benchmark_returns = self._benchmark_returns(
+            ticker, decision_date, history, entry_price, exit_price, allow_short
         )
         return TradeRecord(
             ticker=ticker,
             decision_date=decision_date,
+            dataset_split=dataset_split,
             recommendation=recommendation,
             entry_price=entry_price,
             exit_date=exit_date,
             exit_price=exit_price,
             realised_return=realised,
+            benchmark_returns=benchmark_returns,
+            notes=notes,
         )
+
+    def _benchmark_returns(  # noqa: PLR0913 -- mirrors the scored trade window.
+        self,
+        ticker: str,
+        decision_date: str,
+        history: pd.DataFrame,
+        entry_price: float,
+        exit_price: float,
+        allow_short: bool,
+    ) -> dict[str, float]:
+        """Score deterministic baselines over the same entry / exit window."""
+        cfg = self.config
+
+        def score(signal: str) -> float:
+            return _signed_return(
+                signal,
+                entry_price,
+                exit_price,
+                cfg.max_position_fraction,
+                cfg.max_position_fraction,
+                cfg.transaction_cost_bps,
+                cfg.slippage_bps,
+                allow_short,
+            )
+
+        sma_signal = _sma_crossover_signal(history, decision_date)
+        random_signal = _deterministic_random_signal(ticker, decision_date, allow_short)
+        return {
+            "buy_and_hold": score("BUY"),
+            "always_hold": 0.0,
+            "sma_crossover": score(sma_signal),
+            "random_baseline": score(random_signal),
+        }
 
 
 __all__ = [
     "BacktestConfig",
     "BacktestReport",
     "Backtester",
+    "BenchmarkReport",
     "CostBudgetExceeded",
     "CostTracker",
     "StubChatModel",
