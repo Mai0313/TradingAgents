@@ -1,6 +1,6 @@
 import re
 import json
-from typing import Any
+from typing import Any, Literal, overload
 import logging
 from pathlib import Path
 from functools import cached_property
@@ -267,13 +267,40 @@ class TradingAgentsGraph(BaseModel):
 
     # --- Public methods ---
 
+    @overload
     def propagate(
         self,
         company_name: str,
         trade_date: str,
         on_message: Callable[[AnyMessage], None] | None = None,
         on_state: Callable[[AgentState], None] | None = None,
-    ) -> tuple[AgentState, TradeRecommendation]:
+        *,
+        return_messages: Literal[False] = False,
+    ) -> tuple[AgentState, TradeRecommendation]: ...
+
+    @overload
+    def propagate(
+        self,
+        company_name: str,
+        trade_date: str,
+        on_message: Callable[[AnyMessage], None] | None = None,
+        on_state: Callable[[AgentState], None] | None = None,
+        *,
+        return_messages: Literal[True],
+    ) -> tuple[AgentState, TradeRecommendation, list[AnyMessage]]: ...
+
+    def propagate(
+        self,
+        company_name: str,
+        trade_date: str,
+        on_message: Callable[[AnyMessage], None] | None = None,
+        on_state: Callable[[AgentState], None] | None = None,
+        *,
+        return_messages: bool = False,
+    ) -> (
+        tuple[AgentState, TradeRecommendation]
+        | tuple[AgentState, TradeRecommendation, list[AnyMessage]]
+    ):
         """Run the trading agents graph for a company on a specific date.
 
         Args:
@@ -290,14 +317,22 @@ class TradingAgentsGraph(BaseModel):
                 AgentState snapshot. Used by the Textual TUI to update the
                 phase progress sidebar from analyst-report / debate
                 fields; the CLI does not need this. Defaults to None.
+            return_messages (bool, optional): When True, return the complete
+                list of streamed LangChain messages observed during the run as
+                a third tuple item. This is useful for library callers that
+                want to suppress live printing and render or store messages
+                themselves. Defaults to False.
 
         Returns:
             tuple[AgentState, TradeRecommendation]: The final agent state
             (with `final_trade_recommendation` populated) and the
             structured BUY / SELL / HOLD recommendation extracted from the
-            Risk Judge output. Defaults to a HOLD recommendation with
-            `warning_message` set when the risk-judge output is empty or
-            ambiguous; see :func:`extract_trade_recommendation`.
+            Risk Judge output. When `return_messages=True`, the tuple also
+            includes `list[AnyMessage]` containing every streamed message
+            collected before Msg Clear nodes can erase it from state.
+            Defaults to a HOLD recommendation with `warning_message` set
+            when the risk-judge output is empty or ambiguous; see
+            :func:`extract_trade_recommendation`.
 
         Raises:
             RuntimeError: If the graph execution produces no output.
@@ -335,6 +370,8 @@ class TradingAgentsGraph(BaseModel):
 
         self.curr_state = final_state
         self._log_state(trade_date, final_state, list(collected.values()))
+        if return_messages:
+            return final_state, recommendation, list(collected.values())
         return final_state, recommendation
 
     def _dispatch_messages(

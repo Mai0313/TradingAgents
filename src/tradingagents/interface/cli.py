@@ -115,7 +115,7 @@ def run_cli(  # noqa: PLR0913
     renderer = MessageRenderer.for_console(console=console)
 
     ta = TradingAgentsGraph(debug=debug, config=config, selected_analysts=analysts)
-    _, recommendation = ta.propagate(ticker, date, on_message=renderer)
+    _, recommendation = ta.propagate(company_name=ticker, trade_date=date, on_message=renderer)
 
     print_final_decision(console, recommendation)
     return recommendation

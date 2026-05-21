@@ -109,7 +109,7 @@ print(recommendation.signal, recommendation.size_fraction, recommendation.confid
 print(recommendation.rationale)
 ```
 
-`propagate()` returns `(AgentState, TradeRecommendation)`. `TradeRecommendation` is a Pydantic model with:
+`propagate()` returns `(AgentState, TradeRecommendation)`. Pass `return_messages=True` to receive `(AgentState, TradeRecommendation, list[AnyMessage])`; combine it with `debug=False` when you want no live `message.pretty_print()` output and prefer to render the collected LangChain messages yourself. `TradeRecommendation` is a Pydantic model with:
 
 - `signal: Literal["BUY", "SELL", "HOLD"]` — the canonical direction
 - `size_fraction: float` (0.0 – 1.0) — position size as a fraction of available capital
@@ -120,7 +120,7 @@ The structured form is also persisted to `AgentState.final_trade_recommendation`
 
 `response_language` is a BCP 47 tag from the `ResponseLanguage` `Literal` (`zh-TW`, `zh-CN`, `en-US`, `ja-JP`, `ko-KR`, `de-DE`); pick the closest one to the language you want the agents to reason in.
 
-`TradingAgentsGraph.propagate` also accepts an optional `on_message` callback (`Callable[[AnyMessage], None]`) that fires once per streamed LangGraph message — useful for plugging in your own renderer; the bundled CLI / TUI use this hook to drive the Rich panels.
+`TradingAgentsGraph.propagate` also accepts an optional `on_message` callback (`Callable[[AnyMessage], None]`) that fires once per streamed LangGraph message — useful for plugging in your own live renderer; the bundled CLI / TUI use this hook to drive the Rich panels.
 
 `llm_provider` is one of the `langchain.chat_models.init_chat_model` registry keys (`openai`, `anthropic`, `google_genai`, `xai`, `openrouter`, `ollama`, `huggingface`, `litellm`); `deep_think_llm` / `quick_think_llm` take the model name as accepted by that provider (`gpt-5`, `claude-sonnet-4-6`, `gemini-3-pro-preview`, `grok-4`, ...).
 

@@ -109,7 +109,7 @@ print(recommendation.signal, recommendation.size_fraction, recommendation.confid
 print(recommendation.rationale)
 ```
 
-`propagate()` 返回 `(AgentState, TradeRecommendation)`。`TradeRecommendation` 是一个 Pydantic model:
+`propagate()` 返回 `(AgentState, TradeRecommendation)`。传 `return_messages=True` 时会返回 `(AgentState, TradeRecommendation, list[AnyMessage])`;搭配 `debug=False` 可以不要走默认的 live `message.pretty_print()` 输出,改由你自己 render 收集到的 LangChain messages。`TradeRecommendation` 是一个 Pydantic model:
 
 - `signal: Literal["BUY", "SELL", "HOLD"]` — 标准方向
 - `size_fraction: float`(0.0 – 1.0)— 仓位大小占可用资金的比例
@@ -120,7 +120,7 @@ print(recommendation.rationale)
 
 `response_language` 是来自 `ResponseLanguage` `Literal` 的 BCP 47 tag(`zh-TW`、`zh-CN`、`en-US`、`ja-JP`、`ko-KR`、`de-DE`),挑最接近你希望 agent 用的语言即可。
 
-`TradingAgentsGraph.propagate` 也接受一个可选的 `on_message` callback(`Callable[[AnyMessage], None]`),每收到一则 streamed LangGraph 消息就会调用一次 — 想接自己的 renderer 时很好用,内置的 CLI / TUI 也是用这个 hook 来喂 Rich panel。
+`TradingAgentsGraph.propagate` 也接受一个可选的 `on_message` callback(`Callable[[AnyMessage], None]`),每收到一则 streamed LangGraph 消息就会调用一次 — 想接自己的 live renderer 时很好用,内置的 CLI / TUI 也是用这个 hook 来喂 Rich panel。
 
 `llm_provider` 是 `langchain.chat_models.init_chat_model` 的 registry key(`openai`、`anthropic`、`google_genai`、`xai`、`openrouter`、`ollama`、`huggingface`、`litellm`);`deep_think_llm` / `quick_think_llm` 则填该 provider 接受的 model name(`gpt-5`、`claude-sonnet-4-6`、`gemini-3-pro-preview`、`grok-4` 等)。
 

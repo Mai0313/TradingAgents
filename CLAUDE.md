@@ -36,7 +36,7 @@ API keys: one of `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GOOGLE_API_KEY` / `XA
 
 ### One-line summary
 
-A LangGraph `StateGraph` orchestrates 12 LLM agent nodes plus a Situation Summariser preprocessor and per-agent BM25 memories through 4 sequential phases (Analysts → Summariser → Research debate → Trader → Risk debate), driven by a single `TradingAgentsConfig` and exposing both a programmatic API (`TradingAgentsGraph.propagate(ticker, date) -> (AgentState, TradeRecommendation)`) and a fire-driven CLI / TUI / reflect / backtest set of subcommands.
+A LangGraph `StateGraph` orchestrates 12 LLM agent nodes plus a Situation Summariser preprocessor and per-agent BM25 memories through 4 sequential phases (Analysts → Summariser → Research debate → Trader → Risk debate), driven by a single `TradingAgentsConfig` and exposing both a programmatic API (`TradingAgentsGraph.propagate(ticker, date) -> (AgentState, TradeRecommendation)`, or `(AgentState, TradeRecommendation, list[AnyMessage])` with `return_messages=True`) and a fire-driven CLI / TUI / reflect / backtest set of subcommands.
 
 ### Big picture flow (`src/tradingagents/graph/setup.py`)
 
@@ -113,7 +113,7 @@ Every agent's system / user prompt is a separate `.md` file (e.g. `bull_research
 
 ### CLI / TUI dispatch (`__main__.py`, `interface/`)
 
-`main()` intercepts `--help` / `-h` / `help` and renders Rich panels via `interface/help.py` (replacing fire's default less-style pager), then hands the rest to `fire.Fire({"cli": run_cli, "tui": run_tui, "reflect": run_reflect, "backtest": run_backtest})`. `interface/display.MessageRenderer` is the Rich callback wired into `TradingAgentsGraph.propagate(..., on_message=renderer)` so streamed LangGraph messages render as Markdown / pretty-JSON panels with truncation. `make_final_decision_panel(recommendation: TradeRecommendation)` is the renderer used by both CLI and TUI for the structured final output (signal / size / target / stop / horizon / confidence / rationale + optional warning banner).
+`main()` intercepts `--help` / `-h` / `help` and renders Rich panels via `interface/help.py` (replacing fire's default less-style pager), then hands the rest to `fire.Fire({"cli": run_cli, "tui": run_tui, "reflect": run_reflect, "backtest": run_backtest})`. `interface/display.MessageRenderer` is the Rich callback wired into `TradingAgentsGraph.propagate(..., on_message=renderer)` so streamed LangGraph messages render as Markdown / pretty-JSON panels with truncation; library callers that want delayed rendering can pass `return_messages=True` instead. `make_final_decision_panel(recommendation: TradeRecommendation)` is the renderer used by both CLI and TUI for the structured final output (signal / size / target / stop / horizon / confidence / rationale + optional warning banner).
 
 ### Output
 
