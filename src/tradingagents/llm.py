@@ -38,7 +38,7 @@ type ChatModel = (
 )
 
 LLMProvider = Literal[
-    "openai", "anthropic", "google_genai", "xai", "huggingface", "openrouter", "ollama", "litellm"
+    "openai", "anthropic", "google_genai", "xai", "huggingface", "openrouter", "ionos", "ollama", "litellm"
 ]
 
 ReasoningEffort = Literal["low", "medium", "high", "xhigh", "max"]
@@ -132,7 +132,7 @@ def _apply_reasoning(
     e = effort.lower()
     if provider == "anthropic":
         kwargs["effort"] = e
-    elif provider == "openai":
+    elif provider == "openai" or provider == "ionos":
         kwargs["reasoning_effort"] = "xhigh" if e == "max" else e
     elif provider == "google_genai":
         kwargs["thinking_level"] = "high" if e in ("xhigh", "max") else e
