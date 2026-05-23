@@ -1,14 +1,3 @@
-"""Financial situation memory using BM25 for lexical similarity matching.
-
-Uses BM25 (Best Matching 25) algorithm for retrieval — no API calls,
-no token limits, works offline with any LLM provider.
-
-When ``storage_path`` is set on construction, the memory is loaded from
-disk (JSONL, one ``{"situation", "recommendation"}`` record per line)
-and rewritten after every :meth:`add_situations` call so reflections
-persist across runs.
-"""
-
 import re
 import json
 from typing import TypedDict
@@ -33,7 +22,7 @@ _TOKEN_RE = re.compile(r"\b\w+\b")
 
 
 def _tokenize(text: str) -> list[str]:
-    """Tokenize ``text`` into lowercased word tokens for BM25 indexing."""
+    """Tokenize `text` into lowercased word tokens for BM25 indexing."""
     return _TOKEN_RE.findall(text.lower())
 
 
@@ -64,13 +53,13 @@ class FinancialSituationMemory(BaseModel):
     recommendations: list[str] = Field(
         default_factory=list,
         title="Recommendations",
-        description="Stored recommendations aligned 1:1 with ``documents``.",
+        description="Stored recommendations aligned 1:1 with `documents`.",
     )
     bm25: SkipValidation[BM25Okapi | None] = Field(
         default=None,
         title="BM25 Index",
         description=(
-            "Lazily-built BM25 index over ``documents``; rebuilt by "
+            "Lazily-built BM25 index over `documents`; rebuilt by "
             ":meth:`add_situations` after each insertion batch."
         ),
     )
@@ -83,7 +72,7 @@ class FinancialSituationMemory(BaseModel):
         return self
 
     def _load_from_disk(self) -> None:
-        """Read the JSONL file at ``storage_path`` and rebuild the BM25 index."""
+        """Read the JSONL file at `storage_path` and rebuild the BM25 index."""
         path = self.storage_path
         if path is None or not path.exists():
             return
@@ -105,7 +94,7 @@ class FinancialSituationMemory(BaseModel):
             logger.info("Loaded %d memories from %s", loaded, path)
 
     def _save_to_disk(self) -> None:
-        """Atomically rewrite ``storage_path`` from in-memory documents."""
+        """Atomically rewrite `storage_path` from in-memory documents."""
         path = self.storage_path
         if path is None:
             return
@@ -132,7 +121,7 @@ class FinancialSituationMemory(BaseModel):
             self.bm25 = None
 
     def add_situations(self, situations_and_advice: list[tuple[str, str]]) -> None:
-        """Append ``(situation, recommendation)`` pairs and persist to disk.
+        """Append `(situation, recommendation)` pairs and persist to disk.
 
         Args:
             situations_and_advice: Situation and recommendation pairs to store.
@@ -144,7 +133,7 @@ class FinancialSituationMemory(BaseModel):
         self._save_to_disk()
 
     def get_memories(self, current_situation: str, n_matches: int = 1) -> list[MemoryMatch]:
-        """Return the top ``n_matches`` recommendations by BM25 lexical similarity.
+        """Return the top `n_matches` recommendations by BM25 lexical similarity.
 
         Args:
             current_situation: Free-text description of the present situation.
@@ -184,10 +173,10 @@ def format_memories_for_prompt(
 ) -> str:
     """Render BM25 matches into a prompt-ready "situation + lesson" block.
 
-    The earlier callsites concatenated only ``recommendation`` strings, so the
+    The earlier callsites concatenated only `recommendation` strings, so the
     agent saw a lesson with no context of which situation it applied to. The
     formatter keeps each match's situation snippet (truncated to
-    ``max_situation_chars`` to avoid blowing prompt budget) alongside its
+    `max_situation_chars` to avoid blowing prompt budget) alongside its
     lesson and similarity score so the LLM can judge whether the analogy is
     apt before applying the lesson.
 
@@ -197,7 +186,7 @@ def format_memories_for_prompt(
 
     Returns:
         A formatted multi-block string, or a sentinel "(no relevant past
-        situations found.)" line when ``matches`` is empty.
+        situations found.)" line when `matches` is empty.
     """
     if not matches:
         return "(no relevant past situations found.)"

@@ -1,12 +1,3 @@
-"""Rich-based help renderer for the tradingagents console script.
-
-Replaces the default fire help screen (which drops the user into a
-pager session reminiscent of less / vim) with inline Rich panels
-printed straight to stdout. Used by :func:`tradingagents.__main__.main`
-whenever it detects a --help / -h / help argument or no arguments at
-all.
-"""
-
 from __future__ import annotations
 
 import re

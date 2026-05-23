@@ -1,10 +1,3 @@
-"""Flag-driven runner for the TradingAgents pipeline.
-
-Exposes :func:`run_cli` as the cli subcommand of the tradingagents
-console script. Each parameter is a fire-friendly flag, with defaults
-matching the previous hard-coded values from the legacy cli.py.
-"""
-
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -122,7 +115,7 @@ def run_cli(  # noqa: PLR0913
     renderer = MessageRenderer.for_console(console=console)
 
     ta = TradingAgentsGraph(debug=debug, config=config, selected_analysts=analysts)
-    _, recommendation = ta.propagate(ticker, date, on_message=renderer)
+    _, recommendation = ta.propagate(company_name=ticker, trade_date=date, on_message=renderer)
 
     print_final_decision(console, recommendation)
     return recommendation

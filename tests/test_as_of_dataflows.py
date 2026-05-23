@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 from pathlib import Path
 from datetime import datetime, timedelta
+import warnings
 
 import pandas as pd
 import pytest
@@ -39,7 +40,7 @@ def test_get_yfin_data_online_slices_from_shared_history_cache(
     """get_yfin_data_online now reads the shared 15-y cache and slices the requested window.
 
     The previous test verified the live yfinance call directly; the new
-    implementation goes through ``_resolve_history_with_cache`` so a single
+    implementation goes through `_resolve_history_with_cache` so a single
     download services both the OHLCV tool and the indicator pipeline.
     """
     seen: dict[str, object] = {}
@@ -72,6 +73,41 @@ def test_get_yfin_data_online_slices_from_shared_history_cache(
     assert "2024-01-02" not in result
     # The header now advertises split- / dividend-adjusted prices.
     assert "auto_adjust=True" in result or "split- and dividend-adjusted" in result
+
+
+def test_get_yfin_data_online_returns_no_data_sentinel_for_empty_window(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_history = pd.DataFrame({
+        "Date": pd.to_datetime(["2024-01-02"]),
+        "Open": [1.0],
+        "High": [2.0],
+        "Low": [0.5],
+        "Close": [1.5],
+        "Volume": [100],
+    })
+
+    monkeypatch.setattr(
+        yfinance_data,
+        "_resolve_history_with_cache",
+        lambda symbol, curr_date_dt: ("AAPL", fake_history.copy(), ["AAPL"]),
+    )
+
+    result = yfinance_data.get_yfin_data_online("AAPL", "2024-01-03", "2024-01-03")
+
+    assert result.startswith("[NO_DATA]")
+
+
+def test_get_fundamentals_returns_no_data_sentinel_when_info_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        yfinance_data, "_resolve_ticker_info", lambda ticker: ("AAPL", {}, ["AAPL"])
+    )
+
+    result = yfinance_data.get_fundamentals("AAPL", curr_date="2024-01-03")
+
+    assert result.startswith("[NO_DATA]")
 
 
 @pytest.mark.parametrize(
@@ -118,6 +154,98 @@ def test_statement_fetches_continue_after_candidate_exception(
     assert expected_header in result
 
 
+@pytest.mark.parametrize(
+    "function_name", ["get_balance_sheet", "get_cashflow", "get_income_statement"]
+)
+def test_statement_fetches_return_no_data_sentinel_when_empty(
+    monkeypatch: pytest.MonkeyPatch, function_name: str
+) -> None:
+    class FakeTicker:
+        @property
+        def quarterly_balance_sheet(self) -> pd.DataFrame:
+            return pd.DataFrame()
+
+        @property
+        def quarterly_cashflow(self) -> pd.DataFrame:
+            return pd.DataFrame()
+
+        @property
+        def quarterly_income_stmt(self) -> pd.DataFrame:
+            return pd.DataFrame()
+
+    monkeypatch.setattr(yfinance_data, "get_yfinance_symbol_candidates", lambda ticker: ["AAPL"])
+    monkeypatch.setattr(yfinance_data.yf, "Ticker", lambda candidate: FakeTicker())
+
+    result = getattr(yfinance_data, function_name)("AAPL", curr_date="2024-01-03")
+
+    assert result.startswith("[NO_DATA]")
+
+
+def test_analyst_ratings_keeps_current_relative_periods_without_pandas_warning(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    recommendations = pd.DataFrame({
+        "period": ["0m", "-1m", "-2m"],
+        "strongBuy": [1, 2, 3],
+        "buy": [4, 5, 6],
+        "hold": [7, 8, 9],
+        "sell": [0, 0, 1],
+        "strongSell": [0, 0, 0],
+    })
+
+    class FakeTicker:
+        @property
+        def recommendations(self) -> pd.DataFrame:
+            return recommendations
+
+        @property
+        def recommendations_summary(self) -> pd.DataFrame:
+            return pd.DataFrame()
+
+    monkeypatch.setattr(
+        yfinance_data, "_resolved_ticker_obj", lambda ticker: ("AAPL", FakeTicker(), ["AAPL"])
+    )
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        result = yfinance_data.get_analyst_ratings(
+            "AAPL", curr_date=datetime.now().strftime("%Y-%m-%d")
+        )
+
+    assert "0m" in result
+    assert not any("Could not infer format" in str(warning.message) for warning in caught)
+
+
+def test_analyst_ratings_rejects_historical_relative_periods(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    recommendations = pd.DataFrame({
+        "period": ["0m", "-1m", "-2m"],
+        "strongBuy": [1, 2, 3],
+        "buy": [4, 5, 6],
+        "hold": [7, 8, 9],
+        "sell": [0, 0, 1],
+        "strongSell": [0, 0, 0],
+    })
+
+    class FakeTicker:
+        @property
+        def recommendations(self) -> pd.DataFrame:
+            return recommendations
+
+    monkeypatch.setattr(
+        yfinance_data, "_resolved_ticker_obj", lambda ticker: ("AAPL", FakeTicker(), ["AAPL"])
+    )
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        result = yfinance_data.get_analyst_ratings("AAPL", curr_date="2024-01-03")
+
+    assert result.startswith("[NO_DATA]")
+    assert "relative month buckets" in result
+    assert not any("Could not infer format" in str(warning.message) for warning in caught)
+
+
 def test_insider_transactions_continue_after_candidate_exception(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -147,10 +275,28 @@ def test_insider_transactions_continue_after_candidate_exception(
     assert "# Insider Transactions data for GOOD" in result
 
 
+def test_insider_transactions_returns_no_data_sentinel_when_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    near_date = (datetime.now().date() - timedelta(days=30)).strftime("%Y-%m-%d")
+
+    class FakeTicker:
+        @property
+        def insider_transactions(self) -> pd.DataFrame:
+            return pd.DataFrame()
+
+    monkeypatch.setattr(yfinance_data, "get_yfinance_symbol_candidates", lambda ticker: ["AAPL"])
+    monkeypatch.setattr(yfinance_data.yf, "Ticker", lambda candidate: FakeTicker())
+
+    result = yfinance_data.get_insider_transactions("AAPL", curr_date=near_date)
+
+    assert result.startswith("[NO_DATA]")
+
+
 def test_stock_stats_bulk_multi_continues_after_candidate_load_exception(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """The single-indicator helper was replaced by ``_get_stock_stats_bulk_multi``
+    """The single-indicator helper was replaced by `_get_stock_stats_bulk_multi`
     in the indicator-batching refactor; this test now exercises the new helper.
     """
     calls: list[str] = []
@@ -203,7 +349,7 @@ def test_normalize_freq_rejects_unknown_values() -> None:
 def test_cache_covers_window_treats_last_required_dt_as_inclusive() -> None:
     """The cache covers up to and including curr_date; coverage check must accept that.
 
-    Previously the helper compared against the exclusive yfinance ``end=`` value
+    Previously the helper compared against the exclusive yfinance `end=` value
     (curr_date + 1d), so the cached window — which never contains curr_date+1d's
     bar — would always be flagged as insufficient and trigger a re-download.
     """
@@ -224,10 +370,10 @@ def test_cache_covers_window_rejects_short_cache() -> None:
 
 
 def test_get_earnings_calendar_handles_dataframe_calendar(monkeypatch: pytest.MonkeyPatch) -> None:
-    """yfinance.Ticker.calendar may return a DataFrame; bare ``if cal:`` raises.
+    """yfinance.Ticker.calendar may return a DataFrame; bare `if cal:` raises.
 
     Pins the type-dispatch fix so older yfinance releases (DataFrame shape)
-    no longer crash the tool with ``ValueError: The truth value of a DataFrame is ambiguous``.
+    no longer crash the tool with `ValueError: The truth value of a DataFrame is ambiguous`.
     """
     cal_df = pd.DataFrame({"Earnings Date": ["2024-04-25"], "EPS Estimate": [1.5]})
 
@@ -248,6 +394,36 @@ def test_get_earnings_calendar_handles_dataframe_calendar(monkeypatch: pytest.Mo
     assert "Calendar snapshot" in result
     assert "Earnings Date" in result  # DataFrame's CSV rendering preserved column names
     assert "2024-04-25" in result
+
+
+def test_get_earnings_calendar_handles_timezone_aware_earnings_index(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    earnings_index = pd.DatetimeIndex(
+        ["2024-04-25 16:00:00", "2024-01-30 16:00:00"], tz="America/New_York", name="Earnings Date"
+    )
+    earnings_dates = pd.DataFrame(
+        {"EPS Estimate": [1.5, 1.2], "Reported EPS": [1.6, 1.1]}, index=earnings_index
+    )
+
+    class FakeTicker:
+        @property
+        def calendar(self) -> dict:
+            return {}
+
+        @property
+        def earnings_dates(self) -> pd.DataFrame:
+            return earnings_dates
+
+    monkeypatch.setattr(yfinance_data, "_resolve_ticker_info", lambda t: (t, {"foo": 1}, [t]))
+    monkeypatch.setattr(yfinance_data.yf, "Ticker", lambda _t: FakeTicker())
+
+    result = get_earnings_calendar("AAPL", "2024-02-01")
+
+    assert "[TOOL_ERROR]" not in result
+    assert "Past earnings dates" in result
+    assert "Forward earnings dates" in result
+    assert "[REDACTED]" in result
 
 
 def test_extract_article_data_parses_flat_provider_publish_time() -> None:
@@ -283,7 +459,7 @@ def test_get_news_yfinance_skips_undated_and_future_articles(
 
 
 def test_get_news_yfinance_returns_tool_error_sentinel(monkeypatch: pytest.MonkeyPatch) -> None:
-    """News fetch errors must surface a ``[TOOL_ERROR]`` sentinel that the prompt
+    """News fetch errors must surface a `[TOOL_ERROR]` sentinel that the prompt
     layer can react to deterministically (rather than treating the traceback
     string as ordinary text).
     """
@@ -303,7 +479,7 @@ def test_get_news_yfinance_returns_tool_error_sentinel(monkeypatch: pytest.Monke
 def test_get_global_news_yfinance_returns_tool_error_sentinel(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Same ``[TOOL_ERROR]`` sentinel contract on the global-news path."""
+    """Same `[TOOL_ERROR]` sentinel contract on the global-news path."""
 
     class FailingSearch:
         def __init__(self, **kwargs: object) -> None:

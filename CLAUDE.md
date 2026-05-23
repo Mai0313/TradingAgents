@@ -36,7 +36,7 @@ API keys: one of `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GOOGLE_API_KEY` / `XA
 
 ### One-line summary
 
-A LangGraph `StateGraph` orchestrates 12 LLM agent nodes plus a Situation Summariser preprocessor and per-agent BM25 memories through 4 sequential phases (Analysts → Summariser → Research debate → Trader → Risk debate), driven by a single `TradingAgentsConfig` and exposing both a programmatic API (`TradingAgentsGraph.propagate(ticker, date) -> (AgentState, TradeRecommendation)`) and a fire-driven CLI / TUI / reflect / backtest set of subcommands.
+A LangGraph `StateGraph` orchestrates 12 LLM agent nodes plus a Situation Summariser preprocessor and per-agent BM25 memories through 4 sequential phases (Analysts → Summariser → Research debate → Trader → Risk debate), driven by a single `TradingAgentsConfig` and exposing both a programmatic API (`TradingAgentsGraph.propagate(ticker, date) -> (AgentState, TradeRecommendation)`, or `(AgentState, TradeRecommendation, list[AnyMessage])` with `return_messages=True`) and a fire-driven CLI / TUI / reflect / backtest set of subcommands.
 
 ### Big picture flow (`src/tradingagents/graph/setup.py`)
 
@@ -55,7 +55,7 @@ START
 
 Each analyst phase is an LLM-with-tools loop terminated by `should_continue_<analyst>` in `graph/conditional_logic.py`. Between analysts a `Msg Clear` node emits `RemoveMessage` for every prior message plus a placeholder `HumanMessage("Continue")` so Anthropic's strict alternating-role validation does not blow up. **Don't remove that placeholder** — it's load-bearing for Anthropic.
 
-The Situation Summariser (`agents/preprocessors/situation_summariser.py`) runs once between the last analyst's Msg Clear and the Bull Researcher. It uses the quick-thinking LLM to distil the four analyst reports into a ≤400-token snapshot stored in `state.situation_summary`; every downstream memory query uses this snapshot (falling back to `state.combined_reports` when empty) instead of the full multi-KB report concatenation.
+The Situation Summariser (`agents/preprocessors/situation_summariser.py`) runs once between the last selected analyst's Msg Clear and the Bull Researcher. It uses the quick-thinking LLM to distil the selected analyst reports into a ≤400-token snapshot stored in `state.situation_summary`; missing reports from an analyst subset must be marked unavailable, not invented. Every downstream memory query uses this snapshot (falling back to `state.combined_reports` when empty) instead of the full multi-KB report concatenation.
 
 ### State
 
@@ -74,11 +74,11 @@ Any model name containing `gemini` or `google` is force-routed through `Normaliz
 
 ### Configuration (`config.py`)
 
-`TradingAgentsConfig` is a Pydantic model with no defaults for `llm_provider` / `deep_think_llm` / `quick_think_llm` / `max_debate_rounds` / `max_risk_discuss_rounds` / `max_recur_limit` (caller must supply). `max_recur_limit` has a `ge=30` floor — the Situation Summariser adds one superstep, so the minimum-round topology no longer fits in 25 steps. `data_cache_dir` is a `@computed_field` under `results_dir`. A module-level `_config_container` and `set_config()` / `get_config()` form a process-global singleton; `TradingAgentsGraph._setup` (a `model_validator(mode="after")`) registers the active config so deeply-nested code (e.g. `dataflows/yfinance._get_stock_stats_bulk`, `agents/prompts.__init__._language_instruction`) can read it without prop-drilling. **Always construct a config and pass it to `TradingAgentsGraph` first**, otherwise tools / prompts that call `get_config()` raise `RuntimeError`.
+`TradingAgentsConfig` is a Pydantic model with no defaults for `llm_provider` / `deep_think_llm` / `quick_think_llm` / `max_debate_rounds` / `max_risk_discuss_rounds` / `max_recur_limit` (caller must supply). `max_recur_limit` has a `ge=30` floor — the Situation Summariser adds one superstep, so the minimum-round topology no longer fits in 25 steps. `data_cache_dir` is a `@computed_field` under `results_dir`. `set_config()` / `get_config()` use a `ContextVar` so deeply-nested code (e.g. `dataflows/yfinance._get_stock_stats_bulk`, `agents/prompts.__init__._language_instruction`) can read the active config without prop-drilling. `TradingAgentsGraph._setup` (a `model_validator(mode="after")`) registers the active config. **Always construct a config and pass it to `TradingAgentsGraph` first**, otherwise tools / prompts that call `get_config()` raise `RuntimeError`.
 
 ### Tools and dataflows
 
-Agent tools (`agents/utils/{core_stock,fundamental_data,news_data,technical_indicators}_tools.py`) are thin `@tool`-decorated wrappers over plain functions in `dataflows/yfinance.py` and `dataflows/news.py`. Tool-to-analyst wiring lives in `TradingAgentsGraph.tool_nodes`:
+Agent tools (`agents/utils/{core_stock,fundamental_data,news_data,technical_indicators}_tools.py`) are thin `@tool`-decorated wrappers over plain functions in `dataflows/yfinance.py` and `dataflows/news.py`. Tool-to-analyst ownership lives in `agents/utils/tool_registry.py`; both `TradingAgentsGraph.tool_nodes` and analyst `llm.bind_tools(...)` must use that registry:
 
 - **market**: `get_stock_data`, `get_indicators`, `get_dividends_splits`
 - **social** (News-Sentiment Analyst): `get_news`
@@ -113,7 +113,7 @@ Every agent's system / user prompt is a separate `.md` file (e.g. `bull_research
 
 ### CLI / TUI dispatch (`__main__.py`, `interface/`)
 
-`main()` intercepts `--help` / `-h` / `help` and renders Rich panels via `interface/help.py` (replacing fire's default less-style pager), then hands the rest to `fire.Fire({"cli": run_cli, "tui": run_tui, "reflect": run_reflect, "backtest": run_backtest})`. `interface/display.MessageRenderer` is the Rich callback wired into `TradingAgentsGraph.propagate(..., on_message=renderer)` so streamed LangGraph messages render as Markdown / pretty-JSON panels with truncation. `make_final_decision_panel(recommendation: TradeRecommendation)` is the renderer used by both CLI and TUI for the structured final output (signal / size / target / stop / horizon / confidence / rationale + optional warning banner).
+`main()` intercepts `--help` / `-h` / `help` and renders Rich panels via `interface/help.py` (replacing fire's default less-style pager), then hands the rest to `fire.Fire({"cli": run_cli, "tui": run_tui, "reflect": run_reflect, "backtest": run_backtest})`. `interface/display.MessageRenderer` is the Rich callback wired into `TradingAgentsGraph.propagate(..., on_message=renderer)` so streamed LangGraph messages render as Markdown / pretty-JSON panels with truncation; library callers that want delayed rendering can pass `return_messages=True` instead. `make_final_decision_panel(recommendation: TradeRecommendation)` is the renderer used by both CLI and TUI for the structured final output (signal / size / target / stop / horizon / confidence / rationale + optional warning banner).
 
 ### Output
 

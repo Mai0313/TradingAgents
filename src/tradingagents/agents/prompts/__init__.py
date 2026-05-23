@@ -43,11 +43,11 @@ def _language_instruction() -> str:
 def load_prompt(name: str) -> str:
     """Load a prompt template from the prompts directory.
 
-    Returns the raw string with ``{placeholder}`` markers so callers can
-    fill values via ``str.format()`` or pass it directly to
-    ``ChatPromptTemplate``. Two pre-format substitutions happen here:
+    Returns the raw string with `{placeholder}` markers so callers can
+    fill values via `str.format()` or pass it directly to
+    `ChatPromptTemplate`. Two pre-format substitutions happen here:
 
-    - ``{{require_canonical_signal}}`` (opt-in marker) is replaced with
+    - `{{require_canonical_signal}}` (opt-in marker) is replaced with
       the centralised BUY/SELL/HOLD-in-English notice so the wording stays
       consistent across the trader / research-manager / risk-manager prompts.
     - The configured response language is appended as a final line.

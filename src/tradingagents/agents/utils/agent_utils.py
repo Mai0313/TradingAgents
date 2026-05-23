@@ -4,6 +4,11 @@ from collections.abc import Callable
 from langchain_core.messages import HumanMessage, RemoveMessage
 
 from tradingagents.agents.utils.agent_states import AgentState
+from tradingagents.agents.utils.tool_registry import (
+    ANALYST_TOOL_REGISTRY,
+    get_analyst_tools,
+    get_analyst_tool_names,
+)
 from tradingagents.agents.utils.news_data_tools import (
     get_news,
     get_global_news,
@@ -27,8 +32,11 @@ from tradingagents.agents.utils.fundamental_data_tools import (
 from tradingagents.agents.utils.technical_indicators_tools import get_indicators
 
 __all__ = [
+    "ANALYST_TOOL_REGISTRY",
     "create_msg_delete",
     "get_analyst_ratings",
+    "get_analyst_tool_names",
+    "get_analyst_tools",
     "get_balance_sheet",
     "get_cashflow",
     "get_dividends_splits",

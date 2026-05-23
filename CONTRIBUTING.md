@@ -62,7 +62,7 @@ All workflows under `.github/workflows/`:
 
 ```
 src/tradingagents/
-├── agents/      # @tool definitions, agent node creators, prompts/*.md, state schemas
+├── agents/      # @tool definitions, tool registry, agent node creators, prompts/*.md, state schemas
 │   ├── analysts/      # Market / News-Sentiment / News / Fundamentals (LLM + ToolNode)
 │   ├── preprocessors/ # Situation Summariser node (analyst reports → BM25 query)
 │   ├── researchers/   # Bull / Bear (debate loop)
@@ -91,17 +91,18 @@ The console script (defined under `[project.scripts]` in `pyproject.toml`) and `
 
 Canonical examples (read these before writing similar code):
 
-| Pattern                  | File                                    | Symbol                 |
-| ------------------------ | --------------------------------------- | ---------------------- |
-| Pure config model        | `config.py`                             | `TradingAgentsConfig`  |
-| Stateful service class   | `graph/trading_graph.py`                | `TradingAgentsGraph`   |
-| LangGraph state schema   | `agents/utils/agent_states.py`          | `AgentState`           |
-| Provider-agnostic LLM    | `llm.py`                                | `build_chat_model`     |
-| `@tool`-wrapped function | `agents/utils/core_stock_tools.py`      | `get_stock_data`       |
-| Agent node creator       | `agents/researchers/bull_researcher.py` | `create_bull_*`        |
-| Structured output parser | `graph/signal_processing.py`            | `TradeRecommendation`  |
-| Backtest driver          | `backtest.py`                           | `Backtester`           |
-| State-log migration      | `interface/reflect.py`                  | `_migrate_state_log_*` |
+| Pattern                  | File                                    | Symbol                  |
+| ------------------------ | --------------------------------------- | ----------------------- |
+| Pure config model        | `config.py`                             | `TradingAgentsConfig`   |
+| Stateful service class   | `graph/trading_graph.py`                | `TradingAgentsGraph`    |
+| LangGraph state schema   | `agents/utils/agent_states.py`          | `AgentState`            |
+| Provider-agnostic LLM    | `llm.py`                                | `build_chat_model`      |
+| `@tool`-wrapped function | `agents/utils/core_stock_tools.py`      | `get_stock_data`        |
+| Analyst tool ownership   | `agents/utils/tool_registry.py`         | `ANALYST_TOOL_REGISTRY` |
+| Agent node creator       | `agents/researchers/bull_researcher.py` | `create_bull_*`         |
+| Structured output parser | `graph/signal_processing.py`            | `TradeRecommendation`   |
+| Backtest driver          | `backtest.py`                           | `Backtester`            |
+| State-log migration      | `interface/reflect.py`                  | `_migrate_state_log_*`  |
 
 ## 🎨 Code Style
 

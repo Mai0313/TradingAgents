@@ -19,7 +19,7 @@ def get_indicators(
 
     All requested indicators are computed against a single wrapped 15-y
     history in one pass, so passing a comma-separated list (e.g.
-    ``indicator="macd,rsi,close_50_sma"``) is strictly more efficient than
+    `indicator="macd,rsi,close_50_sma"`) is strictly more efficient than
     issuing separate tool calls.
 
     Args:

@@ -11,7 +11,7 @@ from tradingagents.interface.reflect import (
 
 
 def _write_log(tmp_path: Path, ticker: str, date: str, payload: dict) -> Path:
-    """Write a state log under ``<tmp_path>/<ticker>/full_states_log_*.json``."""
+    """Write a state log under `<tmp_path>/<ticker>/full_states_log_*.json`."""
     ticker_dir = tmp_path / ticker
     ticker_dir.mkdir(parents=True, exist_ok=True)
     path = ticker_dir / f"full_states_log_{ticker}_{date}.json"

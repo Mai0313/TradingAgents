@@ -1,5 +1,3 @@
-"""Post-trade reflection runner for the ``tradingagents reflect`` CLI."""
-
 from __future__ import annotations
 
 import re
@@ -48,7 +46,7 @@ def _migrate_state_log_v1_to_v2(payload: dict) -> dict:
 def _normalise_state_log_payload(raw_payload: dict, *, log_path: Path) -> dict:
     """Return the v2-shaped payload regardless of the on-disk version.
 
-    Logs from older releases lack a ``schema_version`` key — those are
+    Logs from older releases lack a `schema_version` key — those are
     treated as v1 and upgraded. Logs from a newer release than this code
     knows about are accepted with a warning rather than rejected, because
     the reflect path only needs a subset of the fields (best-effort read
@@ -70,7 +68,7 @@ def _normalise_state_log_payload(raw_payload: dict, *, log_path: Path) -> dict:
 
 
 def _resolve_state_log(results_dir: Path, ticker: str, date: str) -> tuple[Path, dict]:
-    """Locate and parse the previously-written state log for ``(ticker, date)``."""
+    """Locate and parse the previously-written state log for `(ticker, date)`."""
     ticker_safe = _safe_path_component(ticker)
     log_path = results_dir / ticker_safe / f"full_states_log_{ticker_safe}_{date}.json"
     if not log_path.exists():
@@ -89,7 +87,7 @@ def _resolve_state_log(results_dir: Path, ticker: str, date: str) -> tuple[Path,
 
 
 def _reconstruct_state(raw: dict, ticker: str, date: str) -> AgentState:
-    """Rebuild an :class:`AgentState` from the dict shape that ``_log_state`` writes."""
+    """Rebuild an :class:`AgentState` from the dict shape that `_log_state` writes."""
     invest_kwargs = raw.get("investment_debate_state") or {}
     risk_kwargs = raw.get("risk_debate_state") or {}
     final_rec_raw = raw.get("final_trade_recommendation")
@@ -126,20 +124,20 @@ def run_reflect(  # noqa: PLR0913
 ) -> None:
     """Reflect on a previously-recorded run and update institutional memory.
 
-    Reads ``full_states_log_<TICKER>_<DATE>.json`` written by a prior
-    ``tradingagents cli`` run, reconstructs the AgentState, runs the
+    Reads `full_states_log_<TICKER>_<DATE>.json` written by a prior
+    `tradingagents cli` run, reconstructs the AgentState, runs the
     Reflector across each of the five agent components, and persists the
-    lessons to ``<data_cache_dir>/memories/*.jsonl`` so future runs surface
+    lessons to `<data_cache_dir>/memories/*.jsonl` so future runs surface
     them via BM25 retrieval.
 
     The Reflector grades reasoning quality, not just outcomes — honest
-    negative ``returns`` inputs are useful even when the original reasoning
+    negative `returns` inputs are useful even when the original reasoning
     correctly priced in the risk that materialised.
 
     Args:
         ticker (str): Ticker symbol that was previously analysed.
         date (str): Trade date in YYYY-MM-DD format. Must match the date
-            the original ``cli`` run used.
+            the original `cli` run used.
         returns (float): Realised P/L for the trade as a fraction (e.g.
             0.025 for +2.5 %, -0.04 for -4 %).
         llm_provider (LLMProvider, optional): LangChain init_chat_model

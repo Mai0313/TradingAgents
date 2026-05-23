@@ -8,6 +8,8 @@
 #     "rich",
 # ]
 # ///
+"""Generate and execute Markdown documentation from source files."""
+
 import ast
 import shutil
 from typing import Literal
@@ -36,11 +38,20 @@ def _nav_indent(level: int) -> str:
 
 
 def _build_nav_section(title: str, dir_path: Path, level: int, docs_root: Path) -> list[str]:
-    """Render YAML lines for a nav section rooted at ``dir_path``.
+    """Render YAML lines for a nav section rooted at `dir_path`.
 
     Subdirectories are emitted before sibling markdown files so packages
     appear above leaf modules. Returns an empty list if the directory has
     no renderable children.
+
+    Args:
+        title (str): Nav label for this directory.
+        dir_path (Path): Directory to scan.
+        level (int): Zero-based nav nesting depth.
+        docs_root (Path): Root used to compute Markdown paths.
+
+    Returns:
+        list[str]: YAML lines for this section.
     """
     if not dir_path.is_dir():
         return []
@@ -65,7 +76,13 @@ def _build_nav_section(title: str, dir_path: Path, level: int, docs_root: Path) 
 def _rebuild_nav(
     docs_dir: str, config_path: str, sections: tuple[str, ...] | list[str] | str
 ) -> None:
-    """Rewrite the marker-bounded nav block in ``config_path`` from ``docs_dir``."""
+    """Rewrite the marker-bounded nav block in `config_path` from `docs_dir`.
+
+    Args:
+        docs_dir (str): MkDocs source directory.
+        config_path (str): `mkdocs.yml` path to update.
+        sections (tuple[str, ...] | list[str] | str): Top-level nav sections to expose.
+    """
     docs_root = Path(docs_dir)
     config_file = Path(config_path)
 
@@ -90,20 +107,15 @@ def _rebuild_nav(
 
 
 class DocsGenerator(BaseModel):
-    """DocsGenerator generates per-module markdown pages from a Python source tree and rebuilds the MkDocs nav block.
+    """Generate module markdown pages and rebuild the MkDocs nav.
 
     Attributes:
-        source (str): Source directory or file path.
-        output (str): Output directory path.
+        source_path (Path): Source directory or file path.
+        output_path (Path): Output directory path.
         exclude (str): Comma-separated list of folders or files to exclude.
-        mode (Literal["file", "class"]): Mode of documentation generation, either by file or class.
-
-    Methods:
-        gen_docs() -> None:
-            Generate per-module markdown pages from a Python or notebook source tree.
-
-        build_nav() -> None:
-            Rewrite the auto-generated MkDocs nav block by scanning ``docs/``.
+        mode (Literal["file", "class"]): Whether to generate docs by file or class.
+        execute (bool): Whether to execute notebooks before converting them.
+        concurrency (int): Maximum number of files to process concurrently.
 
     Examples:
     === "Generate docs pages"
@@ -159,6 +171,14 @@ class DocsGenerator(BaseModel):
     )
 
     def _get_all_files(self, suffix: str) -> list[Path]:
+        """Gets all files with the specified suffixes recursively.
+
+        Args:
+            suffix (str): Comma-separated suffixes without leading dots.
+
+        Returns:
+            list[Path]: Matching files under `source_path`.
+        """
         targets = [s.strip() for s in suffix.split(",")]
         all_files: list[Path] = []
         for target in targets:
@@ -169,10 +189,13 @@ class DocsGenerator(BaseModel):
     @computed_field
     @cached_property
     def source_files(self) -> list[Path]:
-        """Computed property that returns the source path as a Path object.
+        """The source files selected for documentation generation.
 
         Returns:
-            Path: The source path.
+            list[Path]: Source files under `source_path`, excluding configured entries and
+            default skipped paths when `source_path` is a directory. Returns the
+            single source file when `source_path` is a file, or an empty list
+            when it is neither a valid file nor directory.
         """
         if self.source_path.is_dir():
             if self.output_path.exists():
@@ -193,7 +216,15 @@ class DocsGenerator(BaseModel):
         return all_files
 
     async def _prepare_docs_path(self, file: Path) -> Path:
-        # 因為多層結構的資料夾 我們希望他可以依然放在對應的資料夾內
+        """Prepares the output directory for the given file.
+
+        Args:
+            file (Path): Source file being converted.
+
+        Returns:
+            Path: Markdown output path for the source file.
+        """
+        # Preserve nested source directories under the output path.
         filename = file.with_suffix(".md").name
         if file.parent.as_posix() != ".":
             related_path = file.parent.relative_to(self.source_path)
@@ -205,6 +236,14 @@ class DocsGenerator(BaseModel):
         return docs_path
 
     async def _gen_python_docs(self, file: Path) -> str:
+        """Generates markdown documentation for a Python file.
+
+        Args:
+            file (Path): Python source file to document.
+
+        Returns:
+            str: Generated Markdown file path.
+        """
         docs_path = await self._prepare_docs_path(file=file)
         if self.mode == "file":
             note_content = f"::: {file.with_suffix('').as_posix().replace('/', '.')}\n"
@@ -227,13 +266,19 @@ class DocsGenerator(BaseModel):
         return docs_path.as_posix()
 
     async def _gen_notebook_docs(self, file: Path) -> str:
+        """Generates markdown documentation for a Jupyter notebook.
+
+        Args:
+            file (Path): Notebook file to convert.
+
+        Returns:
+            str: Generated Markdown file path.
+        """
         docs_path = await self._prepare_docs_path(file=file)
-        # 讀取 notebook 檔案
         async with await anyio.open_file(file, encoding="utf-8") as f:
             notebook_content = nbformat.reads(await f.read(), as_version=4)
 
         if self.execute:
-            # 執行 notebook 中的所有 code block
             execute_preprocessor = ExecutePreprocessor(
                 timeout=600,
                 kernel_name="python3",
@@ -247,18 +292,25 @@ class DocsGenerator(BaseModel):
                 notebook_content, {"metadata": {"path": file.parent.as_posix()}}
             )
 
-        # 使用執行後的 notebook 內容轉換為 markdown
         markdown_exporter = MarkdownExporter(template_name="markdown")
         if not isinstance(markdown_exporter, MarkdownExporter):
             raise TypeError("TemplateExporter is not a valid type")
         markdown_output, _ = markdown_exporter.from_notebook_node(notebook_content)
-        # 寫入轉換後的 markdown 內容到檔案
         async with await anyio.open_file(docs_path, "w", encoding="utf-8") as f:
             await f.write(markdown_output)
         return docs_path.as_posix()
 
     async def _process_file(self, file: Path, progress: Progress, task: TaskID) -> str:
-        """Process a single file and update progress."""
+        """Process a single file and update progress.
+
+        Args:
+            file (Path): Source file to convert.
+            progress (Progress): Progress renderer to update.
+            task (TaskID): Progress task identifier.
+
+        Returns:
+            str: Generated Markdown file path, or an empty string on failure.
+        """
         try:
             if file.suffix == ".ipynb":
                 result = await self._gen_notebook_docs(file=file)
@@ -268,7 +320,6 @@ class DocsGenerator(BaseModel):
                 console.log(f"Unsupported file type: {file.suffix}")
                 result = ""
 
-            # Update progress
             progress.update(task, advance=1, description=f"[cyan]Processed {file.name}")
             return result
         except Exception as e:
@@ -279,10 +330,20 @@ class DocsGenerator(BaseModel):
     async def _process_batch(
         self, files: list[Path], progress: Progress, task: TaskID
     ) -> list[str]:
-        """Process a batch of files concurrently with semaphore to control concurrency."""
+        """Process a batch of files with the configured concurrency limit.
+
+        Args:
+            files (list[Path]): Source files to convert.
+            progress (Progress): Progress renderer to update.
+            task (TaskID): Progress task identifier.
+
+        Returns:
+            list[str]: Generated Markdown file paths, with empty strings for failures.
+        """
         semaphore = asyncio.Semaphore(self.concurrency)
 
         async def process_with_semaphore(file: Path) -> str:
+            """Processes one file while respecting the configured concurrency limit."""
             async with semaphore:
                 return await self._process_file(file, progress, task)
 
@@ -290,6 +351,7 @@ class DocsGenerator(BaseModel):
         return await asyncio.gather(*tasks)
 
     async def gen_docs(self) -> None:
+        """Generates per-module markdown pages from the source files."""
         with Progress() as progress:
             total_files = len(self.source_files)
             task = progress.add_task(f"[green]Generating {total_files}...", total=total_files)
@@ -298,10 +360,8 @@ class DocsGenerator(BaseModel):
                 console.log("[yellow]No files found to process")
                 return
 
-            # Process all files concurrently with controlled concurrency
             results = await self._process_batch(self.source_files, progress, task)
 
-            # Summarize results
             successful = len([r for r in results if r])
         console.log(
             f"[green]Documentation generation complete ({successful}/{total_files})!",
@@ -316,19 +376,19 @@ class DocsGenerator(BaseModel):
     ) -> None:
         """Rewrite the auto-generated MkDocs nav block by scanning the docs tree.
 
-        The script walks each requested top-level section under ``docs_dir`` and
+        The script walks each requested top-level section under `docs_dir` and
         emits a nested nav YAML structure so the sidebar shows every leaf module
         directly. It rewrites only the region delimited by the sentinel comments
-        in ``config_path``; everything outside the markers is preserved verbatim.
+        in `config_path`; everything outside the markers is preserved verbatim.
 
-        Exposed as a ``@staticmethod`` so Fire can dispatch
-        ``gen_docs.py build_nav`` without instantiating ``DocsGenerator`` (which
-        would require ``--source`` / ``--output`` that are irrelevant here).
+        Exposed as a `@staticmethod` so Fire can dispatch
+        `gen_docs.py build_nav` without instantiating `DocsGenerator` (which
+        would require `--source` / `--output` that are irrelevant here).
 
         Args:
-            docs_dir: Path to the MkDocs source directory (where ``index.md`` lives).
-            config_path: Path to the ``mkdocs.yml`` to update in-place.
-            sections: Top-level directory names under ``docs_dir`` to expose as
+            docs_dir (str): Path to the MkDocs source directory (where `index.md` lives).
+            config_path (str): Path to the `mkdocs.yml` to update in-place.
+            sections (tuple[str, ...]): Top-level directory names under `docs_dir` to expose as
                 expandable nav sections. Sections that do not exist on disk are
                 silently skipped.
         """

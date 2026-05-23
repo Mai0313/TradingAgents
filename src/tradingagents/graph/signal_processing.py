@@ -1,5 +1,3 @@
-# TradingAgents/graph/signal_processing.py
-
 import re
 import json
 from typing import Any, Literal, cast
@@ -24,8 +22,8 @@ _JSON_BLOCK_PATTERN = re.compile(r"```\s*json\s*\n(.*?)\n\s*```", re.IGNORECASE 
 class TradeRecommendation(BaseModel):
     """Structured Risk-Judge recommendation, persisted on AgentState.
 
-    Replaces the bare ``Literal["BUY","SELL","HOLD"]`` returned by the old
-    ``process_signal`` so downstream consumers (backtester, CLI, TUI) can
+    Replaces the bare `Literal["BUY","SELL","HOLD"]` returned by the old
+    `process_signal` so downstream consumers (backtester, CLI, TUI) can
     reason about size, target, horizon, and confidence — not just the
     direction.
     """
@@ -101,7 +99,7 @@ def extract_trade_signal(full_signal: str | list[str | dict[str, Any]] | None) -
 
     Always returns one of BUY/SELL/HOLD; logs a warning and defaults to
     HOLD when the input is empty, missing the canonical
-    ``FINAL TRANSACTION PROPOSAL`` line, or contains conflicting signals.
+    `FINAL TRANSACTION PROPOSAL` line, or contains conflicting signals.
     Never raises — a malformed risk-judge response must not abort a paid
     LangGraph run after every other agent has already produced output.
     """
@@ -130,7 +128,7 @@ def extract_trade_signal(full_signal: str | list[str | dict[str, Any]] | None) -
 
 
 def _parse_json_block(text: str) -> dict[str, Any] | None:
-    """Extract and parse the LAST ```json``` fenced block from ``text``."""
+    """Extract and parse the LAST ```json``` fenced block from `text`."""
     matches = _JSON_BLOCK_PATTERN.findall(text)
     if not matches:
         return None
@@ -155,14 +153,14 @@ def extract_trade_recommendation(
 
     Resolution order:
 
-    1. The canonical ``FINAL TRANSACTION PROPOSAL`` line — its direction
+    1. The canonical `FINAL TRANSACTION PROPOSAL` line — its direction
        always wins, since that's what the regex contract has trained the
        LLM on and what every test in the suite pins.
     2. The last fenced ``` ```json``` block in the response — fills in
        size, target, stop, horizon, confidence, rationale.
     3. When the JSON block is missing or malformed, default everything to
        conservative midpoints (size 0.5, confidence 0.5) and surface a
-       ``warning_message`` so the CLI / backtester can flag the run.
+       `warning_message` so the CLI / backtester can flag the run.
 
     Never raises. The function is on the hot path of every paid LangGraph
     run; a malformed risk-judge response must degrade gracefully rather
@@ -231,6 +229,6 @@ class SignalProcessor(BaseModel):
             TradeRecommendation: Structured decision (BUY/SELL/HOLD plus
             size, target, stop, horizon, confidence, rationale). Defaults
             to HOLD with conservative sizing when the input is empty or
-            ambiguous; ``warning_message`` is populated on any fallback.
+            ambiguous; `warning_message` is populated on any fallback.
         """
         return extract_trade_recommendation(full_signal)

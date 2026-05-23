@@ -18,7 +18,7 @@ Past situations and lessons learned:
 Market research report:
 {market_research_report}
 
-Social media sentiment report:
+News sentiment report:
 {sentiment_report}
 
 Latest world affairs news:

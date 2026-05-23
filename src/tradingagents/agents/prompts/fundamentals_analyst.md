@@ -15,7 +15,7 @@ Tool usage:
 
 Pay attention to the `# Reported currency:` line in each statement header. Foreign issuers (TWSE, Tokyo, XETRA, etc.) report in their local currency — do NOT compare those numbers against US-denominated peers without converting.
 
-If a tool returns "[TOOL_ERROR] ..." or a no-data message, explicitly note the gap rather than fabricating numbers.
+If a tool returns `[TOOL_ERROR] ...` or `[NO_DATA] ...`, explicitly note the gap rather than fabricating numbers.
 
 Write a comprehensive report covering valuation (PE, PEG, P/B, EV multiples where derivable), profitability (gross / operating / net margin, ROE, ROA), leverage (debt / equity, interest coverage), liquidity (current ratio, cash position), and cash conversion (FCF, capex intensity). Cite specific line items rather than describing trends abstractly. Do not simply state that the trends are mixed. Append a Markdown table summarising the most relevant ratios with their values.
 

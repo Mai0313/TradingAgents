@@ -1,5 +1,3 @@
-# TradingAgents/graph/reflection.py
-
 from pydantic import Field, BaseModel, ConfigDict, SkipValidation
 from langchain_core.messages import HumanMessage, SystemMessage
 
@@ -10,11 +8,11 @@ from tradingagents.agents.utils.agent_states import AgentState
 
 
 def _flatten_content(content: object) -> str:
-    """Flatten a LangChain message ``.content`` value to a string.
+    """Flatten a LangChain message `.content` value to a string.
 
     Anthropic Claude and Gemini 3 sometimes return list-shaped content
-    (a list of ``{"type": "text", "text": "..."}`` chunks); BM25 then
-    fails because ``"".lower()`` is not defined for lists. This
+    (a list of `{"type": "text", "text": "..."}` chunks); BM25 then
+    fails because `"".lower()` is not defined for lists. This
     normaliser is a single source of truth for that flattening.
     """
     if isinstance(content, str):
@@ -68,9 +66,9 @@ class Reflector(BaseModel):
     def _stored_situation(current_state: AgentState) -> str:
         """Return the BM25-index document to store alongside the reflection.
 
-        Future agents query memories with ``state.situation_summary``, so the
+        Future agents query memories with `state.situation_summary`, so the
         document side must use the same shape. Fall back to the full
-        ``combined_reports`` only when no summary was produced.
+        `combined_reports` only when no summary was produced.
         """
         return current_state.situation_summary or current_state.combined_reports
 

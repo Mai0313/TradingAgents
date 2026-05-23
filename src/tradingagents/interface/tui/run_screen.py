@@ -1,22 +1,3 @@
-"""Live pipeline screen for the TradingAgents TUI.
-
-Shows the running graph in three regions:
-
-- A docked header rendering the resolved run configuration via the
-  same Rich panel the CLI prints (so reflow on resize works the way
-  ``rich.console.Console.print`` could not).
-- A horizontal body split into a phase sidebar (Market analyst,
-  Bull/Bear debate, Trader, Risk debate, Final) and a scrollable
-  :class:`textual.widgets.RichLog` carrying every message Rich panel
-  emitted by :class:`MessageRenderer`.
-- A docked footer with run status (initialising, running, done, error).
-
-The blocking :meth:`TradingAgentsGraph.propagate` call is dispatched to
-a worker thread; both panel writes and sidebar updates are funnelled
-back to the Textual event loop via :meth:`App.call_from_thread`, the
-only thread-safe path into Textual widgets.
-"""
-
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
@@ -54,18 +35,18 @@ _PHASE_ICONS: dict[str, str] = {"pending": "o", "running": ">", "done": "v"}
 class PhaseRow(Static):
     """One row in the phase sidebar.
 
-    Rendered as a compact ``icon | label | progress`` line whose CSS
-    class encodes the current status (``-pending`` / ``-running`` /
-    ``-done``) so :file:`styles.tcss` can colour them appropriately.
+    Rendered as a compact `icon | label | progress` line whose CSS
+    class encodes the current status (`-pending` / `-running` /
+    `-done`) so :file:`styles.tcss` can colour them appropriately.
     """
 
     def __init__(self, phase: Phase) -> None:
-        """Create a row matching ``phase``.
+        """Create a row matching `phase`.
 
         Args:
             phase (Phase): Initial phase data; the widget id is taken
-                from ``phase.id`` so later updates can target it via
-                ``query_one``.
+                from `phase.id` so later updates can target it via
+                `query_one`.
         """
         super().__init__(id=phase.id, classes=f"phase-row -{phase.status}")
         self._phase = phase
@@ -82,7 +63,7 @@ class PhaseRow(Static):
         return Text.from_markup(f"{icon}  {self._phase.label}{suffix}")
 
     def update_phase(self, phase: Phase) -> None:
-        """Replace the row's contents and CSS class with ``phase``.
+        """Replace the row's contents and CSS class with `phase`.
 
         Args:
             phase (Phase): The new phase data; only fields whose values
@@ -164,15 +145,15 @@ class RunScreen(Screen[None]):
         self.run_pipeline()
 
     def action_quit_screen(self) -> None:
-        """Exit the app, returning the final decision (or None) to ``run_tui``."""
+        """Exit the app, returning the final decision (or None) to `run_tui`."""
         self.app.exit(self._final_decision)
 
     @work(thread=True, exclusive=True)
     def run_pipeline(self) -> None:
         """Run :meth:`TradingAgentsGraph.propagate` on a worker thread.
 
-        Constructs a :class:`MessageRenderer` whose ``emit`` defers each
-        Rich renderable to the Textual event loop, and an ``on_state``
+        Constructs a :class:`MessageRenderer` whose `emit` defers each
+        Rich renderable to the Textual event loop, and an `on_state`
         hook that recomputes the sidebar phase list from the latest
         :class:`AgentState` snapshot. All UI mutations are routed
         through :meth:`App.call_from_thread` via :meth:`_safe_call` so
@@ -211,20 +192,20 @@ class RunScreen(Screen[None]):
         self._safe_call(self._on_done, recommendation)
 
     def _safe_call(self, func: object, *args: object) -> bool:
-        """Schedule ``func(*args)`` on the Textual event loop, no-op if shut down.
+        """Schedule `func(*args)` on the Textual event loop, no-op if shut down.
 
-        Resolving ``self.app`` from a worker thread relies on
-        Textual's ``active_app`` ContextVar, which is unset once the
+        Resolving `self.app` from a worker thread relies on
+        Textual's `active_app` ContextVar, which is unset once the
         app starts tearing down (e.g. user pressed q while the
-        pipeline was mid-stream). A bare ``self.app.call_from_thread``
-        in that window raises ``NoActiveAppError`` and dumps a
-        traceback for every subsequent ``on_message`` callback. This
+        pipeline was mid-stream). A bare `self.app.call_from_thread`
+        in that window raises `NoActiveAppError` and dumps a
+        traceback for every subsequent `on_message` callback. This
         wrapper catches that case so the worker can finish unwinding
         silently.
 
         Args:
             func (object): A callable to invoke on the main thread.
-            *args (object): Positional arguments forwarded to ``func``.
+            *args (object): Positional arguments forwarded to `func`.
 
         Returns:
             bool: True when the call was scheduled, False when the app
@@ -256,7 +237,7 @@ class RunScreen(Screen[None]):
         )
 
     def _update_phases_from_state(self, state: AgentState) -> None:
-        """Refresh every :class:`PhaseRow` from the latest ``AgentState``.
+        """Refresh every :class:`PhaseRow` from the latest `AgentState`.
 
         Args:
             state (AgentState): The most recent streamed snapshot.

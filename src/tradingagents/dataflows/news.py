@@ -1,5 +1,3 @@
-"""News-fetching functions with yfinance + Google News RSS fallback."""
-
 import logging
 from datetime import datetime
 import contextlib
@@ -139,7 +137,7 @@ def get_news_yfinance(ticker: str, start_date: str, end_date: str) -> str:
 
     Returns:
         str: A formatted news report, a no-data message (prefixed with
-        ``[NO_DATA]``), or an error message (prefixed with ``[TOOL_ERROR]``).
+        `[NO_DATA]`), or an error message (prefixed with `[TOOL_ERROR]`).
     """
     try:
         return _get_news_yfinance(ticker, start_date, end_date)

@@ -1,13 +1,3 @@
-"""Derive run-phase progress from a streaming :class:`AgentState`.
-
-The TUI's left sidebar lights up phases (Market Analyst, Bull/Bear
-debate, Trader, Risk debate, ...) as the LangGraph pipeline produces
-them. Rather than hooking into individual graph nodes, this module
-infers the running / done state from which AgentState fields the
-streamed snapshots have populated. Every :func:`derive_phases` call is
-pure: same state -> same phase list, no hidden mutation.
-"""
-
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal
@@ -71,7 +61,7 @@ def derive_phases(
     """Map an :class:`AgentState` snapshot to a list of phase rows.
 
     The order encodes the actual graph topology in
-    ``GraphSetup.setup_graph``: selected analysts run sequentially,
+    `GraphSetup.setup_graph`: selected analysts run sequentially,
     then the Bull/Bear research debate, the Research Manager, the
     Trader, the three-way Risk debate, and finally the Risk Judge.
 
@@ -79,12 +69,12 @@ def derive_phases(
 
     - Each analyst is "done" once its report field is non-empty,
       "running" iff every preceding phase is done, "pending" otherwise.
-    - Bull/Bear debate uses ``investment_debate_state.count`` as the
-      progress counter and is "done" only when ``judge_decision`` is set.
-    - Research Manager done iff ``investment_plan`` is non-empty.
-    - Trader done iff ``trader_investment_plan`` is non-empty.
-    - Risk debate uses ``risk_debate_state.count`` similarly.
-    - Final done iff ``final_trade_decision`` is non-empty.
+    - Bull/Bear debate uses `investment_debate_state.count` as the
+      progress counter and is "done" only when `judge_decision` is set.
+    - Research Manager done iff `investment_plan` is non-empty.
+    - Trader done iff `trader_investment_plan` is non-empty.
+    - Risk debate uses `risk_debate_state.count` similarly.
+    - Final done iff `final_trade_decision` is non-empty.
 
     Args:
         state (AgentState | None): The latest streamed AgentState, or

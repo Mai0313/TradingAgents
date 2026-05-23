@@ -109,7 +109,7 @@ print(recommendation.signal, recommendation.size_fraction, recommendation.confid
 print(recommendation.rationale)
 ```
 
-`propagate()` 返回 `(AgentState, TradeRecommendation)`。`TradeRecommendation` 是一个 Pydantic model:
+`propagate()` 返回 `(AgentState, TradeRecommendation)`。传 `return_messages=True` 时会返回 `(AgentState, TradeRecommendation, list[AnyMessage])`;搭配 `debug=False` 可以不要走默认的 live `message.pretty_print()` 输出,改由你自己 render 收集到的 LangChain messages。`TradeRecommendation` 是一个 Pydantic model:
 
 - `signal: Literal["BUY", "SELL", "HOLD"]` — 标准方向
 - `size_fraction: float`(0.0 – 1.0)— 仓位大小占可用资金的比例
@@ -120,7 +120,7 @@ print(recommendation.rationale)
 
 `response_language` 是来自 `ResponseLanguage` `Literal` 的 BCP 47 tag(`zh-TW`、`zh-CN`、`en-US`、`ja-JP`、`ko-KR`、`de-DE`),挑最接近你希望 agent 用的语言即可。
 
-`TradingAgentsGraph.propagate` 也接受一个可选的 `on_message` callback(`Callable[[AnyMessage], None]`),每收到一则 streamed LangGraph 消息就会调用一次 — 想接自己的 renderer 时很好用,内置的 CLI / TUI 也是用这个 hook 来喂 Rich panel。
+`TradingAgentsGraph.propagate` 也接受一个可选的 `on_message` callback(`Callable[[AnyMessage], None]`),每收到一则 streamed LangGraph 消息就会调用一次 — 想接自己的 live renderer 时很好用,内置的 CLI / TUI 也是用这个 hook 来喂 Rich panel。
 
 `llm_provider` 是 `langchain.chat_models.init_chat_model` 的 registry key(`openai`、`anthropic`、`google_genai`、`xai`、`openrouter`、`ollama`、`huggingface`、`litellm`);`deep_think_llm` / `quick_think_llm` 则填该 provider 接受的 model name(`gpt-5`、`claude-sonnet-4-6`、`gemini-3-pro-preview`、`grok-4` 等)。
 
@@ -205,7 +205,7 @@ TradingAgents 通过 LangGraph `StateGraph` 编排 **12 个 LLM agent** 加上 *
 
 ### Phase 1 — 分析师团队(数据采集)
 
-四位 analyst 依序执行。每位 analyst 的 LLM 都会 `bind_tools(...)` 到一组以 `yfinance` 为 backend 的 `@tool` 函数,并与其专属的 `ToolNode` 配对,持续 loop 直到没有新的 tool call 为止。每位 analyst 结束之后会经过一个 `Msg Clear` node,它会发出 `RemoveMessage` 并补上一个 `HumanMessage("Continue")` placeholder(这是为了维持 Anthropic 对最后一则消息必须是 human 的要求)。
+默认四位 analyst 依序执行；`selected_analysts` 可以只跑其中一部分。每位 analyst 的 LLM 都会依 central tool registry `bind_tools(...)` 到一组以 `yfinance` 为 backend 的 `@tool` 函数,并与其专属的 `ToolNode` 配对,持续 loop 直到没有新的 tool call 为止。每位 analyst 结束之后会经过一个 `Msg Clear` node,它会发出 `RemoveMessage` 并补上一个 `HumanMessage("Continue")` placeholder(这是为了维持 Anthropic 对最后一则消息必须是 human 的要求)。
 
 | Analyst                    | LLM 绑定的 tools                                                                                                                                                                  | 写入 state            |
 | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
@@ -220,7 +220,7 @@ Market Analyst 可挑选的 technical indicator(**一次选 6 – 8 个**):`clos
 
 ### Phase 1.5 — Situation Summariser
 
-最后一个 analyst 的 Msg Clear 之后,单一的 **Situation Summariser** 节点(quick-thinking LLM)把 4 份 analyst report 蒸馏成 ≤400-token 的结构化 snapshot。snapshot 写进 `state.situation_summary`,并成为之后每一次 memory 查询的 BM25 retrieval query — 取代原本 10-20 KB、太散漫无法 surface 出相关历史 situation 的 `combined_reports` query。
+最后一个 selected analyst 的 Msg Clear 之后,单一的 **Situation Summariser** 节点(quick-thinking LLM)把 selected analyst reports 蒸馏成 ≤400-token 的结构化 snapshot。若某个 analyst 没有被选择,缺少的 report 会被视为 unavailable,不能 invent。snapshot 写进 `state.situation_summary`,并成为之后每一次 memory 查询的 BM25 retrieval query — 取代原本 10-20 KB、太散漫无法 surface 出相关历史 situation 的 `combined_reports` query。
 
 ### Phase 2 — 研究辩论
 

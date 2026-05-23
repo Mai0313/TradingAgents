@@ -1,6 +1,7 @@
 import datetime
 
 from rich.console import Console
+from langchain_core.messages import HumanMessage
 
 from tradingagents.config import TradingAgentsConfig
 from tradingagents.graph.trading_graph import TradingAgentsGraph
@@ -8,7 +9,7 @@ from tradingagents.graph.trading_graph import TradingAgentsGraph
 console = Console()
 
 
-def main() -> None:
+def main(realtime: bool) -> None:
     """Main entry point for the TradingAgents CLI.
 
     Initializes the configuration, builds the TradingAgents graph,
@@ -27,11 +28,20 @@ def main() -> None:
         response_language="zh-TW",
     )
 
-    ta = TradingAgentsGraph(debug=True, config=config)
+    ta = TradingAgentsGraph(debug=False, config=config)
     today = datetime.date.today().strftime("%Y-%m-%d")
-    _, decision = ta.propagate("GOOG", today)
+    if realtime:
+        _, decision = ta.propagate(company_name="GOOG", trade_date=today)
+    else:
+        _, decision, messages = ta.propagate(
+            company_name="GOOG", trade_date=today, return_messages=True
+        )
+        for message in messages:
+            if isinstance(message, HumanMessage) and message.content == "Continue":
+                continue
+            message.pretty_print()
     console.print(decision)
 
 
 if __name__ == "__main__":
-    main()
+    main(realtime=True)

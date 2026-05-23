@@ -1,19 +1,3 @@
-"""Rich-based renderers for the TradingAgents CLI / TUI.
-
-Replaces langchain_core.messages.BaseMessage.pretty_print (the
-"=== Ai Message ===" text blocks streamed during a graph run) with
-Rich panels: colour-coded by message type, Markdown-rendered for agent
-prose, JSON-pretty-printed for structured tool output, and truncated
-when the underlying content would otherwise spam the terminal (raw
-stock data tool responses can be thousands of lines).
-
-The renderer is target-agnostic: ``MessageRenderer.emit`` receives a
-Rich renderable (Panel, Markdown, Text, ...). The CLI passes
-``Console.print`` so panels go to stdout; the TUI passes a thread-safe
-``RichLog.write`` wrapper so the same panels are appended to a
-reflow-aware scrollable widget instead.
-"""
-
 from __future__ import annotations
 
 import json
@@ -49,9 +33,9 @@ class MessageRenderer(BaseModel):
 
     Attributes:
         emit (Callable[[RenderableType], None]): Receives each rendered
-            Rich renderable. CLI passes ``Console.print``; TUI passes a
-            thread-safe ``RichLog.write`` wrapper that defers writes to
-            the Textual main thread via ``App.call_from_thread``.
+            Rich renderable. CLI passes `Console.print`; TUI passes a
+            thread-safe `RichLog.write` wrapper that defers writes to
+            the Textual main thread via `App.call_from_thread`.
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -74,7 +58,7 @@ class MessageRenderer(BaseModel):
                 to. Defaults to a new console bound to stdout.
 
         Returns:
-            MessageRenderer: A renderer whose ``emit`` is bound to the
+            MessageRenderer: A renderer whose `emit` is bound to the
             console's print method.
         """
         target = console or Console()
@@ -322,7 +306,7 @@ def make_final_decision_panel(recommendation: TradeRecommendation) -> Panel:
 
     Args:
         recommendation (TradeRecommendation): The structured recommendation
-            returned by ``SignalProcessor.process_signal``.
+            returned by `SignalProcessor.process_signal`.
 
     Returns:
         Panel: The composed Rich panel.
@@ -377,6 +361,6 @@ def print_final_decision(console: Console, recommendation: TradeRecommendation) 
     Args:
         console (Console): The Rich console to print on.
         recommendation (TradeRecommendation): The structured recommendation
-            returned by ``SignalProcessor.process_signal``.
+            returned by `SignalProcessor.process_signal`.
     """
     console.print(make_final_decision_panel(recommendation))

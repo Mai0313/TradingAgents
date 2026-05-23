@@ -114,7 +114,7 @@ class AgentState(BaseModel):
     sentiment_report: str = Field(
         default="",
         title="Sentiment Report",
-        description="Social sentiment report produced by the Social Media Analyst",
+        description="News sentiment report produced by the News Sentiment Analyst",
     )
     news_report: str = Field(
         default="",

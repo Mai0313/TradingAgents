@@ -109,7 +109,7 @@ print(recommendation.signal, recommendation.size_fraction, recommendation.confid
 print(recommendation.rationale)
 ```
 
-`propagate()` returns `(AgentState, TradeRecommendation)`. `TradeRecommendation` is a Pydantic model with:
+`propagate()` returns `(AgentState, TradeRecommendation)`. Pass `return_messages=True` to receive `(AgentState, TradeRecommendation, list[AnyMessage])`; combine it with `debug=False` when you want no live `message.pretty_print()` output and prefer to render the collected LangChain messages yourself. `TradeRecommendation` is a Pydantic model with:
 
 - `signal: Literal["BUY", "SELL", "HOLD"]` — the canonical direction
 - `size_fraction: float` (0.0 – 1.0) — position size as a fraction of available capital
@@ -120,7 +120,7 @@ The structured form is also persisted to `AgentState.final_trade_recommendation`
 
 `response_language` is a BCP 47 tag from the `ResponseLanguage` `Literal` (`zh-TW`, `zh-CN`, `en-US`, `ja-JP`, `ko-KR`, `de-DE`); pick the closest one to the language you want the agents to reason in.
 
-`TradingAgentsGraph.propagate` also accepts an optional `on_message` callback (`Callable[[AnyMessage], None]`) that fires once per streamed LangGraph message — useful for plugging in your own renderer; the bundled CLI / TUI use this hook to drive the Rich panels.
+`TradingAgentsGraph.propagate` also accepts an optional `on_message` callback (`Callable[[AnyMessage], None]`) that fires once per streamed LangGraph message — useful for plugging in your own live renderer; the bundled CLI / TUI use this hook to drive the Rich panels.
 
 `llm_provider` is one of the `langchain.chat_models.init_chat_model` registry keys (`openai`, `anthropic`, `google_genai`, `xai`, `openrouter`, `ollama`, `huggingface`, `litellm`); `deep_think_llm` / `quick_think_llm` take the model name as accepted by that provider (`gpt-5`, `claude-sonnet-4-6`, `gemini-3-pro-preview`, `grok-4`, ...).
 
@@ -205,7 +205,7 @@ TradingAgents orchestrates **12 LLM agents** plus **3 supporting components** th
 
 ### Phase 1 — Analyst Team (Data Collection)
 
-Four analysts run in sequence. Each analyst has its LLM bound to a specific set of `yfinance`-backed `@tool` functions, and loops with its own `ToolNode` until no more tool calls are emitted. Between analysts a `Msg Clear` node resets the conversation history (emitting `RemoveMessage` + a `HumanMessage("Continue")` placeholder for Anthropic compatibility).
+By default, four analysts run in sequence; `selected_analysts` can run a subset. Each analyst has its LLM bound to a specific set of `yfinance`-backed `@tool` functions from the central tool registry, and loops with its own `ToolNode` until no more tool calls are emitted. Between analysts a `Msg Clear` node resets the conversation history (emitting `RemoveMessage` + a `HumanMessage("Continue")` placeholder for Anthropic compatibility).
 
 | Analyst                    | LLM-bound tools                                                                                                                                                                   | Writes to state       |
 | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
@@ -220,7 +220,7 @@ Supported technical indicators (selected by the Market Analyst, **6 – 8 per ru
 
 ### Phase 1.5 — Situation Summariser
 
-After the last analyst's Msg Clear, a single **Situation Summariser** node (quick-thinking LLM) distils all four analyst reports into a compact ≤400-token structured snapshot. The summary populates `state.situation_summary` and becomes the BM25 retrieval query for every downstream memory lookup, replacing the previous 10-20 KB `combined_reports` query that was too lexically diffuse to surface relevant past situations.
+After the last selected analyst's Msg Clear, a single **Situation Summariser** node (quick-thinking LLM) distils the selected analyst reports into a compact ≤400-token structured snapshot. Missing reports from an analyst subset are marked unavailable rather than invented. The summary populates `state.situation_summary` and becomes the BM25 retrieval query for every downstream memory lookup, replacing the previous 10-20 KB `combined_reports` query that was too lexically diffuse to surface relevant past situations.
 
 ### Phase 2 — Research Debate
 
