@@ -1,3 +1,4 @@
+import os
 from typing import Any, Literal, cast
 
 from langchain_xai import ChatXAI
@@ -25,7 +26,15 @@ type ChatModel = (
 )
 
 LLMProvider = Literal[
-    "openai", "anthropic", "google_genai", "xai", "huggingface", "openrouter", "ionos", "ollama", "litellm"
+    "openai",
+    "anthropic",
+    "google_genai",
+    "xai",
+    "huggingface",
+    "openrouter",
+    "ionos",
+    "ollama",
+    "litellm",
 ]
 
 ReasoningEffort = Literal["low", "medium", "high", "xhigh", "max"]
@@ -82,7 +91,7 @@ def build_chat_model(
         reasoning_effort (ReasoningEffort | None, optional): Unified reasoning
             level mapped per provider:
             Anthropic -> `effort` (native low/medium/high/xhigh/max),
-            OpenAI -> `reasoning_effort` (max -> xhigh; xhigh native),
+            OpenAI / IONOS -> `reasoning_effort` (max -> xhigh; xhigh native),
             Google -> `thinking_level` (xhigh and max both clamped to high).
             Other providers do not expose a unified knob and ignore this.
         callbacks (list[BaseCallbackHandler] | None, optional): LangChain
@@ -102,6 +111,18 @@ def build_chat_model(
     model_lower = model.lower()
     if "gemini" in model_lower or "google" in model_lower:
         return NormalizedChatGoogleGenerativeAI(model=model, **kwargs)
+
+    if provider == "ionos":
+        kwargs["base_url"] = os.getenv(
+            "IONOS_API_BASE_URL", "https://openai.inference.de-txl.ionos.com/v1"
+        )
+        api_key = os.getenv("IONOS_API_KEY") or os.getenv("IONOS_API_TOKEN")
+        if not api_key:
+            raise ValueError(
+                "IONOS_API_KEY or IONOS_API_TOKEN must be set for llm_provider='ionos'."
+            )
+        kwargs["api_key"] = api_key
+        return cast("ChatModel", init_chat_model(model, model_provider="openai", **kwargs))
 
     return cast("ChatModel", init_chat_model(model, model_provider=provider, **kwargs))
 
