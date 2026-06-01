@@ -91,7 +91,8 @@ def build_chat_model(
         reasoning_effort (ReasoningEffort | None, optional): Unified reasoning
             level mapped per provider:
             Anthropic -> `effort` (native low/medium/high/xhigh/max),
-            OpenAI / IONOS -> `reasoning_effort` (max -> xhigh; xhigh native),
+            OpenAI -> `reasoning_effort` (max -> xhigh; xhigh native),
+            IONOS -> `reasoning_effort` (xhigh and max both clamped to high),
             Google -> `thinking_level` (xhigh and max both clamped to high).
             Other providers do not expose a unified knob and ignore this.
         callbacks (list[BaseCallbackHandler] | None, optional): LangChain
@@ -113,8 +114,8 @@ def build_chat_model(
         return NormalizedChatGoogleGenerativeAI(model=model, **kwargs)
 
     if provider == "ionos":
-        kwargs["base_url"] = os.getenv(
-            "IONOS_API_BASE_URL", "https://openai.inference.de-txl.ionos.com/v1"
+        kwargs["base_url"] = (
+            os.getenv("IONOS_API_BASE_URL") or "https://openai.inference.de-txl.ionos.com/v1"
         )
         api_key = os.getenv("IONOS_API_KEY") or os.getenv("IONOS_API_TOKEN")
         if not api_key:
@@ -140,7 +141,9 @@ def _apply_reasoning(
     e = effort.lower()
     if provider == "anthropic":
         kwargs["effort"] = e
-    elif provider == "openai" or provider == "ionos":
+    elif provider == "openai":
         kwargs["reasoning_effort"] = "xhigh" if e == "max" else e
+    elif provider == "ionos":
+        kwargs["reasoning_effort"] = "high" if e in ("xhigh", "max") else e
     elif provider == "google_genai":
         kwargs["thinking_level"] = "high" if e in ("xhigh", "max") else e

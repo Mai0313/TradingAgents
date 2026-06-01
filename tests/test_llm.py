@@ -12,7 +12,8 @@ from tradingagents import llm as llm_module
         ("anthropic", "max", {"effort": "max"}),
         ("openai", "max", {"reasoning_effort": "xhigh"}),
         ("openai", "medium", {"reasoning_effort": "medium"}),
-        ("ionos", "max", {"reasoning_effort": "xhigh"}),
+        ("ionos", "max", {"reasoning_effort": "high"}),
+        ("ionos", "xhigh", {"reasoning_effort": "high"}),
         ("ionos", "medium", {"reasoning_effort": "medium"}),
         ("google_genai", "xhigh", {"thinking_level": "high"}),
         ("google_genai", "low", {"thinking_level": "low"}),
@@ -72,7 +73,7 @@ def test_build_chat_model_remaps_ionos_to_openai_compatible_endpoint(
 
     monkeypatch.setenv("IONOS_API_KEY", "ionos-key")
     monkeypatch.delenv("IONOS_API_TOKEN", raising=False)
-    monkeypatch.delenv("IONOS_API_BASE_URL", raising=False)
+    monkeypatch.setenv("IONOS_API_BASE_URL", "")
     monkeypatch.setattr(llm_module, "load_dotenv_if_present", lambda: None)
     monkeypatch.setattr(llm_module, "init_chat_model", fake_init_chat_model)
 
@@ -84,7 +85,7 @@ def test_build_chat_model_remaps_ionos_to_openai_compatible_endpoint(
             "model": "qwen3-235b",
             "kwargs": {
                 "model_provider": "openai",
-                "reasoning_effort": "xhigh",
+                "reasoning_effort": "high",
                 "base_url": "https://openai.inference.de-txl.ionos.com/v1",
                 "api_key": "ionos-key",
             },
