@@ -1,20 +1,29 @@
 name: Tests
 
+# The diff decides whether the suite runs, never the branch name: a conventional-commits type says
+# what a change is for and nothing about what it touched, so a `chore/`, `ci/` or `docs/` branch
+# carrying code has to be tested like any other. Prose is what skips, and `**` comes first so a file
+# type this repository grows later runs the suite from the day it arrives. The analyst prompts are
+# not prose: `load_prompt` reads them at runtime and `tests/test_tool_registry.py` asserts on them.
 on:
   push:
     branches:
       - main
       - master
       - release/*
-    paths-ignore:
-      - "**/*.md"
+    paths:
+      - "**"
+      - "!**/*.md"
+      - "src/tradingagents/agents/prompts/*.md"
   pull_request:
     branches:
       - main
       - master
       - release/*
-    paths-ignore:
-      - "**/*.md"
+    paths:
+      - "**"
+      - "!**/*.md"
+      - "src/tradingagents/agents/prompts/*.md"
 
 permissions: write-all
 
@@ -22,7 +31,6 @@ jobs:
   run_tests:
     name: Run Tests
     runs-on: ubuntu-latest
-    if: ${{ !(startsWith(github.head_ref, 'chore/') || startsWith(github.head_ref, 'ci/') || startsWith(github.head_ref, 'docs/')) }}
 
     strategy:
       fail-fast: false
