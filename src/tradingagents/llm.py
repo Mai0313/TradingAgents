@@ -1,3 +1,4 @@
+import os
 from typing import Any, Literal, cast
 
 from langchain_xai import ChatXAI
@@ -25,7 +26,15 @@ type ChatModel = (
 )
 
 LLMProvider = Literal[
-    "openai", "anthropic", "google_genai", "xai", "huggingface", "openrouter", "ollama", "litellm"
+    "openai",
+    "anthropic",
+    "google_genai",
+    "xai",
+    "huggingface",
+    "openrouter",
+    "ionos",
+    "ollama",
+    "litellm",
 ]
 
 ReasoningEffort = Literal["low", "medium", "high", "xhigh", "max"]
@@ -83,6 +92,7 @@ def build_chat_model(
             level mapped per provider:
             Anthropic -> `effort` (native low/medium/high/xhigh/max),
             OpenAI -> `reasoning_effort` (max -> xhigh; xhigh native),
+            IONOS -> `reasoning_effort` (xhigh and max both clamped to high),
             Google -> `thinking_level` (xhigh and max both clamped to high).
             Other providers do not expose a unified knob and ignore this.
         callbacks (list[BaseCallbackHandler] | None, optional): LangChain
@@ -103,6 +113,18 @@ def build_chat_model(
     if "gemini" in model_lower or "google" in model_lower:
         return NormalizedChatGoogleGenerativeAI(model=model, **kwargs)
 
+    if provider == "ionos":
+        kwargs["base_url"] = (
+            os.getenv("IONOS_API_BASE_URL") or "https://openai.inference.de-txl.ionos.com/v1"
+        )
+        api_key = os.getenv("IONOS_API_KEY") or os.getenv("IONOS_API_TOKEN")
+        if not api_key:
+            raise ValueError(
+                "IONOS_API_KEY or IONOS_API_TOKEN must be set for llm_provider='ionos'."
+            )
+        kwargs["api_key"] = api_key
+        return cast("ChatModel", init_chat_model(model, model_provider="openai", **kwargs))
+
     return cast("ChatModel", init_chat_model(model, model_provider=provider, **kwargs))
 
 
@@ -121,5 +143,7 @@ def _apply_reasoning(
         kwargs["effort"] = e
     elif provider == "openai":
         kwargs["reasoning_effort"] = "xhigh" if e == "max" else e
+    elif provider == "ionos":
+        kwargs["reasoning_effort"] = "high" if e in ("xhigh", "max") else e
     elif provider == "google_genai":
         kwargs["thinking_level"] = "high" if e in ("xhigh", "max") else e
